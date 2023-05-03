@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"log"
+	"net/netip"
 	"syscall/js"
 
 	"golang.org/x/exp/slices"
@@ -26,6 +27,7 @@ import (
 type stackWrapper struct {
 	stack          *stack.Stack
 	endpoint       *channel.Endpoint
+	mtu            uint32
 	incomingPacket chan *bufferv2.View
 	listeners      map[string][]js.Value
 }
@@ -44,6 +46,8 @@ func (sw *stackWrapper) WriteNotify() {
 	}()
 }
 
+const nicID = tcpip.NICID(1)
+
 func main() {
 	globalObject := js.Global().Get("Object")
 	globalSymbol := js.Global().Get("Symbol")
@@ -52,13 +56,18 @@ func main() {
 	stacks := reference.Reference[*stackWrapper]{}
 
 	netStackClass := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		options := args[0]
+		ipNetwork := options.Get("ipNetwork").String()
+		prefix, prefixErr := netip.ParsePrefix(ipNetwork)
+		if prefixErr != nil {
+			log.Fatal(prefixErr)
+		}
+
 		s := stack.New(stack.Options{
 			NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol, arp.NewProtocol},
 			TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6, icmp.NewProtocol4},
 			HandleLocal:        true,
 		})
-
-		// defer s.Destroy()
 
 		sackEnabledOpt := tcpip.TCPSACKEnabled(true)
 		optionErr := s.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt)
@@ -67,10 +76,8 @@ func main() {
 		}
 
 		mtu := uint32(1500)
-		nicID := tcpip.NICID(1)
 
 		const localLinkAddr = tcpip.LinkAddress("\x0a\x0a\x0b\x0b\x0c\x0c")
-		const localIPv4 = tcpip.Address("\x0a\x01\x00\x01")
 
 		channelEndpoint := channel.New(1024, mtu, localLinkAddr)
 		ethernetEndpoint := ethernet.New(channelEndpoint)
@@ -83,8 +90,8 @@ func main() {
 		protoAddr := tcpip.ProtocolAddress{
 			Protocol: ipv4.ProtocolNumber,
 			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   localIPv4,
-				PrefixLen: 24,
+				Address:   tcpip.Address(prefix.Addr().AsSlice()),
+				PrefixLen: prefix.Masked().Bits(),
 			},
 		}
 
@@ -107,6 +114,7 @@ func main() {
 		sw := &stackWrapper{
 			stack:          s,
 			endpoint:       channelEndpoint,
+			mtu:            mtu,
 			incomingPacket: make(chan *bufferv2.View),
 			listeners:      make(map[string][]js.Value),
 		}
