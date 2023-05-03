@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/songgao/packets v0.0.0-20160404182456-549a10cd4091
+	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
 	golang.org/x/sys v0.7.0 // indirect
 	gvisor.dev/gvisor v0.0.0-20230502003049-6076b7bb85c5
 )

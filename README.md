@@ -5,6 +5,8 @@
 ```js
 let n = new NetStack();
 
+n.on('outbound-ethernet-frame', (frame) => console.log(frame));
+
 n.injectEthernetFrame(
   // ARP request
   new Uint8Array([
