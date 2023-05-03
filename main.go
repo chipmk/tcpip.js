@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"syscall/js"
 
-	ethertap "github.com/songgao/packets/ethernet"
-	"github.com/songgao/water"
+	eth "github.com/songgao/packets/ethernet"
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
@@ -61,15 +61,6 @@ func (n *notifier) Read(buf []byte, sizes []int, offset int) (int, error) {
 }
 
 func main() {
-	config := water.Config{
-		DeviceType: water.TAP,
-	}
-
-	ifce, err := water.New(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	s := stack.New(stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol, arp.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol, icmp.NewProtocol6, icmp.NewProtocol4},
@@ -150,31 +141,39 @@ func main() {
 		log.Fatal(http.Serve(listener, nil))
 	}()
 
-	go func() {
-		for {
-			b := make([]byte, 512)
+	globalObject := js.Global().Get("Object")
+	globalSymbol := js.Global().Get("Symbol")
 
-			view, ok := <-notify.incomingPacket
-			if !ok {
-				log.Fatal("failed to read packet")
-			}
+	eventTarget := js.Global().Get("EventTarget")
+	eventTargetPrototype := eventTarget.Get("prototype")
 
-			s, _ := view.Read(b)
+	netStackClass := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
 
-			log.Printf("Outgoing Frame: % x\n", b[:s])
-			ifce.Write(b[:s])
-		}
-	}()
+	netStackClass.Set("prototype", globalObject.Call("create", eventTargetPrototype))
+	netStackPrototype := netStackClass.Get("prototype")
+	globalObject.Call("defineProperty", netStackPrototype, globalSymbol.Get("toStringTag"), map[string]any{
+		"value":      js.ValueOf("NetStack"),
+		"enumerable": js.ValueOf(false),
+	})
 
-	var frame ethertap.Frame
+	netStackPrototype.Set("constructor", netStackClass)
 
-	for {
-		frame.Resize(1500)
-		n, err := ifce.Read([]byte(frame))
-		if err != nil {
-			log.Fatal(err)
-		}
-		frame = frame[:n]
+	netStackConstructor := netStackPrototype.Get("constructor")
+	globalObject.Call("defineProperty", netStackConstructor, "name", map[string]any{
+		"value":      js.ValueOf("NetStack"),
+		"enumerable": js.ValueOf(false),
+	})
+
+	netStackPrototype.Set("injectEthernetFrame", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		frameByteArray := args[0]
+
+		frameBuffer := make([]byte, frameByteArray.Get("byteLength").Int())
+		js.CopyBytesToGo(frameBuffer, frameByteArray)
+
+		frame := eth.Frame(frameBuffer)
+
 		log.Printf("Incoming Dst MAC: %s\n", frame.Destination())
 		log.Printf("Incoming Src MAC: %s\n", frame.Source())
 		log.Printf("Incoming Ethertype: % x\n", frame.Ethertype())
@@ -189,22 +188,26 @@ func main() {
 
 		channelEndpoint.InjectInbound(tcpip.NetworkProtocolNumber(proto), pkt)
 		pkt.DecRef()
+		return nil
+	}))
 
-		// log.Printf("# ARP packets: %d\n", s.Stats().ARP.PacketsReceived.Value())
-		// log.Printf("# ARP disabled: %d\n", s.Stats().ARP.DisabledPacketsReceived.Value())
-		// log.Printf("# ARP malformed: %d\n", s.Stats().ARP.MalformedPacketsReceived.Value())
-		// log.Printf("# ARP unknown: %d\n", s.Stats().ARP.RequestsReceivedUnknownTargetAddress.Value())
-		// log.Printf("# ARP replies: %d\n", s.Stats().ARP.RepliesReceived.Value())
-		// log.Printf("# ARP dropped: %d\n", s.Stats().ARP.OutgoingRepliesDropped.Value())
-		// log.Printf("# ARP sent: %d\n", s.Stats().ARP.OutgoingRepliesSent.Value())
+	go func() {
+		for {
+			b := make([]byte, 512)
 
-		// log.Printf("# IP packets: %d\n", s.Stats().IP.PacketsReceived.Value())
-		// log.Printf("# IP valid packets: %d\n", s.Stats().IP.ValidPacketsReceived.Value())
-		// log.Printf("# IP invalid dest: %d\n", s.Stats().IP.InvalidDestinationAddressesReceived.Value())
-		// log.Printf("# IP delivered: %d\n", s.Stats().IP.PacketsDelivered.Value())
-		// log.Printf("# IP outgoing errors: %d\n", s.Stats().IP.OutgoingPacketErrors.Value())
-		// log.Printf("# IP sent: %d\n", s.Stats().IP.PacketsSent.Value())
+			view, ok := <-notify.incomingPacket
+			if !ok {
+				log.Fatal("failed to read packet")
+			}
 
-		// log.Printf("# TCP established: %d\n", s.Stats().TCP.CurrentEstablished.Value())
-	}
+			s, _ := view.Read(b)
+
+			log.Printf("Outgoing Frame: % x\n", b[:s])
+		}
+	}()
+
+	js.Global().Set("NetStack", netStackClass)
+
+	// Keep the program running
+	<-make(chan bool)
 }
