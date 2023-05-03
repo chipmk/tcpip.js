@@ -3,7 +3,9 @@
 ### Example command
 
 ```js
-let n = new NetStack();
+let n = new NetStack({
+  ipNetwork: '10.1.0.1/24',
+});
 
 n.on('outbound-ethernet-frame', (frame) => console.log(frame));
 
