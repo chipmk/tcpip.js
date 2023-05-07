@@ -1,15 +1,15 @@
-## NetStack.js
+## tcpip.js
 
 ### Example command
 
 ```js
-let n = new NetStack({
+const stack = new TcpipStack({
   ipNetwork: '10.1.0.1/24',
 });
 
-n.on('outbound-ethernet-frame', (frame) => console.log(frame));
+stack.on('outbound-ethernet-frame', (frame) => console.log(frame));
 
-n.injectEthernetFrame(
+stack.injectEthernetFrame(
   // ARP request
   new Uint8Array([
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xb2, 0x69, 0xb3, 0x94, 0xd0, 0x8c,
