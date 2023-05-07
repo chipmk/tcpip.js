@@ -20,14 +20,15 @@ interface EventTypes {
   'outbound-ethernet-frame': (frame: Uint8Array) => void;
 }
 
+// Methods implemented in WASM
 interface TcpipStack {
   _init(options: TcpipStackOptions): void;
-}
-
-interface TcpipStack {
   injectEthernetFrame(frame: Uint8Array): void;
 }
 
+/**
+ * A user-space TCP/IP network stack
+ */
 class TcpipStack extends EventEmitter<EventTypes> {
   constructor(public options: TcpipStackOptions) {
     super();
