@@ -1,8 +1,10 @@
+import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
 import wasm from './tcpip.wasm';
 import Go from './wasm_exec';
 
 (globalThis as any).TcpipStack = TcpipStack;
+(globalThis as any).Socket = Socket;
 (globalThis as any).unwrap = unwrap;
 
 const go = new Go();
@@ -25,5 +27,8 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
         0x00, 0x00, 0x0a, 0x01, 0x00, 0x01,
       ])
     );
+
+    const socket = new Socket({ stack });
+    socket.connect({ port: 80 });
   }
 );

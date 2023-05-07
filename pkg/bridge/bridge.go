@@ -2,6 +2,9 @@ package bridge
 
 import "syscall/js"
 
+var GlobalObject = js.Global().Get("Object")
+var GlobalUint8Array = js.Global().Get("Uint8Array")
+
 func FuncOf(fn func(this js.Value, args []js.Value) (any, error)) js.Value {
 	errorClass := js.Global().Get("Error")
 	unwrapFn := js.Global().Get("unwrap")
