@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"log"
 	"net/netip"
 	"syscall/js"
 
-	"golang.org/x/exp/slices"
-
+	"github.com/chipmk/userspace-tcpip-poc/pkg/bridge"
 	"github.com/chipmk/userspace-tcpip-poc/pkg/reference"
 	eth "github.com/songgao/packets/ethernet"
 	"gvisor.dev/gvisor/pkg/bufferv2"
@@ -50,17 +51,28 @@ const nicID = tcpip.NICID(1)
 
 func main() {
 	globalObject := js.Global().Get("Object")
-	globalSymbol := js.Global().Get("Symbol")
 	globalUint8Array := js.Global().Get("Uint8Array")
 
 	stacks := reference.Reference[*stackWrapper]{}
 
-	netStackClass := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	tcpipStackClass := bridge.NewJsClassBridge(js.Global().Get("TcpipStack"))
+
+	tcpipStackClass.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]
-		ipNetwork := options.Get("ipNetwork").String()
-		prefix, prefixErr := netip.ParsePrefix(ipNetwork)
+
+		if options.IsUndefined() {
+			return nil, fmt.Errorf("options not set")
+		}
+
+		ipNetwork := options.Get("ipNetwork")
+
+		if ipNetwork.IsUndefined() {
+			return nil, fmt.Errorf("ipNetwork not set")
+		}
+
+		prefix, prefixErr := netip.ParsePrefix(ipNetwork.String())
 		if prefixErr != nil {
-			log.Fatal(prefixErr)
+			return nil, prefixErr
 		}
 
 		s := stack.New(stack.Options{
@@ -72,7 +84,7 @@ func main() {
 		sackEnabledOpt := tcpip.TCPSACKEnabled(true)
 		optionErr := s.SetTransportProtocolOption(tcp.ProtocolNumber, &sackEnabledOpt)
 		if optionErr != nil {
-			log.Fatal(optionErr)
+			return nil, errors.New(optionErr.String())
 		}
 
 		mtu := uint32(1500)
@@ -82,9 +94,9 @@ func main() {
 		channelEndpoint := channel.New(1024, mtu, localLinkAddr)
 		ethernetEndpoint := ethernet.New(channelEndpoint)
 
-		tcpipErr := s.CreateNIC(nicID, ethernetEndpoint)
-		if tcpipErr != nil {
-			log.Fatal(tcpipErr)
+		createNicErr := s.CreateNIC(nicID, ethernetEndpoint)
+		if createNicErr != nil {
+			return nil, errors.New(createNicErr.String())
 		}
 
 		protoAddr := tcpip.ProtocolAddress{
@@ -95,9 +107,9 @@ func main() {
 			},
 		}
 
-		tcpipErr = s.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{})
-		if tcpipErr != nil {
-			log.Fatal(tcpipErr)
+		addProtoAddrError := s.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{})
+		if addProtoAddrError != nil {
+			return nil, errors.New(addProtoAddrError.String())
 		}
 
 		s.SetRouteTable([]tcpip.Route{
@@ -126,28 +138,6 @@ func main() {
 			"value": stackId,
 		})
 
-		// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 	fmt.Fprintf(w, "Hello, %q\n", html.EscapeString(r.URL.Path))
-		// })
-
-		// listenAddr := tcpip.FullAddress{
-		// 	NIC:  nicID,
-		// 	Addr: localIPv4,
-		// 	Port: 80,
-		// }
-
-		// listener, tcpListenErr := gonet.ListenTCP(s, listenAddr, ipv4.ProtocolNumber)
-
-		// if tcpListenErr != nil {
-		// 	log.Fatal(tcpListenErr)
-		// }
-
-		// defer listener.Close()
-
-		// go func() {
-		// 	log.Fatal(http.Serve(listener, nil))
-		// }()
-
 		go func() {
 			for {
 				b := make([]byte, 512)
@@ -166,18 +156,10 @@ func main() {
 			}
 		}()
 
-		return nil
+		return nil, nil
 	})
 
-	globalObject.Call("defineProperty", netStackClass, "name", map[string]any{
-		"value": "NetStack",
-	})
-	netStackPrototype := netStackClass.Get("prototype")
-	globalObject.Call("defineProperty", netStackPrototype, globalSymbol.Get("toStringTag"), map[string]any{
-		"value": "NetStack",
-	})
-
-	netStackPrototype.Set("injectEthernetFrame", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	tcpipStackClass.ImplementMethod("injectEthernetFrame", func(this js.Value, args []js.Value) (any, error) {
 		frameByteArray := args[0]
 
 		stackId := this.Get("stackId").Int()
@@ -197,67 +179,9 @@ func main() {
 
 		sw.endpoint.InjectInbound(tcpip.NetworkProtocolNumber(proto), pkt)
 		pkt.DecRef()
-		return nil
-	}))
 
-	netStackPrototype.Set("emit", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		name := args[0].String()
-		var message js.Value
-
-		if len(args) > 1 {
-			message = args[1]
-		}
-
-		stackId := this.Get("stackId").Int()
-		sw := stacks.Get(uint32(stackId))
-
-		listeners := sw.listeners[name]
-
-		if listeners == nil {
-			return nil
-		}
-
-		for _, listener := range listeners {
-			listener.Invoke(message)
-		}
-
-		return nil
-	}))
-
-	netStackPrototype.Set("on", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		name := args[0].String()
-		callback := args[1]
-
-		stackId := this.Get("stackId").Int()
-		sw := stacks.Get(uint32(stackId))
-
-		sw.listeners[name] = append(sw.listeners[name], callback)
-
-		return nil
-	}))
-
-	netStackPrototype.Set("off", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		name := args[0].String()
-		callback := args[1]
-
-		stackId := this.Get("stackId").Int()
-		sw := stacks.Get(uint32(stackId))
-
-		listeners := sw.listeners[name]
-
-		index := slices.IndexFunc(listeners, func(l js.Value) bool { return l.Equal(callback) })
-
-		if index == -1 {
-			return nil
-		}
-
-		listeners[index] = listeners[len(listeners)-1]
-		sw.listeners[name] = listeners[:len(listeners)-1]
-
-		return nil
-	}))
-
-	js.Global().Set("NetStack", netStackClass)
+		return nil, nil
+	})
 
 	// Keep the program running
 	<-make(chan bool)
