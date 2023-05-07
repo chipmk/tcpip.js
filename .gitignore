@@ -1,1 +1,4 @@
 userspace-tcpip-poc
+node_modules
+dist/
+*.wasm
