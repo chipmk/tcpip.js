@@ -1,4 +1,4 @@
-module github.com/chipmk/userspace-tcpip-poc
+module github.com/chipmk/tcpip.js
 
 go 1.20
 

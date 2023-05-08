@@ -5,7 +5,7 @@ import (
 	"log"
 	"syscall/js"
 
-	"github.com/chipmk/userspace-tcpip-poc/pkg/bridge"
+	"github.com/chipmk/tcpip.js/pkg/bridge"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"

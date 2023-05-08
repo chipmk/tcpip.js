@@ -8,8 +8,8 @@ import (
 	"net/netip"
 	"syscall/js"
 
-	"github.com/chipmk/userspace-tcpip-poc/pkg/bridge"
-	"github.com/chipmk/userspace-tcpip-poc/pkg/reference"
+	"github.com/chipmk/tcpip.js/pkg/bridge"
+	"github.com/chipmk/tcpip.js/pkg/reference"
 	eth "github.com/songgao/packets/ethernet"
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/tcpip"

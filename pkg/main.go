@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/chipmk/userspace-tcpip-poc/pkg/impl"
+	"github.com/chipmk/tcpip.js/pkg/impl"
 )
 
 func main() {
