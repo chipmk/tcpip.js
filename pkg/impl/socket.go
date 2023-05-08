@@ -25,6 +25,15 @@ func ImplementSocket() {
 			return nil, fmt.Errorf("missing options")
 		}
 
+		stackId := options.Get("stack").Get("stackId").Int()
+		s := Stacks.Get(uint32(stackId))
+
+		socket := &Socket{}
+		socketId := s.sockets.Set(socket)
+		bridge.GlobalObject.Call("defineProperty", this, "socketId", map[string]any{
+			"value": socketId,
+		})
+
 		// TODO: implement net.Socket options
 
 		return nil, nil
@@ -48,11 +57,8 @@ func ImplementSocket() {
 		stackId := this.Get("options").Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		socket := &Socket{}
-		socketId := s.sockets.Set(socket)
-		bridge.GlobalObject.Call("defineProperty", this, "socketId", map[string]any{
-			"value": socketId,
-		})
+		socketId := this.Get("socketId").Int()
+		socket := s.sockets.Get(uint32(socketId))
 
 		hostString := "127.0.0.1"
 		if !host.IsUndefined() {
