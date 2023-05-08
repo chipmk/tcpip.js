@@ -29,6 +29,13 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     );
 
     const socket = new Socket({ stack });
+
+    socket.on('connect', () => console.log('connect'));
+    socket.on('error', (err) => console.log('error', err));
+    socket.on('end', () => console.log('end'));
+    socket.on('close', (hadError) => console.log('close', hadError));
+    socket.on('data', (data) => console.log('data', data));
+
     socket.connect({ port: 80 });
   }
 );
