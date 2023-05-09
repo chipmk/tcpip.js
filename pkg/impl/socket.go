@@ -2,6 +2,7 @@ package impl
 
 import (
 	"fmt"
+	"net"
 	"net/netip"
 	"syscall/js"
 
@@ -12,7 +13,7 @@ import (
 )
 
 type Socket struct {
-	conn *gonet.TCPConn
+	conn net.Conn
 }
 
 func ImplementSocket() {
@@ -101,17 +102,52 @@ func ImplementSocket() {
 			return nil, nil
 		}
 
-		buffer := make([]byte, size.Int())
-		s, readErr := socket.conn.Read(buffer)
-		if readErr != nil {
-			this.Call("emit", "error", bridge.GlobalError.New(readErr.Error()))
+		go func() {
+			buffer := make([]byte, size.Int())
+
+			s, readErr := socket.conn.Read(buffer)
+			if readErr != nil {
+				this.Call("emit", "error", bridge.GlobalError.New(readErr.Error()))
+				return
+			}
+
+			uint8Array := bridge.GlobalUint8Array.New(js.ValueOf(s))
+			js.CopyBytesToJS(uint8Array, buffer[:s])
+
+			this.Call("push", uint8Array)
+		}()
+
+		return nil, nil
+	})
+
+	class.ImplementMethod("_write", func(this js.Value, args []js.Value) (any, error) {
+		chunk := args[0]
+		callback := args[2]
+
+		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stack := Stacks.Get(uint32(stackId))
+
+		socketId := this.Get("socketId").Int()
+		socket := stack.sockets.Get(uint32(socketId))
+
+		if socket.conn == nil {
 			return nil, nil
 		}
 
-		uint8Array := bridge.GlobalUint8Array.New(js.ValueOf(s))
-		js.CopyBytesToJS(uint8Array, buffer[:s])
+		go func() {
+			buffer := make([]byte, chunk.Length())
+			js.CopyBytesToGo(buffer, chunk)
 
-		return uint8Array, nil
+			_, writeErr := socket.conn.Write(buffer)
+			if writeErr != nil {
+				callback.Invoke(bridge.GlobalError.New(writeErr.Error()))
+				return
+			}
+
+			callback.Invoke(js.Null())
+		}()
+
+		return nil, nil
 	})
 
 }

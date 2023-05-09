@@ -7,6 +7,7 @@ import (
 func main() {
 	impl.ImplementTcpipStack()
 	impl.ImplementSocket()
+	impl.ImplementServer()
 
 	// Keep the program running
 	<-make(chan bool)

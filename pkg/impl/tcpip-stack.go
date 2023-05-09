@@ -33,6 +33,7 @@ type Stack struct {
 	mtu            uint32
 	incomingPacket chan *bufferv2.View
 	sockets        *reference.Reference[*Socket]
+	jsInstance     js.Value
 }
 
 func (s *Stack) WriteNotify() {
@@ -126,6 +127,7 @@ func ImplementTcpipStack() {
 			mtu:            mtu,
 			incomingPacket: make(chan *bufferv2.View),
 			sockets:        &reference.Reference[*Socket]{},
+			jsInstance:     this,
 		}
 
 		channelEndpoint.AddNotify(sw)

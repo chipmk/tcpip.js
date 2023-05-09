@@ -1,3 +1,4 @@
+import Server from './server';
 import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
 import wasm from './tcpip.wasm';
@@ -5,6 +6,7 @@ import Go from './wasm_exec';
 
 (globalThis as any).TcpipStack = TcpipStack;
 (globalThis as any).Socket = Socket;
+(globalThis as any).Server = Server;
 (globalThis as any).unwrap = unwrap;
 
 const go = new Go();
@@ -28,14 +30,24 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       ])
     );
 
+    const server = new Server({ stack });
+    server.on('connection', (socket) => {
+      console.log('New connection', socket);
+      socket.write('Hello world!');
+    });
+    server.on('error', (err) => console.log('Server', err));
+    server.on('end', () => console.log('end'));
+    server.on('close', (hadError) => console.log('close', hadError));
+    server.listen({ host: '10.1.0.1', port: 80 });
+
     const socket = new Socket({ stack });
 
     socket.on('connect', () => console.log('connect'));
-    socket.on('error', (err) => console.log('error', err));
+    socket.on('error', (err) => console.log('Socket', err));
     socket.on('end', () => console.log('end'));
     socket.on('close', (hadError) => console.log('close', hadError));
-    socket.on('data', (data) => console.log('data', data));
+    socket.on('data', (data) => console.log(data.toString()));
 
-    socket.connect({ port: 80 });
+    socket.connect({ host: '10.1.0.1', port: 80 });
   }
 );
