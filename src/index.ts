@@ -33,7 +33,10 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     const server = new Server({ stack });
     server.on('connection', (socket) => {
       console.log('New connection', socket);
-      socket.write('Hello world!');
+      socket.write('Hello client!');
+      socket.on('data', async (data) => {
+        console.log('Server received:', data.toString());
+      });
     });
     server.on('error', (err) => console.log('Server', err));
     server.on('end', () => console.log('end'));
@@ -46,7 +49,10 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     socket.on('error', (err) => console.log('Socket', err));
     socket.on('end', () => console.log('end'));
     socket.on('close', (hadError) => console.log('close', hadError));
-    socket.on('data', (data) => console.log(data.toString()));
+    socket.on('data', async (data) => {
+      console.log('Client received:', data.toString());
+      socket.write('Hello server!');
+    });
 
     socket.connect({ host: '10.1.0.1', port: 80 });
   }
