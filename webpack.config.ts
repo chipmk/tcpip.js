@@ -10,6 +10,9 @@ const config: Configuration = {
     asyncWebAssembly: true,
     layers: true,
   },
+  optimization: {
+    minimize: false,
+  },
   devtool: 'inline-source-map',
   module: {
     rules: [
