@@ -6,6 +6,7 @@ import (
 
 func main() {
 	impl.ImplementTcpipStack()
+	impl.ImplementTapInterface()
 	impl.ImplementSocket()
 	impl.ImplementServer()
 

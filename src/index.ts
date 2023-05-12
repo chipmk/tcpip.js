@@ -1,3 +1,4 @@
+import TapInterface from './interfaces/tap-interface';
 import Server from './server';
 import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
@@ -5,6 +6,7 @@ import wasm from './tcpip.wasm';
 import Go from './wasm_exec';
 
 (globalThis as any).TcpipStack = TcpipStack;
+(globalThis as any).TapInterface = TapInterface;
 (globalThis as any).Socket = Socket;
 (globalThis as any).Server = Server;
 (globalThis as any).unwrap = unwrap;
@@ -14,13 +16,16 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
   (result) => {
     go.run(result.instance);
 
-    const stack = new TcpipStack({
+    const stack = new TcpipStack({});
+
+    const tapInterface = new TapInterface({
+      stack,
       ipNetwork: '10.1.0.1/24',
     });
 
-    stack.on('outbound-ethernet-frame', (frame) => console.log(frame));
+    tapInterface.on('frame', (frame) => console.log(frame));
 
-    stack.injectEthernetFrame(
+    tapInterface.injectFrame(
       // ARP request
       new Uint8Array([
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xb2, 0x69, 0xb3, 0x94, 0xd0, 0x8c,
