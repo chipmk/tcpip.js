@@ -58,14 +58,24 @@ func ImplementTapInterface() {
 			return nil, fmt.Errorf("ipNetwork not set")
 		}
 
+		macAddress := options.Get("macAddress")
+
+		if macAddress.IsUndefined() {
+			return nil, fmt.Errorf("macAddress not set")
+		}
+
 		prefix, prefixErr := netip.ParsePrefix(ipNetwork.String())
 		if prefixErr != nil {
 			return nil, prefixErr
 		}
 
+		localLinkAddr, parseMacError := tcpip.ParseMACAddress(macAddress.String())
+		if parseMacError != nil {
+			return nil, parseMacError
+		}
+
 		mtu := uint32(1500)
 
-		localLinkAddr := tcpip.LinkAddress("\x0a\x0a\x0b\x0b\x0c\x0c")
 		channelEndpoint := channel.New(1024, mtu, localLinkAddr)
 		ethernetEndpoint := ethernet.New(channelEndpoint)
 

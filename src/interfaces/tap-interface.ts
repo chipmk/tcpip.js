@@ -8,6 +8,7 @@ interface EventTypes {
 interface TapInterfaceOptions {
   stack: TcpipStack;
   ipNetwork: string;
+  macAddress: string;
 }
 
 // Methods implemented in WASM

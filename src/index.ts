@@ -21,6 +21,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     const tapInterface = new TapInterface({
       stack,
       ipNetwork: '10.1.0.1/24',
+      macAddress: '0a:0a:0b:0b:0c:0c',
     });
 
     tapInterface.on('frame', (frame) => console.log(frame));
