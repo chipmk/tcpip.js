@@ -12,7 +12,6 @@ import (
 	eth "github.com/songgao/packets/ethernet"
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
 	"gvisor.dev/gvisor/pkg/tcpip/link/ethernet"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
@@ -101,11 +100,9 @@ func ImplementTapInterface() {
 			return nil, errors.New(addProtoAddrError.String())
 		}
 
-		s.stack.SetRouteTable([]tcpip.Route{
-			{
-				Destination: header.IPv4EmptySubnet,
-				NIC:         nicID,
-			},
+		s.stack.AddRoute(tcpip.Route{
+			Destination: protoAddr.AddressWithPrefix.Subnet(),
+			NIC:         nicID,
 		})
 
 		channelEndpoint.AddNotify(tapInterface)
