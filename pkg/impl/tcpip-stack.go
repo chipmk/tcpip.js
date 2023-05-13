@@ -20,7 +20,7 @@ import (
 type Stack struct {
 	stack      *stack.Stack
 	sockets    *reference.Reference[*Socket]
-	interfaces *reference.Reference[*TapInterface]
+	interfaces *reference.Reference[interface{}]
 	jsInstance js.Value
 }
 
@@ -51,7 +51,7 @@ func ImplementTcpipStack() {
 		sw := &Stack{
 			stack:      s,
 			sockets:    &reference.Reference[*Socket]{},
-			interfaces: &reference.Reference[*TapInterface]{},
+			interfaces: &reference.Reference[interface{}]{},
 			jsInstance: this,
 		}
 

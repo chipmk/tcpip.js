@@ -1,3 +1,4 @@
+import LoopbackInterface from './interfaces/loopback-interface';
 import TapInterface from './interfaces/tap-interface';
 import Server from './server';
 import Socket from './socket';
@@ -6,6 +7,7 @@ import wasm from './tcpip.wasm';
 import Go from './wasm_exec';
 
 (globalThis as any).TcpipStack = TcpipStack;
+(globalThis as any).LoopbackInterface = LoopbackInterface;
 (globalThis as any).TapInterface = TapInterface;
 (globalThis as any).Socket = Socket;
 (globalThis as any).Server = Server;
@@ -17,6 +19,11 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     go.run(result.instance);
 
     const stack = new TcpipStack({});
+
+    const loopbackInterface = new LoopbackInterface({
+      stack,
+      ipNetwork: '127.0.0.1/8',
+    });
 
     const tapInterface = new TapInterface({
       stack,
@@ -60,6 +67,6 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       socket.write('Hello server!');
     });
 
-    socket.connect({ host: '10.1.0.1', port: 80 });
+    socket.connect({ host: '127.0.0.1', port: 80 });
   }
 );

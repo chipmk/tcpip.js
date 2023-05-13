@@ -145,7 +145,7 @@ func ImplementTapInterface() {
 		s := Stacks.Get(uint32(stackId))
 
 		interfaceId := this.Get("interfaceId").Int()
-		tapInterface := s.interfaces.Get(uint32(interfaceId))
+		tapInterface := s.interfaces.Get(uint32(interfaceId)).(*TapInterface)
 
 		frameBuffer := make([]byte, frameByteArray.Get("byteLength").Int())
 		js.CopyBytesToGo(frameBuffer, frameByteArray)
