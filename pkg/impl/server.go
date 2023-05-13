@@ -58,7 +58,6 @@ func ImplementServer() {
 		}
 
 		fullAddress := tcpip.FullAddress{
-			NIC:  1,
 			Addr: tcpip.Address(addr.AsSlice()),
 			Port: uint16(port.Int()),
 		}
