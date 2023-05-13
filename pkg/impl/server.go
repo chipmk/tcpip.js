@@ -47,14 +47,14 @@ func ImplementServer() {
 		stackId := this.Get("options").Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		hostString := "0.0.0.0"
-		if !host.IsUndefined() {
-			hostString = host.String()
-		}
+		var addr netip.Addr
 
-		addr, parseErr := netip.ParseAddr(hostString)
-		if parseErr != nil {
-			return nil, parseErr
+		if !host.IsUndefined() {
+			parsedAddr, parseErr := netip.ParseAddr(host.String())
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			addr = parsedAddr
 		}
 
 		fullAddress := tcpip.FullAddress{

@@ -46,7 +46,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     server.on('error', (err) => console.log('Server', err));
     server.on('end', () => console.log('end'));
     server.on('close', (hadError) => console.log('close', hadError));
-    server.listen({ host: '10.1.0.1', port: 80 });
+    server.listen({ port: 80 });
 
     const socket = new Socket({ stack });
 
