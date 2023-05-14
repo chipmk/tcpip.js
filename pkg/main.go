@@ -8,6 +8,7 @@ func main() {
 	impl.ImplementTcpipStack()
 	impl.ImplementLoopbackInterface()
 	impl.ImplementTapInterface()
+	impl.ImplementTunInterface()
 	impl.ImplementSocket()
 	impl.ImplementServer()
 

@@ -1,5 +1,6 @@
 import LoopbackInterface from './interfaces/loopback-interface';
 import TapInterface from './interfaces/tap-interface';
+import TunInterface from './interfaces/tun-interface';
 import Server from './server';
 import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
@@ -9,6 +10,7 @@ import Go from './wasm_exec';
 (globalThis as any).TcpipStack = TcpipStack;
 (globalThis as any).LoopbackInterface = LoopbackInterface;
 (globalThis as any).TapInterface = TapInterface;
+(globalThis as any).TunInterface = TunInterface;
 (globalThis as any).Socket = Socket;
 (globalThis as any).Server = Server;
 (globalThis as any).unwrap = unwrap;
@@ -31,7 +33,28 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       macAddress: '0a:0a:0b:0b:0c:0c',
     });
 
-    tapInterface.on('frame', (frame) => console.log(frame));
+    const tunInterface = new TunInterface({
+      stack,
+      ipNetwork: '10.2.0.1/24',
+    });
+
+    tunInterface.on('packet', (packet) =>
+      console.log({
+        type: 'packet',
+        hex: Array.from(packet)
+          .map((x) => x.toString(16).padStart(2, '0'))
+          .join(' '),
+      })
+    );
+
+    tapInterface.on('frame', (frame) =>
+      console.log({
+        type: 'frame',
+        hex: Array.from(frame)
+          .map((x) => x.toString(16).padStart(2, '0'))
+          .join(' '),
+      })
+    );
 
     tapInterface.injectFrame(
       // ARP request
