@@ -104,9 +104,12 @@ func ImplementSocket() {
 		go func() {
 			buffer := make([]byte, size.Int())
 
-			s, readErr := socket.conn.Read(buffer)
-			if readErr != nil {
-				this.Call("emit", "error", bridge.GlobalError.New(readErr.Error()))
+			// TODO: decide if we need to handle errors
+			s, _ := socket.conn.Read(buffer)
+
+			if s == 0 {
+				this.Call("push", js.Null())
+				this.Call("end")
 				return
 			}
 

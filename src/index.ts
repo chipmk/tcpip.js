@@ -73,6 +73,12 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       socket.on('data', async (data) => {
         console.log('Server received:', data.toString());
       });
+      socket.on('end', () => {
+        console.log('Socket ended');
+      });
+      socket.on('close', () => {
+        console.log('Socket closed');
+      });
     });
     server.on('error', (err) => console.log('Server', err));
     server.on('end', () => console.log('end'));
