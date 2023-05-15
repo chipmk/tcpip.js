@@ -1,7 +1,6 @@
 package impl
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -9,9 +8,9 @@ import (
 	"syscall/js"
 
 	"github.com/chipmk/tcpip.js/pkg/bridge"
-	eth "github.com/songgao/packets/ethernet"
 	"gvisor.dev/gvisor/pkg/bufferv2"
 	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
@@ -132,21 +131,23 @@ func ImplementTunInterface() {
 		s := Stacks.Get(uint32(stackId))
 
 		interfaceId := this.Get("interfaceId").Int()
-		TunInterface := s.interfaces.Get(uint32(interfaceId)).(*TunInterface)
+		tunInterface := s.interfaces.Get(uint32(interfaceId)).(*TunInterface)
 
-		frameBuffer := make([]byte, frameByteArray.Get("byteLength").Int())
-		js.CopyBytesToGo(frameBuffer, frameByteArray)
-
-		frame := eth.Frame(frameBuffer)
-
-		etherType := frame.Ethertype()
-		proto := binary.BigEndian.Uint16(etherType[:])
+		packetBuffer := make([]byte, frameByteArray.Get("byteLength").Int())
+		js.CopyBytesToGo(packetBuffer, frameByteArray)
 
 		pkt := stack.NewPacketBuffer(stack.PacketBufferOptions{
-			Payload: bufferv2.MakeWithData(frame),
+			Payload: bufferv2.MakeWithData(packetBuffer),
 		})
 
-		TunInterface.endpoint.InjectInbound(tcpip.NetworkProtocolNumber(proto), pkt)
+		switch packetBuffer[0] >> 4 {
+		case 4:
+			tunInterface.endpoint.InjectInbound(header.IPv4ProtocolNumber, pkt)
+		case 6:
+			tunInterface.endpoint.InjectInbound(header.IPv6ProtocolNumber, pkt)
+		default:
+			return nil, fmt.Errorf("unknown protocol")
+		}
 		pkt.DecRef()
 
 		return nil, nil
