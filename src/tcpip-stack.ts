@@ -1,3 +1,6 @@
+import TcpipServer from './server';
+import TcpipSocket from './socket';
+
 export function unwrap<T, Args extends any[]>(
   fn: (...args: Args) => [T, Error]
 ) {
@@ -23,6 +26,25 @@ interface TcpipStack {
 class TcpipStack {
   constructor(public options: TcpipStackOptions) {
     this._init(options);
+  }
+  public get net() {
+    const self = this;
+    return {
+      Socket: class Socket extends TcpipSocket {
+        constructor() {
+          super({
+            stack: self,
+          });
+        }
+      },
+      Server: class Server extends TcpipServer {
+        constructor() {
+          super({
+            stack: self,
+          });
+        }
+      },
+    };
   }
 }
 

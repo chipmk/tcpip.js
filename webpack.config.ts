@@ -29,6 +29,9 @@ const config: Configuration = {
   },
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
+    fallback: {
+      net: resolve(__dirname, 'src/polyfill'),
+    },
   },
   plugins: [
     new HtmlWebpackPlugin({

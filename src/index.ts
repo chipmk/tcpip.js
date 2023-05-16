@@ -1,6 +1,7 @@
 import LoopbackInterface from './interfaces/loopback-interface';
 import TapInterface from './interfaces/tap-interface';
 import TunInterface from './interfaces/tun-interface';
+import { polyfill } from './polyfill';
 import Server from './server';
 import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
@@ -25,6 +26,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     go.run(result.instance);
 
     const stack = new TcpipStack({});
+    polyfill(stack);
 
     const loopbackInterface = new LoopbackInterface({
       stack,
