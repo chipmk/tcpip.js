@@ -43,6 +43,12 @@ func ImplementSocket() {
 	class.ImplementMethod("connect", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]
 
+		var callback js.Value
+
+		if len(args) > 1 {
+			callback = args[1]
+		}
+
 		if options.IsUndefined() {
 			return nil, fmt.Errorf("missing options")
 		}
@@ -83,6 +89,12 @@ func ImplementSocket() {
 				return
 			}
 			socket.conn = conn
+
+			this.Call("emit", "connect")
+
+			if !callback.IsUndefined() {
+				callback.Invoke()
+			}
 		}()
 
 		return this, nil
