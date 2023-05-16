@@ -151,6 +151,8 @@ interface Socket {
   ): this;
   prependOnceListener(event: 'ready', listener: () => void): this;
   prependOnceListener(event: 'timeout', listener: () => void): this;
+
+  setNoDelay(noDelay?: boolean): this;
 }
 
 class Socket extends Duplex {

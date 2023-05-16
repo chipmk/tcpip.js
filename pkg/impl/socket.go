@@ -172,4 +172,7 @@ func ImplementSocket() {
 		return nil, nil
 	})
 
+	class.ImplementMethod("setNoDelay", func(this js.Value, args []js.Value) (any, error) {
+		return nil, nil
+	})
 }
