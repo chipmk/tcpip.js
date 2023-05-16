@@ -1,3 +1,4 @@
+import { Client } from 'pg';
 import LoopbackInterface from './interfaces/loopback-interface';
 import TapInterface from './interfaces/tap-interface';
 import TunInterface from './interfaces/tun-interface';
@@ -47,12 +48,26 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     const webSocket = new WebSocket('ws://localhost:8080/tun-proxy');
     webSocket.binaryType = 'arraybuffer';
 
-    webSocket.addEventListener('open', () => {
+    webSocket.addEventListener('open', async () => {
       console.log('Connected to web socket server');
 
       tunInterface.on('packet', (packet) => {
         webSocket.send(packet);
       });
+
+      const client = new Client({
+        host: '10.2.0.2',
+        port: 54322,
+        user: 'postgres',
+        password: 'postgres',
+      });
+      await client.connect();
+
+      const res = await client.query('SELECT $1::text as message', [
+        'Hello world!',
+      ]);
+      console.log(res.rows);
+      await client.end();
     });
 
     webSocket.addEventListener('message', (e: MessageEvent<ArrayBuffer>) => {
