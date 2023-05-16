@@ -44,25 +44,61 @@ func ImplementSocket() {
 	})
 
 	class.ImplementMethod("connect", func(this js.Value, args []js.Value) (any, error) {
-		options := args[0]
-
+		var port uint16
+		var host string = "127.0.0.1"
 		var callback js.Value
 
-		if len(args) > 1 {
-			callback = args[1]
+		if len(args) <= 2 && args[0].Type() == js.TypeObject {
+			options := args[0]
+
+			if len(args) > 1 {
+				callback = args[1]
+			}
+
+			if options.IsUndefined() {
+				return nil, fmt.Errorf("missing options")
+			}
+
+			portJs := options.Get("port")
+
+			if portJs.IsUndefined() {
+				return nil, fmt.Errorf("port is required")
+			}
+
+			port = uint16(portJs.Int())
+
+			hostJs := options.Get("host")
+
+			if !hostJs.IsUndefined() {
+				host = hostJs.String()
+
+				// TODO: implement proper hosts file
+				if host == "localhost" {
+					host = "127.0.0.1"
+				}
+			}
+		} else {
+			portJs := args[0]
+			port = uint16(portJs.Int())
+
+			if len(args) > 1 {
+				if args[1].Type() == js.TypeString {
+					hostJs := args[1]
+					host = hostJs.String()
+
+					// TODO: implement proper hosts file
+					if host == "localhost" {
+						host = "127.0.0.1"
+					}
+				} else {
+					callback = args[1]
+				}
+			}
+
+			if len(args) > 2 {
+				callback = args[2]
+			}
 		}
-
-		if options.IsUndefined() {
-			return nil, fmt.Errorf("missing options")
-		}
-
-		port := options.Get("port")
-
-		if port.IsUndefined() {
-			return nil, fmt.Errorf("port is required")
-		}
-
-		host := options.Get("host")
 
 		stackId := this.Get("options").Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
@@ -70,19 +106,14 @@ func ImplementSocket() {
 		socketId := this.Get("socketId").Int()
 		socket := s.sockets.Get(uint32(socketId))
 
-		hostString := "127.0.0.1"
-		if !host.IsUndefined() {
-			hostString = host.String()
-		}
-
-		addr, parseErr := netip.ParseAddr(hostString)
+		addr, parseErr := netip.ParseAddr(host)
 		if parseErr != nil {
 			return nil, parseErr
 		}
 
 		fullAddress := tcpip.FullAddress{
 			Addr: tcpip.Address(addr.AsSlice()),
-			Port: uint16(port.Int()),
+			Port: port,
 		}
 
 		go func() {

@@ -31,7 +31,6 @@ interface Socket {
   connect(options: SocketConnectOpts, connectionListener?: () => void): this;
   connect(port: number, host: string, connectionListener?: () => void): this;
   connect(port: number, connectionListener?: () => void): this;
-  connect(path: string, connectionListener?: () => void): this;
 
   end(callback?: () => void): this;
   end(buffer: Uint8Array | string, callback?: () => void): this;
