@@ -13,7 +13,8 @@ import (
 )
 
 type Socket struct {
-	conn net.Conn
+	conn      net.Conn
+	connected chan bool
 }
 
 func ImplementSocket() {
@@ -29,7 +30,9 @@ func ImplementSocket() {
 		stackId := options.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		socket := &Socket{}
+		socket := &Socket{
+			connected: make(chan bool),
+		}
 		socketId := s.sockets.Set(socket)
 		bridge.GlobalObject.Call("defineProperty", this, "socketId", map[string]any{
 			"value": socketId,
@@ -90,6 +93,11 @@ func ImplementSocket() {
 			}
 			socket.conn = conn
 
+			select {
+			case socket.connected <- true:
+			default:
+			}
+
 			this.Call("emit", "connect")
 
 			if !callback.IsUndefined() {
@@ -109,11 +117,11 @@ func ImplementSocket() {
 		socketId := this.Get("socketId").Int()
 		socket := stack.sockets.Get(uint32(socketId))
 
-		if socket.conn == nil {
-			return nil, nil
-		}
-
 		go func() {
+			if socket.conn == nil {
+				<-socket.connected
+			}
+
 			buffer := make([]byte, size.Int())
 
 			// TODO: decide if we need to handle errors
@@ -144,11 +152,11 @@ func ImplementSocket() {
 		socketId := this.Get("socketId").Int()
 		socket := stack.sockets.Get(uint32(socketId))
 
-		if socket.conn == nil {
-			return nil, nil
-		}
-
 		go func() {
+			if socket.conn == nil {
+				<-socket.connected
+			}
+
 			buffer := make([]byte, chunk.Length())
 			js.CopyBytesToGo(buffer, chunk)
 
