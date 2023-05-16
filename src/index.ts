@@ -38,14 +38,29 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       ipNetwork: '10.2.0.1/24',
     });
 
-    tunInterface.on('packet', (packet) =>
-      console.log({
-        type: 'packet',
-        hex: Array.from(packet)
-          .map((x) => x.toString(16).padStart(2, '0'))
-          .join(' '),
-      })
-    );
+    const webSocket = new WebSocket('ws://localhost:8080/tun-proxy');
+    webSocket.binaryType = 'arraybuffer';
+
+    webSocket.addEventListener('open', () => {
+      console.log('Connected to web socket server');
+
+      tunInterface.on('packet', (packet) => {
+        webSocket.send(packet);
+      });
+    });
+
+    webSocket.addEventListener('message', (e: MessageEvent<ArrayBuffer>) => {
+      const packet = new Uint8Array(e.data);
+      tunInterface.injectPacket(packet);
+    });
+
+    webSocket.addEventListener('error', (e) => {
+      console.log('Error', e);
+    });
+
+    webSocket.addEventListener('close', () => {
+      console.log('Closed');
+    });
 
     tapInterface.on('frame', (frame) =>
       console.log({
