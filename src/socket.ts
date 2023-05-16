@@ -1,10 +1,6 @@
 import { Duplex } from 'readable-stream';
 import TcpipStack from './tcpip-stack';
 
-interface EventTypes {
-  'outbound-ethernet-frame': (frame: Uint8Array) => void;
-}
-
 interface SocketOptions {
   stack: TcpipStack;
 }
