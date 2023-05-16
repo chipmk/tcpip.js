@@ -17,6 +17,7 @@ const tcpipNamespace = {
   unwrap,
 };
 
+// TODO: find a way to pass this directly to WASM via import object
 (globalThis as any)['@tcpip/stack'] = tcpipNamespace;
 
 const go = new Go();
