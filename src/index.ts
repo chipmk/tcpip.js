@@ -7,13 +7,17 @@ import TcpipStack, { unwrap } from './tcpip-stack';
 import wasm from './tcpip.wasm';
 import Go from './wasm_exec';
 
-(globalThis as any).TcpipStack = TcpipStack;
-(globalThis as any).LoopbackInterface = LoopbackInterface;
-(globalThis as any).TapInterface = TapInterface;
-(globalThis as any).TunInterface = TunInterface;
-(globalThis as any).Socket = Socket;
-(globalThis as any).Server = Server;
-(globalThis as any).unwrap = unwrap;
+const tcpipNamespace = {
+  TcpipStack,
+  LoopbackInterface,
+  TapInterface,
+  TunInterface,
+  Socket,
+  Server,
+  unwrap,
+};
+
+(globalThis as any)['@tcpip/stack'] = tcpipNamespace;
 
 const go = new Go();
 WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(

@@ -27,7 +27,7 @@ type Stack struct {
 var Stacks = reference.Reference[*Stack]{}
 
 func ImplementTcpipStack() {
-	tcpipStackClass := bridge.NewJsClassBridge(js.Global().Get("TcpipStack"))
+	tcpipStackClass := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("TcpipStack"))
 
 	tcpipStackClass.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]

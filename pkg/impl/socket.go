@@ -18,7 +18,7 @@ type Socket struct {
 }
 
 func ImplementSocket() {
-	class := bridge.NewJsClassBridge(js.Global().Get("Socket"))
+	class := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("Socket"))
 
 	class.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]

@@ -15,7 +15,7 @@ type Server struct {
 }
 
 func ImplementServer() {
-	class := bridge.NewJsClassBridge(js.Global().Get("Server"))
+	class := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("Server"))
 
 	class.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]
@@ -76,7 +76,7 @@ func ImplementServer() {
 					return
 				}
 
-				jsSocket := js.Global().Get("Socket").New(map[string]interface{}{
+				jsSocket := bridge.TcpipNamespace.Get("Socket").New(map[string]interface{}{
 					"stack": s.jsInstance,
 				})
 

@@ -38,7 +38,7 @@ func (s *TunInterface) WriteNotify() {
 }
 
 func ImplementTunInterface() {
-	class := bridge.NewJsClassBridge(js.Global().Get("TunInterface"))
+	class := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("TunInterface"))
 
 	class.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]

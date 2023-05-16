@@ -18,7 +18,7 @@ type LoopbackInterface struct {
 }
 
 func ImplementLoopbackInterface() {
-	class := bridge.NewJsClassBridge(js.Global().Get("LoopbackInterface"))
+	class := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("LoopbackInterface"))
 
 	class.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]

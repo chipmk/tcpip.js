@@ -40,7 +40,7 @@ func (s *TapInterface) WriteNotify() {
 }
 
 func ImplementTapInterface() {
-	class := bridge.NewJsClassBridge(js.Global().Get("TapInterface"))
+	class := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("TapInterface"))
 
 	class.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]
