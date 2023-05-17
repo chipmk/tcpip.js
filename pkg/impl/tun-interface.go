@@ -47,7 +47,7 @@ func ImplementTunInterface() {
 			return nil, fmt.Errorf("options not set")
 		}
 
-		stackId := options.Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		ipNetwork := options.Get("ipNetwork")
@@ -127,7 +127,7 @@ func ImplementTunInterface() {
 	class.ImplementMethod("injectPacket", func(this js.Value, args []js.Value) (any, error) {
 		frameByteArray := args[0]
 
-		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		interfaceId := this.Get("interfaceId").Int()

@@ -27,7 +27,7 @@ func ImplementSocket() {
 			return nil, fmt.Errorf("missing options")
 		}
 
-		stackId := options.Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		socket := &Socket{
@@ -100,7 +100,7 @@ func ImplementSocket() {
 			}
 		}
 
-		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		socketId := this.Get("socketId").Int()
@@ -142,7 +142,7 @@ func ImplementSocket() {
 	class.ImplementMethod("_read", func(this js.Value, args []js.Value) (any, error) {
 		size := args[0]
 
-		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		stack := Stacks.Get(uint32(stackId))
 
 		socketId := this.Get("socketId").Int()
@@ -177,7 +177,7 @@ func ImplementSocket() {
 		chunk := args[0]
 		callback := args[2]
 
-		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		stack := Stacks.Get(uint32(stackId))
 
 		socketId := this.Get("socketId").Int()

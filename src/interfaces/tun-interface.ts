@@ -1,12 +1,11 @@
 import EventEmitter from 'eventemitter3';
 import TcpipStack from '../tcpip-stack';
 
-interface EventTypes {
+export interface TunInterfaceEventTypes {
   packet: (packet: Uint8Array) => void;
 }
 
-interface TunInterfaceOptions {
-  stack: TcpipStack;
+export interface TunInterfaceOptions {
   ipNetwork: string;
 }
 
@@ -16,8 +15,8 @@ interface TunInterface {
   injectPacket(packet: Uint8Array): void;
 }
 
-class TunInterface extends EventEmitter<EventTypes> {
-  constructor(public options: TunInterfaceOptions) {
+class TunInterface extends EventEmitter<TunInterfaceEventTypes> {
+  constructor(public stack: TcpipStack, public options: TunInterfaceOptions) {
     super();
     this._init(options);
   }

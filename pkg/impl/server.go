@@ -44,7 +44,7 @@ func ImplementServer() {
 
 		host := options.Get("host")
 
-		stackId := this.Get("options").Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		var addr netip.Addr
@@ -76,9 +76,7 @@ func ImplementServer() {
 					return
 				}
 
-				jsSocket := bridge.TcpipNamespace.Get("Socket").New(map[string]interface{}{
-					"stack": s.jsInstance,
-				})
+				jsSocket := bridge.TcpipNamespace.Get("Socket").New(s.jsInstance, map[string]interface{}{})
 
 				socketId := jsSocket.Get("socketId").Int()
 				socket := s.sockets.Get(uint32(socketId))

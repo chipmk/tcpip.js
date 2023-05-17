@@ -27,7 +27,7 @@ func ImplementLoopbackInterface() {
 			return nil, fmt.Errorf("options not set")
 		}
 
-		stackId := options.Get("stack").Get("stackId").Int()
+		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
 		ipNetwork := options.Get("ipNetwork")

@@ -1,9 +1,7 @@
 import { Duplex } from 'readable-stream';
 import TcpipStack from './tcpip-stack';
 
-interface SocketOptions {
-  stack: TcpipStack;
-}
+export interface SocketOptions {}
 
 interface SocketConnectOpts {
   port: number;
@@ -155,7 +153,7 @@ interface Socket {
 }
 
 class Socket extends Duplex {
-  constructor(public options: SocketOptions) {
+  constructor(public stack: TcpipStack, public options: SocketOptions = {}) {
     super();
     this._init(options);
   }

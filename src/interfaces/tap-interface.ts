@@ -1,12 +1,11 @@
 import EventEmitter from 'eventemitter3';
 import TcpipStack from '../tcpip-stack';
 
-interface EventTypes {
+export interface TapInterfaceEventTypes {
   frame: (frame: Uint8Array) => void;
 }
 
-interface TapInterfaceOptions {
-  stack: TcpipStack;
+export interface TapInterfaceOptions {
   ipNetwork: string;
   macAddress: string;
 }
@@ -17,8 +16,8 @@ interface TapInterface {
   injectFrame(frame: Uint8Array): void;
 }
 
-class TapInterface extends EventEmitter<EventTypes> {
-  constructor(public options: TapInterfaceOptions) {
+class TapInterface extends EventEmitter<TapInterfaceEventTypes> {
+  constructor(public stack: TcpipStack, public options: TapInterfaceOptions) {
     super();
     this._init(options);
   }

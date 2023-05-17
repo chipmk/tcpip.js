@@ -26,22 +26,19 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
   (result) => {
     go.run(result.instance);
 
-    const stack = new TcpipStack({});
+    const stack = new TcpipStack();
     polyfill(stack);
 
-    const loopbackInterface = new LoopbackInterface({
-      stack,
+    stack.createLoopbackInterface({
       ipNetwork: '127.0.0.1/8',
     });
 
-    const tapInterface = new TapInterface({
-      stack,
+    const tapInterface = stack.createTapInterface({
       ipNetwork: '10.1.0.1/24',
       macAddress: '0a:0a:0b:0b:0c:0c',
     });
 
-    const tunInterface = new TunInterface({
-      stack,
+    const tunInterface = stack.createTunInterface({
       ipNetwork: '10.2.0.1/24',
     });
 
@@ -88,7 +85,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       ])
     );
 
-    const server = new Server({ stack });
+    const server = stack.net.createServer();
     server.on('connection', (socket) => {
       console.log('New connection', socket);
       socket.write('Hello client!');
@@ -107,7 +104,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     server.on('close', (hadError) => console.log('close', hadError));
     server.listen({ port: 80 });
 
-    const socket = new Socket({ stack });
+    const socket = stack.net.createConnection();
 
     socket.on('connect', () => console.log('connect'));
     socket.on('error', (err) => console.log('Socket', err));

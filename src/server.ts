@@ -2,16 +2,14 @@ import EventEmitter from 'eventemitter3';
 import Socket from './socket';
 import TcpipStack from './tcpip-stack';
 
-interface EventTypes {
+export interface ServerEventTypes {
   connection: (socket: Socket) => void;
   error: (err: Error) => void;
   end: () => void;
   close: (hadError: boolean) => void;
 }
 
-interface ServerOptions {
-  stack: TcpipStack;
-}
+export interface ServerOptions {}
 
 interface ListenOptions {
   port: number | undefined;
@@ -24,8 +22,8 @@ interface Server {
   listen(options: ListenOptions): this;
 }
 
-class Server extends EventEmitter<EventTypes> {
-  constructor(public options: ServerOptions) {
+class Server extends EventEmitter<ServerEventTypes> {
+  constructor(public stack: TcpipStack, public options: ServerOptions = {}) {
     super();
     this._init(options);
   }

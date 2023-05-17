@@ -1,7 +1,6 @@
 import TcpipStack from '../tcpip-stack';
 
-interface LoopbackInterfaceOptions {
-  stack: TcpipStack;
+export interface LoopbackInterfaceOptions {
   ipNetwork: string;
 }
 
@@ -11,7 +10,10 @@ interface LoopbackInterface {
 }
 
 class LoopbackInterface {
-  constructor(public options: LoopbackInterfaceOptions) {
+  constructor(
+    public stack: TcpipStack,
+    public options: LoopbackInterfaceOptions
+  ) {
     this._init(options);
   }
 }
