@@ -25,6 +25,14 @@ const config: Configuration = {
         test: /\.wasm/,
         type: 'asset/resource',
       },
+      {
+        test: /\.bin/,
+        type: 'asset/resource',
+      },
+      {
+        test: /\.iso/,
+        type: 'asset/resource',
+      },
     ],
   },
   resolve: {
@@ -43,6 +51,7 @@ const config: Configuration = {
       dns: false,
       crypto: false,
       assert: false,
+      perf_hooks: false,
     },
   },
   plugins: [

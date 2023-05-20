@@ -1,4 +1,9 @@
+import { V86Starter } from '@chipmk/v86';
+import v86WasmUrl from '@chipmk/v86/build/v86.wasm';
 import { Client } from 'pg';
+import seabiosUrl from '../assets/bin/seabios.bin';
+import linuxIsoUrl from '../assets/bin/v86-linux.iso';
+import vgabiosUrl from '../assets/bin/vgabios.bin';
 import LoopbackInterface from './interfaces/loopback-interface';
 import TapInterface from './interfaces/tap-interface';
 import TunInterface from './interfaces/tun-interface';
@@ -7,6 +12,7 @@ import Server from './server';
 import Socket from './socket';
 import TcpipStack, { unwrap } from './tcpip-stack';
 import wasm from './tcpip.wasm';
+import { createNetworkAdapter } from './v86/network-adapter';
 import Go from './wasm_exec';
 
 const tcpipNamespace = {
@@ -24,7 +30,7 @@ const tcpipNamespace = {
 
 const go = new Go();
 WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
-  (result) => {
+  async (result) => {
     go.run(result.instance);
 
     const stack = new TcpipStack();
@@ -43,21 +49,80 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       ipNetwork: '10.2.0.1/24',
     });
 
-    const webSocket = new WebSocket('ws://localhost:8080/tun-proxy');
-    webSocket.binaryType = 'arraybuffer';
+    const cacheResponse = await caches
+      .open('vm-state')
+      .then((cache) => cache.match('/bin/vm-state.bin'));
 
-    webSocket.addEventListener('open', async () => {
-      console.log('Connected to web socket server');
+    const initialState = cacheResponse
+      ? await cacheResponse
+          .arrayBuffer()
+          .then((arrayBuffer) =>
+            URL.createObjectURL(
+              new Blob([arrayBuffer], { type: 'application/octet-stream' })
+            )
+          )
+          .then((url) => {
+            return { url };
+          })
+      : undefined;
 
-      tunInterface.on('packet', (packet) => {
-        webSocket.send(packet);
+    const emulator = new V86Starter({
+      memory_size: 128 * 1024 * 1024,
+      vga_memory_size: 2 * 1024 * 1024,
+      wasm_path: v86WasmUrl,
+      bios: {
+        url: seabiosUrl,
+      },
+      vga_bios: {
+        url: vgabiosUrl,
+      },
+      cdrom: {
+        url: linuxIsoUrl,
+      },
+      disable_mouse: true,
+      disable_keyboard: true,
+      disable_speaker: true,
+      autostart: true,
+      network_adapter: createNetworkAdapter(tapInterface),
+      initial_state: initialState,
+    });
+
+    console.log('emulator', emulator);
+
+    const prompt = '/ # ';
+
+    async function saveState() {
+      await removeNetworkCard();
+      const state = await emulator.save_state();
+      const blob = new Blob([new Uint8Array(state)], {
+        type: 'application/octet-stream',
+      });
+      const response = new Response(blob, {
+        status: 200,
+        statusText: 'OK, Linux VM machine state cached (safe to delete).',
       });
 
+      const headers = new Headers();
+      headers.append('Content-Type', 'application/octet-stream');
+      headers.append('Content-Length', blob.size.toString());
+
+      const url = new URL('/bin/vm-state.bin', window.location.href);
+      const request = new Request(url, {
+        method: 'GET',
+        headers,
+      });
+
+      const cache = await caches.open('vm-state');
+
+      await cache.put(request, response);
+      await setupNetworkCard();
+    }
+
+    async function testConnectToPg() {
       const client = new Client({
-        host: '10.2.0.2',
-        port: 54322,
+        host: '10.1.0.2',
+        port: 5432,
         user: 'postgres',
-        password: 'postgres',
       });
       await client.connect();
 
@@ -66,70 +131,72 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
       ]);
       console.log(res.rows);
       await client.end();
+    }
+
+    async function setupPostgres() {
+      emulator.serial0_send(
+        'echo "listen_addresses = \'*\'" >> /var/lib/pgsql/postgresql.conf\n'
+      );
+      emulator.serial0_send(
+        'echo "host  all  all 0.0.0.0/0 trust" >> /var/lib/pgsql/pg_hba.conf\n'
+      );
+      emulator.serial0_send(
+        `psql -U postgres -d postgres -c "ALTER USER postgres PASSWORD 'postgres'";\n`
+      );
+      emulator.serial0_send('/etc/init.d/S50postgresql restart\n');
+    }
+
+    async function setupNetworkCard() {
+      emulator.serial0_send('modprobe ne2k-pci\n');
+      emulator.serial0_send('ip address add 10.1.0.2/24 brd + dev eth0\n');
+      emulator.serial0_send('ip link set eth0 up\n');
+    }
+
+    async function removeNetworkCard() {
+      emulator.serial0_send('rmmod ne2k-pci\n');
+    }
+
+    let currentRow: number;
+    let serialBuffer = '';
+    let screenBuffer: string[] = [];
+    let hasReceivedFirstPrompt = false;
+
+    emulator.add_listener('serial0-output-char', async (char) => {
+      serialBuffer += char;
+
+      if (serialBuffer.endsWith('\n')) {
+        console.log(serialBuffer);
+        serialBuffer = '';
+      }
+
+      if (serialBuffer.endsWith(prompt) && !hasReceivedFirstPrompt) {
+        hasReceivedFirstPrompt = true;
+
+        if (initialState) {
+          await setupNetworkCard();
+        } else {
+          await setupPostgres();
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          await saveState();
+        }
+        emulator.serial0_send('ip a\n');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await testConnectToPg();
+      }
     });
 
-    webSocket.addEventListener('message', (e: MessageEvent<ArrayBuffer>) => {
-      const packet = new Uint8Array(e.data);
-      tunInterface.injectPacket(packet);
+    emulator.add_listener('screen-put-char', ([row, col, char]) => {
+      if (row !== currentRow) {
+        currentRow = row;
+        console.log(screenBuffer.join(''));
+        screenBuffer = [];
+      }
+
+      screenBuffer[col] = String.fromCharCode(char);
     });
 
-    webSocket.addEventListener('error', (e) => {
-      console.log('Error', e);
-    });
-
-    webSocket.addEventListener('close', () => {
-      console.log('Closed');
-    });
-
-    tapInterface.on('frame', (frame) =>
-      console.log({
-        type: 'frame',
-        hex: Array.from(frame)
-          .map((x) => x.toString(16).padStart(2, '0'))
-          .join(' '),
-      })
-    );
-
-    tapInterface.injectFrame(
-      // ARP request
-      new Uint8Array([
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xb2, 0x69, 0xb3, 0x94, 0xd0, 0x8c,
-        0x08, 0x06, 0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01, 0xb2, 0x69,
-        0xb3, 0x94, 0xd0, 0x8c, 0x0a, 0x01, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x0a, 0x01, 0x00, 0x01,
-      ])
-    );
-
-    const server = stack.net.createServer();
-    server.on('connection', (socket) => {
-      console.log('New connection', socket);
-      socket.write('Hello client!');
-      socket.on('data', async (data) => {
-        console.log('Server received:', data.toString());
-      });
-      socket.on('end', () => {
-        console.log('Socket ended');
-      });
-      socket.on('close', () => {
-        console.log('Socket closed');
-      });
-    });
-    server.on('error', (err) => console.log('Server', err));
-    server.on('end', () => console.log('end'));
-    server.on('close', (hadError) => console.log('close', hadError));
-    server.listen({ port: 80 });
-
-    const socket = stack.net.createConnection();
-
-    socket.on('connect', () => console.log('connect'));
-    socket.on('error', (err) => console.log('Socket', err));
-    socket.on('end', () => console.log('end'));
-    socket.on('close', (hadError) => console.log('close', hadError));
-    socket.on('data', async (data) => {
-      console.log('Client received:', data.toString());
-      socket.write('Hello server!');
-    });
-
-    socket.connect({ host: '127.0.0.1', port: 80 });
+    setTimeout(async () => {
+      emulator.serial0_send('\n');
+    }, 1000);
   }
 );
