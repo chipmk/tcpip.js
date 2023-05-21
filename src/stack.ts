@@ -18,11 +18,11 @@ export function unwrap<T, Args extends any[]>(
   };
 }
 
-export type TcpipStackOptions = {};
+export type StackOptions = {};
 
 // Methods implemented in WASM
-interface TcpipStack {
-  _init(options: TcpipStackOptions): void;
+interface Stack {
+  _init(options: StackOptions): void;
 }
 
 interface Net {
@@ -52,9 +52,9 @@ interface Net {
 /**
  * A user-space TCP/IP network stack
  */
-class TcpipStack {
+class Stack {
   public net: Net;
-  constructor(public options: TcpipStackOptions = {}) {
+  constructor(public options: StackOptions = {}) {
     this._init(options);
     const self = this;
 
@@ -136,4 +136,4 @@ class TcpipStack {
   }
 }
 
-export default TcpipStack;
+export default Stack;

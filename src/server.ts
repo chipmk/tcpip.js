@@ -1,6 +1,6 @@
 import EventEmitter from 'eventemitter3';
 import Socket from './socket';
-import TcpipStack from './tcpip-stack';
+import Stack from './stack';
 
 export interface ServerEventTypes {
   connection: (socket: Socket) => void;
@@ -23,7 +23,7 @@ interface Server {
 }
 
 class Server extends EventEmitter<ServerEventTypes> {
-  constructor(public stack: TcpipStack, public options: ServerOptions = {}) {
+  constructor(public stack: Stack, public options: ServerOptions = {}) {
     super();
     this._init(options);
   }

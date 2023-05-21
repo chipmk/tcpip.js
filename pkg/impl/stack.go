@@ -26,10 +26,10 @@ type Stack struct {
 
 var Stacks = reference.Reference[*Stack]{}
 
-func ImplementTcpipStack() {
-	tcpipStackClass := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("TcpipStack"))
+func ImplementStack() {
+	stackClass := bridge.NewJsClassBridge(bridge.TcpipNamespace.Get("Stack"))
 
-	tcpipStackClass.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
+	stackClass.ImplementMethod("_init", func(this js.Value, args []js.Value) (any, error) {
 		options := args[0]
 
 		if options.IsUndefined() {

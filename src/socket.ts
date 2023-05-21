@@ -1,5 +1,5 @@
 import { Duplex } from 'readable-stream';
-import TcpipStack from './tcpip-stack';
+import Stack from './stack';
 
 export interface TcpNetConnectOpts
   extends TcpSocketConnectOpts,
@@ -162,10 +162,7 @@ interface Socket {
 }
 
 class Socket extends Duplex {
-  constructor(
-    public stack: TcpipStack,
-    public options: SocketConstructorOpts = {}
-  ) {
+  constructor(public stack: Stack, public options: SocketConstructorOpts = {}) {
     super();
     this._init(options);
   }

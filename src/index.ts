@@ -4,12 +4,12 @@ import TunInterface from './interfaces/tun-interface';
 import { polyfill } from './polyfill';
 import Server from './server';
 import Socket from './socket';
-import TcpipStack, { unwrap } from './tcpip-stack';
+import Stack, { unwrap } from './stack';
 import wasm from './tcpip.wasm';
 import Go from './wasm_exec';
 
 const tcpipNamespace = {
-  TcpipStack,
+  Stack,
   LoopbackInterface,
   TapInterface,
   TunInterface,
@@ -26,7 +26,7 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
   (result) => {
     go.run(result.instance);
 
-    const stack = new TcpipStack();
+    const stack = new Stack();
     polyfill(stack);
 
     stack.createLoopbackInterface({

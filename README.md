@@ -3,7 +3,7 @@
 ### Example command
 
 ```js
-const stack = new TcpipStack({
+const stack = new Stack({
   ipNetwork: '10.1.0.1/24',
 });
 

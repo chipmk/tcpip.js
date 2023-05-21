@@ -1,7 +1,7 @@
-import TcpipStack from './tcpip-stack';
+import Stack from './stack';
 
 let net = {
-  polyfill(stack: TcpipStack) {
+  polyfill(stack: Stack) {
     Object.assign(net, stack.net);
   },
 };

@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	impl.ImplementTcpipStack()
+	impl.ImplementStack()
 	impl.ImplementLoopbackInterface()
 	impl.ImplementTapInterface()
 	impl.ImplementTunInterface()
