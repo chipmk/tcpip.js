@@ -1,7 +1,7 @@
 import Stack from '../stack';
 
 export interface LoopbackInterfaceOptions {
-  ipNetwork: string;
+  ipAddress: string;
 }
 
 // Methods implemented in WASM

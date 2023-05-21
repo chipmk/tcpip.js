@@ -6,7 +6,7 @@ export interface TunInterfaceEventTypes {
 }
 
 export interface TunInterfaceOptions {
-  ipNetwork: string;
+  ipAddress: string;
 }
 
 // Methods implemented in WASM

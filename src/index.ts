@@ -30,16 +30,16 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     polyfill(stack);
 
     stack.createLoopbackInterface({
-      ipNetwork: '127.0.0.1/8',
+      ipAddress: '127.0.0.1/8',
     });
 
     const tapInterface = stack.createTapInterface({
-      ipNetwork: '10.1.0.1/24',
+      ipAddress: '10.1.0.1/24',
       macAddress: '0a:0a:0b:0b:0c:0c',
     });
 
     const tunInterface = stack.createTunInterface({
-      ipNetwork: '10.2.0.1/24',
+      ipAddress: '10.2.0.1/24',
     });
 
     const webSocket = new WebSocket('ws://localhost:8080/tun-proxy');

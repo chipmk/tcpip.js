@@ -4,7 +4,7 @@
 
 ```js
 const stack = new Stack({
-  ipNetwork: '10.1.0.1/24',
+  ipAddress: '10.1.0.1/24',
 });
 
 stack.on('outbound-ethernet-frame', (frame) => console.log(frame));

@@ -50,13 +50,13 @@ func ImplementTunInterface() {
 		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		ipNetwork := options.Get("ipNetwork")
+		ipAddress := options.Get("ipAddress")
 
-		if ipNetwork.IsUndefined() {
-			return nil, fmt.Errorf("ipNetwork not set")
+		if ipAddress.IsUndefined() {
+			return nil, fmt.Errorf("ipAddress not set")
 		}
 
-		prefix, prefixErr := netip.ParsePrefix(ipNetwork.String())
+		prefix, prefixErr := netip.ParsePrefix(ipAddress.String())
 		if prefixErr != nil {
 			return nil, prefixErr
 		}

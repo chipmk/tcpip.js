@@ -6,7 +6,7 @@ export interface TapInterfaceEventTypes {
 }
 
 export interface TapInterfaceOptions {
-  ipNetwork: string;
+  ipAddress: string;
   macAddress: string;
 }
 
