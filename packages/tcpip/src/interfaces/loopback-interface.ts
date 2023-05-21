@@ -1,4 +1,4 @@
-import Stack from '../stack';
+import Stack from '../stack.js';
 
 export interface LoopbackInterfaceOptions {
   ipAddress: string;

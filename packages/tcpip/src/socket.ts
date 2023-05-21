@@ -1,5 +1,5 @@
 import { Duplex } from 'readable-stream';
-import Stack from './stack';
+import Stack from './stack.js';
 
 export interface TcpNetConnectOpts
   extends TcpSocketConnectOpts,

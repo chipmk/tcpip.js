@@ -1,5 +1,5 @@
-import EventEmitter from 'eventemitter3';
-import Stack from '../stack';
+import { EventEmitter } from 'eventemitter3';
+import Stack from '../stack.js';
 
 export interface TapInterfaceEventTypes {
   frame: (frame: Uint8Array) => void;

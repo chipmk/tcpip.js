@@ -1,14 +1,10 @@
-import { Configuration } from 'webpack';
-import { resolve } from 'path';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import { resolve } from 'path';
+import { Configuration } from 'webpack';
 
 const config: Configuration = {
   entry: {
     index: './src/index.ts',
-  },
-  experiments: {
-    asyncWebAssembly: true,
-    layers: true,
   },
   optimization: {
     minimize: false,

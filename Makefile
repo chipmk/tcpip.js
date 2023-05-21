@@ -1,5 +1,5 @@
 build::
-	GOOS=js GOARCH=wasm go build -o src/tcpip.wasm pkg/main.go
+	GOOS=js GOARCH=wasm go build -o packages/tcpip/dist/tcpip.wasm pkg/main.go
 
 build-wsproxy::
 	go build -o wsproxy pkg/wsproxy/main.go

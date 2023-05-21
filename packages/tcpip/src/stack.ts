@@ -1,10 +1,17 @@
 import LoopbackInterface, {
   LoopbackInterfaceOptions,
-} from './interfaces/loopback-interface';
-import TapInterface, { TapInterfaceOptions } from './interfaces/tap-interface';
-import TunInterface, { TunInterfaceOptions } from './interfaces/tun-interface';
-import NetServer, { ServerOptions } from './server';
-import NetSocket, { SocketConstructorOpts, TcpNetConnectOpts } from './socket';
+} from './interfaces/loopback-interface.js';
+import TapInterface, {
+  TapInterfaceOptions,
+} from './interfaces/tap-interface.js';
+import TunInterface, {
+  TunInterfaceOptions,
+} from './interfaces/tun-interface.js';
+import NetServer, { ServerOptions } from './server.js';
+import NetSocket, {
+  SocketConstructorOpts,
+  TcpNetConnectOpts,
+} from './socket.js';
 
 export function unwrap<T, Args extends any[]>(
   fn: (...args: Args) => [T, Error]

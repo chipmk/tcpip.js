@@ -1,6 +1,6 @@
-import EventEmitter from 'eventemitter3';
-import Socket from './socket';
-import Stack from './stack';
+import { EventEmitter } from 'eventemitter3';
+import Socket from './socket.js';
+import Stack from './stack.js';
 
 export interface ServerEventTypes {
   connection: (socket: Socket) => void;
