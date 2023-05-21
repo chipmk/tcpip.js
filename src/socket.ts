@@ -1,9 +1,15 @@
 import { Duplex } from 'readable-stream';
 import TcpipStack from './tcpip-stack';
 
-export interface SocketOptions {}
+export interface TcpNetConnectOpts
+  extends TcpSocketConnectOpts,
+    SocketConstructorOpts {
+  timeout?: number | undefined;
+}
 
-interface SocketConnectOpts {
+export interface SocketConstructorOpts {}
+
+export interface TcpSocketConnectOpts {
   port: number;
   host?: string | undefined;
   localAddress?: string | undefined;
@@ -17,7 +23,9 @@ interface SocketConnectOpts {
 
 // Methods implemented in WASM
 interface Socket {
-  _init(options: SocketOptions): void;
+  readonly timeout?: number | undefined;
+
+  _init(options: SocketConstructorOpts): void;
 
   write(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean;
   write(
@@ -26,7 +34,7 @@ interface Socket {
     cb?: (err?: Error) => void
   ): boolean;
 
-  connect(options: SocketConnectOpts, connectionListener?: () => void): this;
+  connect(options: TcpSocketConnectOpts, connectionListener?: () => void): this;
   connect(port: number, host: string, connectionListener?: () => void): this;
   connect(port: number, connectionListener?: () => void): this;
 
@@ -150,10 +158,14 @@ interface Socket {
   prependOnceListener(event: 'timeout', listener: () => void): this;
 
   setNoDelay(noDelay?: boolean): this;
+  setTimeout(timeout: number, callback?: () => void): this;
 }
 
 class Socket extends Duplex {
-  constructor(public stack: TcpipStack, public options: SocketOptions = {}) {
+  constructor(
+    public stack: TcpipStack,
+    public options: SocketConstructorOpts = {}
+  ) {
     super();
     this._init(options);
   }

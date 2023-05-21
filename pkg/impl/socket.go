@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 	"syscall/js"
+	"time"
 
 	"github.com/chipmk/tcpip.js/pkg/bridge"
 	"gvisor.dev/gvisor/pkg/tcpip"
@@ -13,8 +14,10 @@ import (
 )
 
 type Socket struct {
-	conn      net.Conn
-	connected chan bool
+	conn         net.Conn
+	connected    chan bool
+	activity     chan bool
+	resetTimeout chan bool
 }
 
 func ImplementSocket() {
@@ -31,7 +34,9 @@ func ImplementSocket() {
 		s := Stacks.Get(uint32(stackId))
 
 		socket := &Socket{
-			connected: make(chan bool),
+			connected:    make(chan bool),
+			activity:     make(chan bool),
+			resetTimeout: make(chan bool),
 		}
 		socketId := s.sockets.Set(socket)
 		bridge.GlobalObject.Call("defineProperty", this, "socketId", map[string]any{
@@ -48,7 +53,7 @@ func ImplementSocket() {
 		var host string = "127.0.0.1"
 		var callback js.Value
 
-		if len(args) <= 2 && args[0].Type() == js.TypeObject {
+		if args[0].Type() == js.TypeObject {
 			options := args[0]
 
 			if len(args) > 1 {
@@ -139,6 +144,59 @@ func ImplementSocket() {
 		return this, nil
 	})
 
+	class.ImplementMethod("setTimeout", func(this js.Value, args []js.Value) (any, error) {
+		timeoutValue := args[0]
+
+		var callback js.Value
+		if len(args) > 1 {
+			callback = args[1]
+		}
+
+		stackId := this.Get("stack").Get("stackId").Int()
+		s := Stacks.Get(uint32(stackId))
+
+		socketId := this.Get("socketId").Int()
+		socket := s.sockets.Get(uint32(socketId))
+
+		bridge.GlobalObject.Call("defineProperty", this, "timeout", map[string]any{
+			"value":    timeoutValue,
+			"writable": true,
+		})
+
+		// Reset any previous timeouts
+		select {
+		case socket.resetTimeout <- true:
+		default:
+		}
+
+		timeout := timeoutValue.Int()
+
+		if timeout == 0 {
+			return nil, nil
+		}
+
+		go func() {
+			if socket.conn == nil {
+				<-socket.connected
+			}
+			for {
+				select {
+				case <-time.After(time.Duration(timeout) * time.Millisecond):
+					if !callback.IsUndefined() {
+						callback.Invoke()
+					}
+					this.Call("emit", "timeout")
+					return
+				case <-socket.activity:
+				case <-socket.resetTimeout:
+					return
+				}
+			}
+		}()
+
+		return nil, nil
+	})
+
 	class.ImplementMethod("_read", func(this js.Value, args []js.Value) (any, error) {
 		size := args[0]
 
@@ -147,6 +205,8 @@ func ImplementSocket() {
 
 		socketId := this.Get("socketId").Int()
 		socket := stack.sockets.Get(uint32(socketId))
+
+		timeout := this.Get("timeout")
 
 		go func() {
 			if socket.conn == nil {
@@ -157,6 +217,15 @@ func ImplementSocket() {
 
 			// TODO: decide if we need to handle errors
 			s, _ := socket.conn.Read(buffer)
+
+			if !timeout.IsUndefined() && timeout.Int() > 0 {
+				go func() {
+					select {
+					case socket.activity <- true:
+					default:
+					}
+				}()
+			}
 
 			if s == 0 {
 				this.Call("push", js.Null())
@@ -183,6 +252,8 @@ func ImplementSocket() {
 		socketId := this.Get("socketId").Int()
 		socket := stack.sockets.Get(uint32(socketId))
 
+		timeout := this.Get("timeout")
+
 		go func() {
 			if socket.conn == nil {
 				<-socket.connected
@@ -195,6 +266,15 @@ func ImplementSocket() {
 			if writeErr != nil {
 				callback.Invoke(bridge.GlobalError.New(writeErr.Error()))
 				return
+			}
+
+			if !timeout.IsUndefined() && timeout.Int() > 0 {
+				go func() {
+					select {
+					case socket.activity <- true:
+					default:
+					}
+				}()
 			}
 
 			callback.Invoke(js.Null())

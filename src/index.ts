@@ -104,17 +104,20 @@ WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
     server.on('close', (hadError) => console.log('close', hadError));
     server.listen({ port: 80 });
 
-    const socket = stack.net.createConnection();
+    const socket = stack.net.createConnection({
+      host: '127.0.0.1',
+      port: 80,
+      timeout: 1500,
+    });
 
     socket.on('connect', () => console.log('connect'));
     socket.on('error', (err) => console.log('Socket', err));
     socket.on('end', () => console.log('end'));
     socket.on('close', (hadError) => console.log('close', hadError));
+    socket.on('timeout', () => console.log('timed out'));
     socket.on('data', async (data) => {
       console.log('Client received:', data.toString());
       socket.write('Hello server!');
     });
-
-    socket.connect({ host: '127.0.0.1', port: 80 });
   }
 );

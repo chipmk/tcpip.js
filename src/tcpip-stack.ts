@@ -4,7 +4,7 @@ import LoopbackInterface, {
 import TapInterface, { TapInterfaceOptions } from './interfaces/tap-interface';
 import TunInterface, { TunInterfaceOptions } from './interfaces/tun-interface';
 import NetServer, { ServerOptions } from './server';
-import NetSocket, { SocketOptions } from './socket';
+import NetSocket, { SocketConstructorOpts, TcpNetConnectOpts } from './socket';
 
 export function unwrap<T, Args extends any[]>(
   fn: (...args: Args) => [T, Error]
@@ -30,7 +30,7 @@ interface Net {
   Server: typeof NetServer;
   createServer(options?: ServerOptions): NetServer;
   createConnection(
-    options?: SocketOptions,
+    options: TcpNetConnectOpts,
     connectionListener?: () => void
   ): NetSocket;
   createConnection(
@@ -38,7 +38,10 @@ interface Net {
     host?: string,
     connectionListener?: () => void
   ): NetSocket;
-  connect(options?: SocketOptions, connectionListener?: () => void): NetSocket;
+  connect(
+    options: TcpNetConnectOpts,
+    connectionListener?: () => void
+  ): NetSocket;
   connect(
     port: number,
     host?: string,
@@ -56,7 +59,7 @@ class TcpipStack {
     const self = this;
 
     const Socket = class Socket extends NetSocket {
-      constructor(options: SocketOptions = {}) {
+      constructor(options: SocketConstructorOpts = {}) {
         super(self, options);
       }
     };
@@ -73,11 +76,49 @@ class TcpipStack {
       createServer(options: ServerOptions = {}) {
         return new Server(options);
       },
-      createConnection(options: SocketOptions = {}) {
-        return new Socket(options);
+      createConnection(
+        optionsOrPort: TcpNetConnectOpts | number,
+        listenerOrHost?: (() => void) | string,
+        listener?: () => void
+      ) {
+        if (typeof optionsOrPort === 'object') {
+          const socket = new Socket(optionsOrPort);
+
+          const { timeout } = optionsOrPort;
+
+          if (timeout !== undefined && timeout > 0) {
+            socket.setTimeout(timeout);
+          }
+
+          if (listenerOrHost === undefined) {
+            return socket.connect(optionsOrPort);
+          }
+
+          if (typeof listenerOrHost !== 'function') {
+            throw new Error('Expected second argument to be a listener');
+          }
+
+          return socket.connect(optionsOrPort, listenerOrHost);
+        }
+
+        const socket = new Socket();
+
+        if (typeof listenerOrHost === 'string') {
+          return socket.connect(optionsOrPort, listenerOrHost, listener);
+        }
+
+        return socket.connect(optionsOrPort, listenerOrHost);
       },
-      connect(options: SocketOptions = {}) {
-        return new Socket(options);
+      connect(
+        optionsOrPort: TcpNetConnectOpts | number,
+        listenerOrHost?: (() => void) | string,
+        listener?: () => void
+      ) {
+        return this.net.createConnection(
+          optionsOrPort,
+          listenerOrHost,
+          listener
+        );
       },
     };
   }
