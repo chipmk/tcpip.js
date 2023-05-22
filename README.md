@@ -185,3 +185,21 @@ tcpip.js is built on gVisor's [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg
 Code written in Go can be compiled to WASM using the `GOARCH=wasm` target. When combined with `GOOS=js`, you can use the `syscall/js` package to interact with JavaScript from Go.
 
 tcpip.js is implemented using a hybrid language approach: The classes/interfaces are written in TypeScript and their methods are implemented in Go.
+
+## Roadmap
+
+- [ ] `LoopbackInterface`/`TunInterface`/`TapInterface`
+  - [x] Basic POC
+  - [ ] More options
+- [ ] Node.js `net` API (TCP)
+  - [x] Basic POC
+  - [ ] Complete implementation
+- [ ] Node.js `dgram` API (UDP)
+  - [ ] Basic POC
+  - [ ] Complete implementation
+- [ ] Node.js `dns` API
+  - [ ] Basic POC
+  - [ ] Complete implementation
+- [ ] Node.js `http` API
+  - [ ] Basic POC
+  - [ ] Complete implementation
