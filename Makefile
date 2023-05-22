@@ -1,8 +1,8 @@
 build::
 	GOOS=js GOARCH=wasm go build -o packages/tcpip/dist/tcpip.wasm pkg/main.go
 
-build-wsproxy::
-	go build -o wsproxy pkg/wsproxy/main.go
+build-wstunnel::
+	go build -o wstunnel pkg/wstunnel/main.go
 
 setup-tap::
 	sudo ip addr add 10.1.0.10/24 dev tap0
