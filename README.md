@@ -1,6 +1,6 @@
 # tcpip.js
 
-> Full TCP/IP stack in JS (built on gVisor + WASM)
+> Full TCP/IP stack for JS (built on gVisor + WASM)
 
 ## Features
 
