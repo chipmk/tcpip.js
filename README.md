@@ -119,15 +119,19 @@ For all runtimes, you must call `init()` or `initFrom()` at your entrypoint to l
 
 #### `init()`
 
+If you are using a supported environment (eg. Webpack & Node), you can use `init()` to initialize the module:
+
 ```ts
 import { init } from 'tcpip';
 
 await init();
 ```
 
+_*Note:* Webpack requires additional configuration, [see below](#webpack-5)._
+
 #### `initFrom()`
 
-If your environment doesn't support `init()`, you can load the WASM file manually using `initFrom()`, eg. Deno:
+If your environment doesn't support `init()` (eg. Deno), you can load the WASM file manually using `initFrom()`:
 
 ```ts
 import { Stack, initFrom } from 'https://esm.sh/tcpip@0.1.1';
