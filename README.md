@@ -8,9 +8,9 @@
 - **Polyfill:** Node.js compatible `net` API allowing you to use server-side libraries in the browser
 - **Trusted:** Built on top of gVisor's [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg/tcpip) stack
 - **Secure:** Build custom VPN servers in user-space without needing root access
-- **Tun/Tap:** L3 and L2 hooks using `TunInterface` and `TapInterface`
+- **Tun/Tap:** L3 and L2 hooks using [`TunInterface`](#tun) and [`TapInterface`](#tap)
 - **WS Tunnel:** Tunnel packets to an internet-connected network using WebSockets
-- **v86:** Communicate directly with an in-browser Linux VM via a `NetworkAdapter`
+- **v86:** Communicate directly with an [in-browser Linux VM](https://github.com/copy/v86) via a `NetworkAdapter`
 
 ## Installation
 
