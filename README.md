@@ -95,7 +95,19 @@ Keep in mind this is all happening in user-space - no kernel-level network inter
 
 You can polyfill the Node.js `net` module in the browser in order to run network requests through tcpip.js. This opens the doors to using server-side network libraries in the browser.
 
-1. Configure your bundler to resolve `net` using the polyfill.
+1. Install the polyfill:
+
+   ```shell
+   $ npm install --save @tcpip/polyfill
+   ```
+
+   or
+
+   ```shell
+   $ yarn add @tcpip/polyfill
+   ```
+
+1. Configure your bundler to resolve `net` using the polyfill:
 
    ### Webpack 5
 
@@ -125,7 +137,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    export default config;
    ```
 
-2. Create a network stack and call `polyfill()` to attach that stack to the `net` module:
+1. Create a network stack and call `polyfill()` to attach that stack to the `net` module:
 
    ```ts
    import { polyfill } from '@tcpip/polyfill';
@@ -140,7 +152,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    polyfill(stack);
    ```
 
-3. Now any server-side library that imports `net` will use the polyfilled API and route packets through your stack.
+1. Now any server-side library that imports `net` will use the polyfilled API and route packets through your stack.
 
    ```ts
    import { createServer } from 'net';
