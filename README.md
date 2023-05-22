@@ -207,6 +207,12 @@ tcpip.js is implemented using a hybrid language approach: The classes/interfaces
   - [ ] Basic POC
   - [ ] Polyfill
   - [ ] Complete implementation
+- [ ] v86 adapter
+  - [x] [`NetworkAdapter`](./packages/v86) package
+  - [ ] Example project
+- [ ] WebSocket tunnel
+  - [x] Basic POC
+  - [ ] Example project
 
 ## License
 
