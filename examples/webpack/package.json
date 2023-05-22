@@ -2,22 +2,24 @@
   "name": "webpack-example",
   "private": true,
   "scripts": {
+    "dev": "webpack serve --open",
     "build": "webpack",
     "build:watch": "webpack --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@tcpip/polyfill": "*",
-    "tcpip": "*"
+    "@tcpip/polyfill": "^0.1.0",
+    "tcpip": "^0.1.0"
   },
   "devDependencies": {
-    "@types/node": "^20.1.0",
     "@types/webpack": "^5.28.1",
+    "@types/webpack-dev-server": "^4.7.2",
     "html-webpack-plugin": "^5.5.1",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
     "webpack": "^5.82.0",
-    "webpack-cli": "^5.0.2"
+    "webpack-cli": "^5.0.2",
+    "webpack-dev-server": "^4.15.0"
   }
 }

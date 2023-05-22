@@ -10,7 +10,7 @@ import Stack, { unwrap } from './stack.js';
 export { default as LoopbackInterface } from './interfaces/loopback-interface.js';
 export { default as TapInterface } from './interfaces/tap-interface.js';
 export { default as TunInterface } from './interfaces/tun-interface.js';
-export { default as Stack } from './stack.js';
+export { Net, default as Stack } from './stack.js';
 
 const tcpipNamespace = {
   Stack,

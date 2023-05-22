@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
     "sourceMap": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
 }

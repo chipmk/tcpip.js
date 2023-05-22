@@ -1,4 +1,5 @@
 import { polyfill } from '@tcpip/polyfill';
+import { createConnection, createServer } from 'net';
 import { Stack, initStreaming } from 'tcpip';
 import tcpipWasm from 'tcpip/tcpip.wasm';
 
@@ -10,59 +11,7 @@ initStreaming(fetch(tcpipWasm)).then(() => {
     ipAddress: '127.0.0.1/8',
   });
 
-  const tapInterface = stack.createTapInterface({
-    ipAddress: '10.1.0.1/24',
-    macAddress: '0a:0a:0b:0b:0c:0c',
-  });
-
-  const tunInterface = stack.createTunInterface({
-    ipAddress: '10.2.0.1/24',
-  });
-
-  const webSocket = new WebSocket('ws://localhost:8080/tun-proxy');
-  webSocket.binaryType = 'arraybuffer';
-
-  webSocket.addEventListener('open', () => {
-    console.log('Connected to web socket server');
-
-    tunInterface.on('packet', (packet) => {
-      webSocket.send(packet);
-    });
-  });
-
-  webSocket.addEventListener('message', (e: MessageEvent<ArrayBuffer>) => {
-    const packet = new Uint8Array(e.data);
-    tunInterface.injectPacket(packet);
-  });
-
-  webSocket.addEventListener('error', (e) => {
-    console.log('Error', e);
-  });
-
-  webSocket.addEventListener('close', () => {
-    console.log('Closed');
-  });
-
-  tapInterface.on('frame', (frame) =>
-    console.log({
-      type: 'frame',
-      hex: Array.from(frame)
-        .map((x) => x.toString(16).padStart(2, '0'))
-        .join(' '),
-    })
-  );
-
-  tapInterface.injectFrame(
-    // ARP request
-    new Uint8Array([
-      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xb2, 0x69, 0xb3, 0x94, 0xd0, 0x8c,
-      0x08, 0x06, 0x00, 0x01, 0x08, 0x00, 0x06, 0x04, 0x00, 0x01, 0xb2, 0x69,
-      0xb3, 0x94, 0xd0, 0x8c, 0x0a, 0x01, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x0a, 0x01, 0x00, 0x01,
-    ])
-  );
-
-  const server = stack.net.createServer();
+  const server = createServer();
   server.on('connection', (socket) => {
     console.log('New connection', socket);
     socket.write('Hello client!');
@@ -78,10 +27,10 @@ initStreaming(fetch(tcpipWasm)).then(() => {
   });
   server.on('error', (err) => console.log('Server', err));
   server.on('end', () => console.log('end'));
-  server.on('close', (hadError) => console.log('close', hadError));
+  server.on('close', () => console.log('close'));
   server.listen({ port: 80 });
 
-  const socket = stack.net.createConnection({
+  const socket = createConnection({
     host: '127.0.0.1',
     port: 80,
     timeout: 1500,

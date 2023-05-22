@@ -2,7 +2,7 @@
   "compilerOptions": {
     "sourceMap": true,
     "noImplicitAny": true,
-    "moduleResolution": "nodenext",
+    "moduleResolution": "node",
     "esModuleInterop": true
   },
 }

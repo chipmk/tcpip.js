@@ -1,15 +1,20 @@
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { resolve } from 'path';
 import { Configuration } from 'webpack';
+import 'webpack-dev-server';
 
 const config: Configuration = {
+  mode: 'development',
   entry: {
     index: './src/index.ts',
+  },
+  devtool: 'inline-source-map',
+  devServer: {
+    static: './dist',
   },
   optimization: {
     minimize: false,
   },
-  devtool: 'inline-source-map',
   module: {
     rules: [
       {
@@ -26,7 +31,7 @@ const config: Configuration = {
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
     fallback: {
-      net: resolve(__dirname, 'src/polyfill'),
+      net: require.resolve('@tcpip/polyfill/net'),
     },
   },
   plugins: [

@@ -1,0 +1,2 @@
+let net = {};
+export = net;

@@ -32,7 +32,7 @@ interface Stack {
   _init(options: StackOptions): void;
 }
 
-interface Net {
+export interface Net {
   Socket: typeof NetSocket;
   Server: typeof NetServer;
   createServer(options?: ServerOptions): NetServer;

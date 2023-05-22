@@ -1,9 +1,7 @@
-import { Stack } from 'tcpip';
+import '@tcpip/polyfill/net';
+import type { Stack } from 'tcpip';
+import net from './net.js';
 
-let net = {
-  polyfill(stack: Stack) {
-    Object.assign(net, stack.net);
-  },
-};
-
-export = net;
+export function polyfill(stack: Stack) {
+  Object.assign(net, stack.net);
+}

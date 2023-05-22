@@ -4,8 +4,7 @@
   "description": "Polyfill Node.js network modules in the browser",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "tsc -b tsconfig.cjs.json tsconfig.types.json",
-    "build:clean": "npm run clean && npm run build"
+    "build": "npm run clean && tsc -b tsconfig.cjs.json tsconfig.types.json"
   },
   "main": "./dist/cjs/index.js",
   "types": "./dist/types/index.d.ts",
@@ -16,12 +15,15 @@
     ".": {
       "types": "./dist/types/index.d.ts",
       "default": "./dist/cjs/index.js"
+    },
+    "./net": {
+      "types": "./net.d.ts",
+      "default": "./dist/cjs/net.js"
     }
   },
-  "dependencies": {
-    "tcpip": "*"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "tcpip": "^0.1.0",
     "typescript": "^5.0.4"
   }
 }

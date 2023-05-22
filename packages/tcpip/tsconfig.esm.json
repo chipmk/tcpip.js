@@ -4,5 +4,6 @@
     "outDir": "./dist/esm",
     "target": "es2019",
     "module": "es2020",
+    "moduleResolution": "nodenext",
   }
 }
