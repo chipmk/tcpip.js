@@ -1,14 +1,15 @@
 # tcpip.js
 
-> Full TCP/IP stack in JS built on gVisor + WASM
+> Full TCP/IP stack in JS (built on gVisor + WASM)
 
 ## Features
 
-- **Browser/Server:** User-space TCP/IP stack available in browser or server-side
-- **Polyfill:** Use server-side libraries in the browser via a Node.js compatible `net` API
-- **Trusted:** Implemented on top of gVisor's user-space [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg/tcpip) stack
+- **Browser/Server:** A user-space TCP/IP stack for the browser or server
+- **Polyfill:** Node.js compatible `net` API allowing you to use server-side libraries in the browser
+- **Trusted:** Built on top of gVisor's [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg/tcpip) stack
+- **Secure:** Build custom VPN servers in user-space without needing root access
 - **Tun/Tap:** L3 and L2 hooks using `TunInterface` and `TapInterface`
-- **WS Proxy:** Tunnel packets to an internet-connected network using WebSockets
+- **WS Tunnel:** Tunnel packets to an internet-connected network using WebSockets
 - **v86:** Communicate directly with an in-browser Linux VM via a `NetworkAdapter`
 
 ## Usage
@@ -18,16 +19,63 @@
 ```ts
 import { Stack } from 'tcpip';
 
+// Create a network stack
 const stack = new Stack();
 
+// A stack can have one or more network interfaces
 stack.createLoopbackInterface({
   ipAddress: '127.0.0.1/8',
 });
 
 // Node.js compatible `net` API
 // (option to polyfill - see below)
-const server = stack.net.createServer(80);
+const { net } = stack;
+const server = net.createServer(80);
 ```
+
+### Tap
+
+```ts
+import { Stack } from 'tcpip';
+
+const stack = new Stack();
+
+// Tap interfaces provide hooks for L2 ethernet frames
+const tapInterface = stack.createTapInterface({
+  ipAddress: '10.1.0.1/24',
+});
+
+// Capture outgoing ethernet frames
+tapInterface.on('frame', (frame) => {
+  console.log(frame);
+});
+
+// Inject ethernet frames into the network stack
+tapInterface.injectFrame(myFrame);
+```
+
+### Tun
+
+```ts
+import { Stack } from 'tcpip';
+
+const stack = new Stack();
+
+// Tun interfaces provide hooks for L3 IP packets
+const tunInterface = stack.createTunInterface({
+  ipAddress: '10.2.0.1/24',
+});
+
+// Capture outgoing IP packets
+tunInterface.on('packet', (packet) => {
+  console.log(packet);
+});
+
+// Inject IP packets into the network stack
+tapInterface.injectPacket(myPacket);
+```
+
+Keep in mind this is all happening in user-space - no kernel-level network interfaces are created. If you want to connect your stack to an outside network, you can use WebSocket tunnels (browser) or any other transport (server).
 
 ## Polyfill `net`
 
@@ -40,11 +88,19 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    _webpack.config.ts_
 
    ```js
-   import { resolve } from 'path';
    import { Configuration } from 'webpack';
 
    const config: Configuration = {
      ...
+     module: {
+       rules: [
+         ...
+         {
+           test: /\.wasm/,
+           type: 'asset/resource',
+         },
+       ],
+     },
      resolve: {
        fallback: {
          net: require.resolve('@tcpip/polyfill/net'),
@@ -58,7 +114,8 @@ You can polyfill the Node.js `net` module in the browser in order to run network
 2. Create a network stack and call `polyfill()` to attach that stack to the `net` module:
 
    ```ts
-   import { Stack, polyfill } from 'tcpip';
+   import { polyfill } from '@tcpip/polyfill';
+   import { Stack, init } from 'tcpip';
 
    const stack = new Stack();
 
@@ -69,7 +126,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    polyfill(stack);
    ```
 
-3. Any server-side library that imports `net` will use the polyfilled API and route packets through your stack.
+3. Now any server-side library that imports `net` will use the polyfilled API and route packets through your stack.
 
    ```ts
    import { createServer } from 'net';
@@ -82,7 +139,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
 
 ## How does it work?
 
-tcpip.js is built on gVisor's [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg/tcpip) stack written in Go. It compiles from Go to WASM then binds to JS classes and methods.
+tcpip.js is built on gVisor's [`tcpip`](https://pkg.go.dev/gvisor.dev/gvisor/pkg/tcpip) stack written in Go. It compiles to WASM then binds to JS classes and methods.
 
 ### What is gVisor?
 
