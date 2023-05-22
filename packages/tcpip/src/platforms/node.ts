@@ -1,6 +1,8 @@
+// This import must come first
+import './node-polyfills.js';
+
 import { readFile } from 'fs/promises';
 import Go from '../go/wasm_exec.js';
-import './node-polyfills.js';
 
 export * from '../index.js';
 
