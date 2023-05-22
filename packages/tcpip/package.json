@@ -6,7 +6,8 @@
     "clean": "rm -rf dist",
     "build": "npm run clean && npm run build:js && npm run build:wasm",
     "build:js": "tsc -b tsconfig.cjs.json tsconfig.esm.json tsconfig.types.json",
-    "build:wasm": "make -C ../.."
+    "build:wasm": "make -C ../..",
+    "prepublishOnly": "npm run build"
   },
   "type": "module",
   "main": "./dist/cjs/index.js",
