@@ -45,7 +45,7 @@ async function run() {
     ipAddress: '127.0.0.1/8',
   });
 
-  // Node.js compatible `net` API
+  // Node.js compatible `net` API available
   // (option to polyfill - see below)
   const { net } = stack;
   const server = net.createServer(80);
