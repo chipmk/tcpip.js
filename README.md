@@ -115,12 +115,25 @@ Keep in mind this is all happening in user-space - no kernel-level network inter
 
 tcpip.js relies on WebAssembly to run. Loading WASM isn't standardized yet across runtime environments, so some targets may require additional configuration. tcpip.js uses [package exports](https://webpack.js.org/guides/package-exports/) to try to detect your runtime environment and load the appropriate initialize logic.
 
-For all runtimes, you must call `init()` at your entrypoint to load tcpip.js's WASM module:
+For all runtimes, you must call `init()` or `initFrom()` at your entrypoint to load tcpip.js's WASM module.
+
+#### `init()`
 
 ```ts
 import { init } from 'tcpip';
 
 await init();
+```
+
+#### `initFrom()`
+
+If your environment doesn't support `init()`, you can load the WASM file manually using `initFrom()`, eg. Deno:
+
+```ts
+import { Stack, initFrom } from 'https://esm.sh/tcpip@0.1.1';
+import tcpipWasm from 'https://esm.sh/tcpip@0.1.1/dist/tcpip.wasm?module';
+
+await initFrom(tcpipWasm);
 ```
 
 Below are additional configuration instructions required for common runtimes/bundlers:
