@@ -1,3 +1,4 @@
+import Go from './go/wasm_exec.js';
 import LoopbackInterface from './interfaces/loopback-interface.js';
 import TapInterface from './interfaces/tap-interface.js';
 import TunInterface from './interfaces/tun-interface.js';
@@ -23,4 +24,14 @@ const tcpipNamespace = {
 // TODO: find a way to pass this directly to WASM via import object
 (globalThis as any)['@tcpip/stack'] = tcpipNamespace;
 
-export async function init() {}
+// Implemented per platform
+export async function init() {
+  throw new Error('init() not implemented on this platform - use initFrom()');
+}
+
+// Escape hatch to import WASM file manually
+export async function initFrom(wasm: BufferSource | WebAssembly.Module) {
+  const go = new Go();
+  const instance = await WebAssembly.instantiate(wasm, go.importObject);
+  go.run(instance);
+}

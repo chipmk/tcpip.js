@@ -22,14 +22,20 @@
         "module": "./dist/esm/platforms/node.js",
         "default": "./dist/cjs/platforms/node.js"
       },
-      "browser": {
-        "types": "./dist/types/platforms/browser.d.ts",
-        "module": "./dist/esm/platforms/browser.js",
-        "default": "./dist/cjs/platforms/browser.js"
-      }
+      "webpack": {
+        "types": "./dist/types/platforms/bundler.d.ts",
+        "module": "./dist/esm/platforms/bundler.js",
+        "default": "./dist/cjs/platforms/bundler.js"
+      },
+      "types": "./dist/types/index.d.ts",
+      "module": "./dist/esm/index.js",
+      "default": "./dist/cjs/index.js"
     },
     "./tcpip.wasm": {
       "default": "./dist/tcpip.wasm"
+    },
+    "./tcpip.wasm?module": {
+      "default": "./dist/tcpip.wasm?module"
     }
   },
   "dependencies": {
