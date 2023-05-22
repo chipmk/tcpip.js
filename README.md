@@ -47,6 +47,27 @@ const { net } = stack;
 const server = net.createServer(80);
 ```
 
+### Tun
+
+```ts
+import { Stack } from 'tcpip';
+
+const stack = new Stack();
+
+// Tun interfaces provide hooks for L3 IP packets
+const tunInterface = stack.createTunInterface({
+  ipAddress: '10.2.0.1/24',
+});
+
+// Capture outgoing IP packets
+tunInterface.on('packet', (packet) => {
+  console.log(packet);
+});
+
+// Inject IP packets into the network stack
+tunInterface.injectPacket(myPacket);
+```
+
 ### Tap
 
 ```ts
@@ -66,27 +87,6 @@ tapInterface.on('frame', (frame) => {
 
 // Inject ethernet frames into the network stack
 tapInterface.injectFrame(myFrame);
-```
-
-### Tun
-
-```ts
-import { Stack } from 'tcpip';
-
-const stack = new Stack();
-
-// Tun interfaces provide hooks for L3 IP packets
-const tunInterface = stack.createTunInterface({
-  ipAddress: '10.2.0.1/24',
-});
-
-// Capture outgoing IP packets
-tunInterface.on('packet', (packet) => {
-  console.log(packet);
-});
-
-// Inject IP packets into the network stack
-tapInterface.injectPacket(myPacket);
 ```
 
 Keep in mind this is all happening in user-space - no kernel-level network interfaces are created. If you want to connect your stack to an outside network, you can use WebSocket tunnels (browser) or any other transport (server).
