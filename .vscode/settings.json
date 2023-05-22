@@ -7,4 +7,8 @@
     "GOARCH": "wasm",
     "GOOS": "js",
   },
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "./examples/deno"
+  ]
 }

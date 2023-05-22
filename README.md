@@ -187,6 +187,29 @@ export default config;
 
 No additional configuration is required to load in Node.js.
 
+## Deno
+
+Currently you will need to manually load the WASM file and pass it into `initFrom()`.
+
+Using [esm.sh](https://esm.sh):
+
+_index.ts_
+
+```ts
+import { Stack, initFrom } from 'https://esm.sh/tcpip@0.1.1';
+import tcpipWasm from 'https://esm.sh/tcpip@0.1.1/dist/tcpip.wasm?module';
+
+await initFrom(tcpipWasm);
+
+const stack = new Stack();
+```
+
+Then run:
+
+```shell
+$ deno run --allow-net index.ts
+```
+
 ## Polyfill `net`
 
 You can polyfill the Node.js `net` module in the browser in order to run network requests through tcpip.js. This opens the doors to using server-side network libraries in the browser.
