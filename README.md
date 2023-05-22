@@ -111,6 +111,82 @@ run();
 
 Keep in mind this is all happening in user-space - no kernel-level network interfaces are created. If you want to connect your stack to an outside network, you can use WebSocket tunnels (browser) or any other transport (server).
 
+## Runtimes
+
+tcpip.js relies on WebAssembly to run. Loading WASM isn't standardized yet across runtime environments, so some targets may require additional configuration. tcpip.js uses [package exports](https://webpack.js.org/guides/package-exports/) to try to detect your runtime environment and load the appropriate initialize logic.
+
+For all runtimes, you must call `init()` at your entrypoint to load tcpip.js's WASM module:
+
+```ts
+import { init } from 'tcpip';
+
+await init();
+```
+
+Below are additional configuration instructions required for common runtimes/bundlers:
+
+### Webpack 5
+
+Add a rule to load `.wasm` files as an asset/resource:
+
+_webpack.config.ts_
+
+```js
+import { Configuration } from 'webpack';
+
+const config: Configuration = {
+  module: {
+    rules: [
+      {
+        test: /\.wasm/,
+        type: 'asset/resource',
+      },
+    ],
+  },
+};
+
+export default config;
+```
+
+### Webpack 4
+
+Install `file-loader`:
+
+```shell
+npm install --save-dev file-loader
+```
+
+or
+
+```shell
+yarn add -D file-loader
+```
+
+Add a rule to load `.wasm` files using the `file-loader`:
+
+_webpack.config.ts_
+
+```js
+import { Configuration } from 'webpack';
+
+const config: Configuration = {
+  module: {
+    rules: [
+      {
+        test: /\.wasm/,
+        use: [{ loader: 'file-loader' }],
+      },
+    ],
+  },
+};
+
+export default config;
+```
+
+## Node.js
+
+No additional configuration is required to load in Node.js.
+
 ## Polyfill `net`
 
 You can polyfill the Node.js `net` module in the browser in order to run network requests through tcpip.js. This opens the doors to using server-side network libraries in the browser.
@@ -129,7 +205,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
 
 1. Configure your bundler to resolve `net` using the polyfill:
 
-   ### Webpack 5
+   ### Webpack
 
    _webpack.config.ts_
 
@@ -137,16 +213,8 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    import { Configuration } from 'webpack';
 
    const config: Configuration = {
-     ...
-     module: {
-       rules: [
-         ...
-         {
-           test: /\.wasm/,
-           type: 'asset/resource',
-         },
-       ],
-     },
+     // Don't forget to add wasm module rules
+
      resolve: {
        fallback: {
          net: require.resolve('@tcpip/polyfill/net'),
@@ -156,6 +224,8 @@ You can polyfill the Node.js `net` module in the browser in order to run network
 
    export default config;
    ```
+
+   Be sure to add the appropriate module rules for your bundler as shown above under [Runtimes](#runtimes).
 
 1. Create a network stack and call `polyfill()` to attach that stack to the `net` module:
 
@@ -187,7 +257,7 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    const server = createServer(80);
    ```
 
-   _**Note:** This isn't a silver bullet - many server side libraries rely on more than just `net` (eg. `fs`, `crypto`, etc). You will need to polyfill the remaining modules on a case-by-case basis._
+_**Note:** This isn't a silver bullet - many server side libraries rely on more than just `net` (eg. `fs`, `crypto`, etc). You will need to polyfill the remaining modules on a case-by-case basis._
 
 ## How does it work?
 
