@@ -8,8 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@tcpip/polyfill": "^0.1.0",
-    "tcpip": "^0.1.0"
+    "@tcpip/polyfill": "^0.1.1",
+    "tcpip": "^0.1.1"
   },
   "devDependencies": {
     "@types/webpack": "^5.28.1",

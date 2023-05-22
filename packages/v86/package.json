@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/v86",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Network adapter that connects tcpip.js with v86",
   "scripts": {
     "clean": "rm -rf dist",
@@ -22,7 +22,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "tcpip": "^0.1.0",
+    "tcpip": "^0.1.1",
     "typescript": "^5.0.4"
   }
 }
