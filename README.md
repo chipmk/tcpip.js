@@ -31,28 +31,33 @@ $ yarn add tcpip
 ### Basic
 
 ```ts
-import { Stack } from 'tcpip';
+import { Stack, init } from 'tcpip';
 
-// Create a network stack
-const stack = new Stack();
+async function run() {
+  // Initialize the WASM module - call this at entrypoint
+  await init();
 
-// A stack can have one or more network interfaces
-stack.createLoopbackInterface({
-  ipAddress: '127.0.0.1/8',
-});
+  // Create a network stack
+  const stack = new Stack();
 
-// Node.js compatible `net` API
-// (option to polyfill - see below)
-const { net } = stack;
-const server = net.createServer(80);
+  // A stack can have one or more network interfaces
+  stack.createLoopbackInterface({
+    ipAddress: '127.0.0.1/8',
+  });
+
+  // Node.js compatible `net` API
+  // (option to polyfill - see below)
+  const { net } = stack;
+  const server = net.createServer(80);
+}
+
+run();
 ```
 
 ### Tun
 
 ```ts
-import { Stack } from 'tcpip';
-
-const stack = new Stack();
+...
 
 // Tun interfaces provide hooks for L3 IP packets
 const tunInterface = stack.createTunInterface({
@@ -71,9 +76,7 @@ tunInterface.injectPacket(myPacket);
 ### Tap
 
 ```ts
-import { Stack } from 'tcpip';
-
-const stack = new Stack();
+...
 
 // Tap interfaces provide hooks for L2 ethernet frames
 const tapInterface = stack.createTapInterface({
@@ -143,13 +146,19 @@ You can polyfill the Node.js `net` module in the browser in order to run network
    import { polyfill } from '@tcpip/polyfill';
    import { Stack, init } from 'tcpip';
 
-   const stack = new Stack();
+   async function run() {
+     await init();
 
-   stack.createLoopbackInterface({
-     ipAddress: '127.0.0.1/8',
-   });
+     const stack = new Stack();
 
-   polyfill(stack);
+     stack.createLoopbackInterface({
+       ipAddress: '127.0.0.1/8',
+     });
+
+     polyfill(stack);
+   }
+
+   run();
    ```
 
 1. Now any server-side library that imports `net` will use the polyfilled API and route packets through your stack.
