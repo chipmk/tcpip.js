@@ -12,6 +12,20 @@
 - **WS Tunnel:** Tunnel packets to an internet-connected network using WebSockets
 - **v86:** Communicate directly with an in-browser Linux VM via a `NetworkAdapter`
 
+## Installation
+
+NPM
+
+```shell
+$ npm install --save tcpip
+```
+
+Yarn
+
+```shell
+$ yarn add tcpip
+```
+
 ## Usage
 
 ### Basic
