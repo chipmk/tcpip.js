@@ -193,13 +193,17 @@ tcpip.js is implemented using a hybrid language approach: The classes/interfaces
   - [ ] More options
 - [ ] Node.js `net` API (TCP)
   - [x] Basic POC
+  - [x] Polyfill
   - [ ] Complete implementation
 - [ ] Node.js `dgram` API (UDP)
   - [ ] Basic POC
+  - [ ] Polyfill
   - [ ] Complete implementation
 - [ ] Node.js `dns` API
   - [ ] Basic POC
+  - [ ] Polyfill
   - [ ] Complete implementation
 - [ ] Node.js `http` API
   - [ ] Basic POC
+  - [ ] Polyfill
   - [ ] Complete implementation
