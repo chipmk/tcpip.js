@@ -9,17 +9,24 @@
     "build:wasm": "make -C ../..",
     "prepublishOnly": "npm run build"
   },
-  "type": "module",
-  "main": "./dist/cjs/index.js",
+  "main": "./dist/cjs/platforms/node.js",
+  "browser": "./dist/cjs/platforms/browser.js",
   "types": "./dist/types/index.d.ts",
   "files": [
     "dist/**/*"
   ],
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "module": "./dist/esm/index.js",
-      "default": "./dist/cjs/index.js"
+      "node": {
+        "types": "./dist/types/platforms/node.d.ts",
+        "module": "./dist/esm/platforms/node.js",
+        "default": "./dist/cjs/platforms/node.js"
+      },
+      "browser": {
+        "types": "./dist/types/platforms/browser.d.ts",
+        "module": "./dist/esm/platforms/browser.js",
+        "default": "./dist/cjs/platforms/browser.js"
+      }
     },
     "./tcpip.wasm": {
       "default": "./dist/tcpip.wasm"

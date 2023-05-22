@@ -1,18 +1,15 @@
-import { polyfill } from '@tcpip/polyfill';
-import { createConnection, createServer } from 'net';
 import { Stack, init } from 'tcpip';
 
 init().then(() => {
   const stack = new Stack();
-  polyfill(stack);
 
   stack.createLoopbackInterface({
     ipAddress: '127.0.0.1/8',
   });
 
-  const server = createServer();
+  const server = stack.net.createServer();
   server.on('connection', (socket) => {
-    console.log('New connection', socket);
+    console.log('New connection');
     socket.write('Hello client!');
     socket.on('data', async (data) => {
       console.log('Server received:', data.toString());
@@ -29,7 +26,7 @@ init().then(() => {
   server.on('close', () => console.log('close'));
   server.listen({ port: 80 });
 
-  const socket = createConnection({
+  const socket = stack.net.createConnection({
     host: '127.0.0.1',
     port: 80,
     timeout: 1500,

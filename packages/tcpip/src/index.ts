@@ -1,5 +1,3 @@
-import type Module from 'module';
-import Go from './go/wasm_exec.js';
 import LoopbackInterface from './interfaces/loopback-interface.js';
 import TapInterface from './interfaces/tap-interface.js';
 import TunInterface from './interfaces/tun-interface.js';
@@ -25,19 +23,4 @@ const tcpipNamespace = {
 // TODO: find a way to pass this directly to WASM via import object
 (globalThis as any)['@tcpip/stack'] = tcpipNamespace;
 
-export async function init(wasm: Module) {
-  const go = new Go();
-  const instance = await WebAssembly.instantiate(wasm, go.importObject);
-  go.run(instance);
-}
-
-export async function initStreaming(
-  response: Response | PromiseLike<Response>
-) {
-  const go = new Go();
-  const source = await WebAssembly.instantiateStreaming(
-    response,
-    go.importObject
-  );
-  go.run(source.instance);
-}
+export async function init() {}
