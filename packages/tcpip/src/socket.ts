@@ -23,6 +23,10 @@ export interface TcpSocketConnectOpts {
 
 // Methods implemented in WASM
 interface Socket {
+  readonly localAddress?: string;
+  readonly localPort?: number;
+  readonly remoteAddress?: string;
+  readonly remotePort?: number;
   readonly timeout?: number | undefined;
 
   _init(options: SocketConstructorOpts): void;

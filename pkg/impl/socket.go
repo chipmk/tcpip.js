@@ -1,6 +1,8 @@
 package impl
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -11,10 +13,14 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/adapters/gonet"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
+	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
+	"gvisor.dev/gvisor/pkg/waiter"
 )
 
 type Socket struct {
 	conn         net.Conn
+	ep           tcpip.Endpoint
 	connected    chan bool
 	activity     chan bool
 	resetTimeout chan bool
@@ -41,6 +47,66 @@ func ImplementSocket() {
 		socketId := s.sockets.Set(socket)
 		bridge.GlobalObject.Call("defineProperty", this, "socketId", map[string]any{
 			"value": socketId,
+		})
+
+		bridge.GlobalObject.Call("defineProperty", this, "localAddress", map[string]any{
+			"get": bridge.FuncOf(func(this js.Value, args []js.Value) (any, error) {
+				if socket.ep == nil {
+					return js.Undefined(), nil
+				}
+
+				fullAddr, err := socket.ep.GetLocalAddress()
+				if err != nil {
+					return nil, errors.New(err.String())
+				}
+
+				return fullAddr.Addr.String(), nil
+			}),
+		})
+
+		bridge.GlobalObject.Call("defineProperty", this, "localPort", map[string]any{
+			"get": bridge.FuncOf(func(this js.Value, args []js.Value) (any, error) {
+				if socket.ep == nil {
+					return js.Undefined(), nil
+				}
+
+				fullAddr, err := socket.ep.GetLocalAddress()
+				if err != nil {
+					return nil, errors.New(err.String())
+				}
+
+				return fullAddr.Port, nil
+			}),
+		})
+
+		bridge.GlobalObject.Call("defineProperty", this, "remoteAddress", map[string]any{
+			"get": bridge.FuncOf(func(this js.Value, args []js.Value) (any, error) {
+				if socket.ep == nil {
+					return js.Undefined(), nil
+				}
+
+				fullAddr, err := socket.ep.GetRemoteAddress()
+				if err != nil {
+					return nil, errors.New(err.String())
+				}
+
+				return fullAddr.Addr.String(), nil
+			}),
+		})
+
+		bridge.GlobalObject.Call("defineProperty", this, "remotePort", map[string]any{
+			"get": bridge.FuncOf(func(this js.Value, args []js.Value) (any, error) {
+				if socket.ep == nil {
+					return js.Undefined(), nil
+				}
+
+				fullAddr, err := socket.ep.GetRemoteAddress()
+				if err != nil {
+					return js.Undefined(), errors.New(err.String())
+				}
+
+				return fullAddr.Port, nil
+			}),
 		})
 
 		// TODO: implement net.Socket options
@@ -121,25 +187,30 @@ func ImplementSocket() {
 			Port: port,
 		}
 
-		go func() {
-			conn, dialErr := gonet.DialTCP(s.stack, fullAddress, ipv4.ProtocolNumber)
-			if dialErr != nil {
-				this.Call("emit", "error", bridge.GlobalError.New(dialErr.Error()))
-				return
-			}
-			socket.conn = conn
+		// Start the connection after the current call stack
+		js.Global().Call("setTimeout", js.FuncOf(func(self js.Value, args []js.Value) any {
+			go func() {
+				conn, ep, dialErr := DialTCPWithBind(context.Background(), s.stack, tcpip.FullAddress{}, fullAddress, ipv4.ProtocolNumber)
+				if dialErr != nil {
+					this.Call("emit", "error", bridge.GlobalError.New(dialErr.Error()))
+					return
+				}
+				socket.conn = conn
+				socket.ep = ep
 
-			select {
-			case socket.connected <- true:
-			default:
-			}
+				select {
+				case socket.connected <- true:
+				default:
+				}
 
-			this.Call("emit", "connect")
+				this.Call("emit", "connect")
 
-			if !callback.IsUndefined() {
-				callback.Invoke()
-			}
-		}()
+				if !callback.IsUndefined() {
+					callback.Invoke()
+				}
+			}()
+			return nil
+		}), 0)
 
 		return this, nil
 	})
@@ -286,4 +357,61 @@ func ImplementSocket() {
 	class.ImplementMethod("setNoDelay", func(this js.Value, args []js.Value) (any, error) {
 		return nil, nil
 	})
+}
+
+// gonet.DialTCPWithBind modified to return internal tcpip.Endpoint.
+func DialTCPWithBind(ctx context.Context, s *stack.Stack, localAddr, remoteAddr tcpip.FullAddress, network tcpip.NetworkProtocolNumber) (*gonet.TCPConn, tcpip.Endpoint, error) {
+	// Create TCP endpoint, then connect.
+	var wq waiter.Queue
+	ep, err := s.NewEndpoint(tcp.ProtocolNumber, network, &wq)
+	if err != nil {
+		return nil, nil, errors.New(err.String())
+	}
+
+	// Create wait queue entry that notifies a channel.
+	//
+	// We do this unconditionally as Connect will always return an error.
+	waitEntry, notifyCh := waiter.NewChannelEntry(waiter.WritableEvents)
+	wq.EventRegister(&waitEntry)
+	defer wq.EventUnregister(&waitEntry)
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	default:
+	}
+
+	// Bind before connect if requested.
+	if localAddr != (tcpip.FullAddress{}) {
+		if err = ep.Bind(localAddr); err != nil {
+			return nil, nil, fmt.Errorf("ep.Bind(%+v) = %s", localAddr, err)
+		}
+	}
+
+	err = ep.Connect(remoteAddr)
+	if _, ok := err.(*tcpip.ErrConnectStarted); ok {
+		select {
+		case <-ctx.Done():
+			ep.Close()
+			return nil, nil, ctx.Err()
+		case <-notifyCh:
+		}
+
+		err = ep.LastError()
+	}
+	if err != nil {
+		ep.Close()
+		return nil, nil, &net.OpError{
+			Op:   "connect",
+			Net:  "tcp",
+			Addr: fullToTCPAddr(remoteAddr),
+			Err:  errors.New(err.String()),
+		}
+	}
+
+	return gonet.NewTCPConn(&wq, ep), ep, nil
+}
+
+func fullToTCPAddr(addr tcpip.FullAddress) *net.TCPAddr {
+	return &net.TCPAddr{IP: net.IP(addr.Addr), Port: int(addr.Port)}
 }

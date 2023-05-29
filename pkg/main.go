@@ -13,5 +13,5 @@ func main() {
 	impl.ImplementServer()
 
 	// Keep the program running
-	<-make(chan bool)
+	select {}
 }
