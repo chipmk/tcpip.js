@@ -37,3 +37,23 @@ test('remote address and port after connect', async () => {
   expect(socket.remoteAddress).toBe('127.0.0.1');
   expect(socket.remotePort).toBe(80);
 });
+
+test('setNoDelay returns this', async () => {
+  stack.net.createServer().listen({ port: 80 });
+  const socket = stack.net.createConnection(80, '127.0.0.1');
+
+  const returnedSocket = socket.setNoDelay(true);
+
+  expect(returnedSocket).toBe(socket);
+
+  await new Promise((r) => socket.once('connect', r));
+});
+
+test('setNoDelay callable before connect', async () => {
+  stack.net.createServer().listen({ port: 80 });
+  const socket = stack.net.createConnection(80, '127.0.0.1');
+
+  socket.setNoDelay(true);
+
+  await new Promise((r) => socket.once('connect', r));
+});

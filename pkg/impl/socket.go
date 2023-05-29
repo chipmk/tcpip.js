@@ -115,12 +115,14 @@ func ImplementSocket() {
 	})
 
 	class.ImplementMethod("connect", func(this js.Value, args []js.Value) (any, error) {
+		var options js.Value
 		var port uint16
 		var host string = "127.0.0.1"
+		var noDelay bool = false
 		var callback js.Value
 
 		if args[0].Type() == js.TypeObject {
-			options := args[0]
+			options = args[0]
 
 			if len(args) > 1 {
 				callback = args[1]
@@ -147,6 +149,11 @@ func ImplementSocket() {
 				if host == "localhost" {
 					host = "127.0.0.1"
 				}
+			}
+
+			noDelayJs := options.Get("noDelay")
+			if !noDelayJs.IsUndefined() {
+				noDelay = noDelayJs.Bool()
 			}
 		} else {
 			portJs := args[0]
@@ -198,6 +205,9 @@ func ImplementSocket() {
 				socket.conn = conn
 				socket.ep = ep
 
+				// Set connection options
+				ep.SocketOptions().SetDelayOption(noDelay)
+
 				select {
 				case socket.connected <- true:
 				default:
@@ -211,6 +221,30 @@ func ImplementSocket() {
 			}()
 			return nil
 		}), 0)
+
+		return this, nil
+	})
+
+	class.ImplementMethod("setNoDelay", func(this js.Value, args []js.Value) (any, error) {
+		noDelay := true
+
+		if len(args) > 0 {
+			noDelay = args[0].Bool()
+		}
+
+		stackId := this.Get("stack").Get("stackId").Int()
+		s := Stacks.Get(uint32(stackId))
+
+		socketId := this.Get("socketId").Int()
+		socket := s.sockets.Get(uint32(socketId))
+
+		go func() {
+			if socket.conn == nil {
+				<-socket.connected
+			}
+
+			socket.ep.SocketOptions().SetDelayOption(!noDelay)
+		}()
 
 		return this, nil
 	})
@@ -351,10 +385,6 @@ func ImplementSocket() {
 			callback.Invoke(js.Null())
 		}()
 
-		return nil, nil
-	})
-
-	class.ImplementMethod("setNoDelay", func(this js.Value, args []js.Value) (any, error) {
 		return nil, nil
 	})
 }
