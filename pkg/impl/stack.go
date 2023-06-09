@@ -20,6 +20,7 @@ import (
 type Stack struct {
 	stack      *stack.Stack
 	sockets    *reference.Reference[*Socket]
+	servers    *reference.Reference[*Server]
 	interfaces *reference.Reference[interface{}]
 	jsInstance js.Value
 }
@@ -51,6 +52,7 @@ func ImplementStack() {
 		sw := &Stack{
 			stack:      s,
 			sockets:    &reference.Reference[*Socket]{},
+			servers:    &reference.Reference[*Server]{},
 			interfaces: &reference.Reference[interface{}]{},
 			jsInstance: this,
 		}

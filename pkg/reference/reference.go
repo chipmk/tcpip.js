@@ -24,3 +24,7 @@ func (r *Reference[T]) Get(key uint32) T {
 	defer r.mutex.RUnlock()
 	return r.store[key]
 }
+
+func (r *Reference[T]) Count() uint32 {
+	return r.counter
+}

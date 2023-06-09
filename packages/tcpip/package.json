@@ -8,7 +8,8 @@
     "build:js": "tsc -b tsconfig.cjs.json tsconfig.esm.json tsconfig.types.json",
     "build:wasm": "make -C ../..",
     "prepublishOnly": "npm run build",
-    "test": "jest"
+    "test": "jest",
+    "test:debug": "jest --detectOpenHandles"
   },
   "main": "./dist/cjs/platforms/node.js",
   "browser": "./dist/cjs/platforms/browser.js",
