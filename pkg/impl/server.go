@@ -30,7 +30,9 @@ func ImplementServer() {
 		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		server := &Server{}
+		server := &Server{
+			sockets: &reference.Reference[*Socket]{},
+		}
 		serverId := s.servers.Set(server)
 		bridge.GlobalObject.Call("defineProperty", this, "serverId", map[string]any{
 			"value": serverId,
