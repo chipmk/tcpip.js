@@ -5,11 +5,11 @@ export interface LoopbackInterfaceOptions {
 }
 
 // Methods implemented in WASM
-interface LoopbackInterface {
-  _init(options: LoopbackInterfaceOptions): void;
-}
+interface LoopbackInterface {}
 
 class LoopbackInterface {
+  private _init: (options: LoopbackInterfaceOptions) => void;
+
   constructor(public stack: Stack, public options: LoopbackInterfaceOptions) {
     this._init(options);
   }

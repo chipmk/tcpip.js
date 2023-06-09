@@ -28,9 +28,7 @@ export function unwrap<T, Args extends any[]>(
 export type StackOptions = {};
 
 // Methods implemented in WASM
-interface Stack {
-  _init(options: StackOptions): void;
-}
+interface Stack {}
 
 export interface Net {
   Socket: typeof NetSocket;
@@ -61,6 +59,9 @@ export interface Net {
  */
 class Stack {
   public net: Net;
+
+  private _init: (options: StackOptions) => void;
+
   constructor(public options: StackOptions = {}) {
     this._init(options);
     const self = this;

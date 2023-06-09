@@ -12,11 +12,12 @@ export interface TapInterfaceOptions {
 
 // Methods implemented in WASM
 interface TapInterface {
-  _init(options: TapInterfaceOptions): void;
   injectFrame(frame: Uint8Array): void;
 }
 
 class TapInterface extends EventEmitter<TapInterfaceEventTypes> {
+  private _init: (options: TapInterfaceOptions) => void;
+
   constructor(public stack: Stack, public options: TapInterfaceOptions) {
     super();
     this._init(options);

@@ -29,8 +29,6 @@ interface Socket {
   readonly remotePort?: number;
   readonly timeout?: number | undefined;
 
-  _init(options: SocketConstructorOpts): void;
-
   write(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean;
   write(
     str: Uint8Array | string,
@@ -166,6 +164,8 @@ interface Socket {
 }
 
 class Socket extends Duplex {
+  private _init: (options: SocketConstructorOpts) => void;
+
   constructor(public stack: Stack, public options: SocketConstructorOpts = {}) {
     super();
     this._init(options);

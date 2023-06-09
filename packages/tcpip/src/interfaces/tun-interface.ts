@@ -11,11 +11,12 @@ export interface TunInterfaceOptions {
 
 // Methods implemented in WASM
 interface TunInterface {
-  _init(options: TunInterfaceOptions): void;
   injectPacket(packet: Uint8Array): void;
 }
 
 class TunInterface extends EventEmitter<TunInterfaceEventTypes> {
+  private _init: (options: TunInterfaceOptions) => void;
+
   constructor(public stack: Stack, public options: TunInterfaceOptions) {
     super();
     this._init(options);
