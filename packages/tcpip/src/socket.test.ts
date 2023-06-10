@@ -1,3 +1,4 @@
+import { getPort } from '../test/util';
 import { init } from './platforms/node';
 import Stack from './stack';
 
@@ -12,9 +13,12 @@ beforeAll(async () => {
   });
 });
 
-test('local address and port after connect', async () => {
-  stack.net.createServer().listen({ port: 80 });
-  const socket = stack.net.createConnection(80, '127.0.0.1');
+test('local address and port exist after connect', async () => {
+  const port = getPort();
+  const server = stack.net.createServer();
+
+  server.listen({ port });
+  const socket = stack.net.createConnection(port, '127.0.0.1');
 
   expect(socket.localAddress).toBeUndefined();
   expect(socket.localPort).toBeUndefined();
@@ -25,9 +29,12 @@ test('local address and port after connect', async () => {
   expect(socket.localPort).toEqual(expect.any(Number));
 });
 
-test('remote address and port after connect', async () => {
-  stack.net.createServer().listen({ port: 80 });
-  const socket = stack.net.createConnection(80, '127.0.0.1');
+test('remote address and port exist after connect', async () => {
+  const port = getPort();
+  const server = stack.net.createServer();
+
+  server.listen({ port });
+  const socket = stack.net.createConnection(port, '127.0.0.1');
 
   expect(socket.remoteAddress).toBeUndefined();
   expect(socket.remotePort).toBeUndefined();
@@ -35,23 +42,26 @@ test('remote address and port after connect', async () => {
   await new Promise((r) => socket.once('connect', r));
 
   expect(socket.remoteAddress).toBe('127.0.0.1');
-  expect(socket.remotePort).toBe(80);
+  expect(socket.remotePort).toBe(port);
 });
 
 test('setNoDelay returns this', async () => {
-  stack.net.createServer().listen({ port: 80 });
-  const socket = stack.net.createConnection(80, '127.0.0.1');
+  const port = getPort();
+  const server = stack.net.createServer();
+
+  server.listen({ port });
+  const socket = stack.net.createConnection(port, '127.0.0.1');
 
   const returnedSocket = socket.setNoDelay(true);
-
   expect(returnedSocket).toBe(socket);
-
-  await new Promise((r) => socket.once('connect', r));
 });
 
 test('setNoDelay callable before connect', async () => {
-  stack.net.createServer().listen({ port: 80 });
-  const socket = stack.net.createConnection(80, '127.0.0.1');
+  const port = getPort();
+  const server = stack.net.createServer();
+
+  server.listen({ port });
+  const socket = stack.net.createConnection(port, '127.0.0.1');
 
   socket.setNoDelay(true);
 

@@ -1,12 +1,8 @@
+import { getPort } from '../test/util';
 import { init } from './platforms/node';
 import Stack from './stack';
 
 let stack: Stack;
-let ports = 8000;
-
-function getPort() {
-  return ports++;
-}
 
 beforeAll(async () => {
   await init();
@@ -18,15 +14,19 @@ beforeAll(async () => {
 });
 
 test('server listens', async () => {
+  const port = getPort();
   const server = stack.net.createServer();
-  server.listen({ port: getPort() });
+
+  server.listen({ port });
 
   await new Promise<void>((r) => server.once('listening', r));
 });
 
 test('server closes', async () => {
+  const port = getPort();
   const server = stack.net.createServer();
-  server.listen({ port: getPort() });
+
+  server.listen({ port });
 
   await new Promise<void>((r) => server.once('listening', r));
 
@@ -35,7 +35,7 @@ test('server closes', async () => {
   await new Promise<void>((r) => server.once('close', r));
 });
 
-test('server close returns error if not opened', async () => {
+test('server close returns error if not listening', async () => {
   const server = stack.net.createServer();
 
   const asyncTest = async () =>
@@ -47,11 +47,12 @@ test('server close returns error if not opened', async () => {
 });
 
 test('server listening prop', async () => {
+  const port = getPort();
   const server = stack.net.createServer();
 
   expect(server.listening).toBe(false);
 
-  server.listen({ port: getPort() });
+  server.listen({ port });
 
   // We expect the server to only start listening
   // after the call stack
