@@ -1,12 +1,12 @@
 import { EventEmitter } from 'eventemitter3';
 import Stack from '../stack.js';
+import { BaseInterfaceOptions } from './base-interface.js';
 
 export interface TapInterfaceEventTypes {
   frame: (frame: Uint8Array) => void;
 }
 
-export interface TapInterfaceOptions {
-  ipAddress: string;
+export interface TapInterfaceOptions extends BaseInterfaceOptions {
   macAddress: string;
 }
 

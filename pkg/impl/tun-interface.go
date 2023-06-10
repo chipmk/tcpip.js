@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/netip"
 	"syscall/js"
 
 	"github.com/chipmk/tcpip.js/pkg/bridge"
@@ -12,7 +11,6 @@ import (
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/header"
 	"gvisor.dev/gvisor/pkg/tcpip/link/channel"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
@@ -50,17 +48,6 @@ func ImplementTunInterface() {
 		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		ipAddress := options.Get("ipAddress")
-
-		if ipAddress.IsUndefined() {
-			return nil, fmt.Errorf("ipAddress not set")
-		}
-
-		prefix, prefixErr := netip.ParsePrefix(ipAddress.String())
-		if prefixErr != nil {
-			return nil, prefixErr
-		}
-
 		mtu := uint32(1500)
 
 		channelEndpoint := channel.New(1024, mtu, "")
@@ -83,23 +70,10 @@ func ImplementTunInterface() {
 			return nil, errors.New(createNicErr.String())
 		}
 
-		protoAddr := tcpip.ProtocolAddress{
-			Protocol: ipv4.ProtocolNumber,
-			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(prefix.Addr().AsSlice()),
-				PrefixLen: prefix.Masked().Bits(),
-			},
+		initError := initCommon(s.stack, nicID, options)
+		if initError != nil {
+			return nil, initError
 		}
-
-		addProtoAddrError := s.stack.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{})
-		if addProtoAddrError != nil {
-			return nil, errors.New(addProtoAddrError.String())
-		}
-
-		s.stack.AddRoute(tcpip.Route{
-			Destination: protoAddr.AddressWithPrefix.Subnet(),
-			NIC:         nicID,
-		})
 
 		channelEndpoint.AddNotify(TunInterface)
 

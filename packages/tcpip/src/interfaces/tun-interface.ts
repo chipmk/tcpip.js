@@ -1,13 +1,12 @@
 import { EventEmitter } from 'eventemitter3';
 import Stack from '../stack.js';
+import { BaseInterfaceOptions } from './base-interface.js';
 
 export interface TunInterfaceEventTypes {
   packet: (packet: Uint8Array) => void;
 }
 
-export interface TunInterfaceOptions {
-  ipAddress: string;
-}
+export interface TunInterfaceOptions extends BaseInterfaceOptions {}
 
 // Methods implemented in WASM
 interface TunInterface {

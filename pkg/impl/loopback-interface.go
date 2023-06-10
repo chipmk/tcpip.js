@@ -3,14 +3,11 @@ package impl
 import (
 	"errors"
 	"fmt"
-	"net/netip"
 	"syscall/js"
 
 	"github.com/chipmk/tcpip.js/pkg/bridge"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/link/loopback"
-	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 type LoopbackInterface struct {
@@ -30,17 +27,6 @@ func ImplementLoopbackInterface() {
 		stackId := this.Get("stack").Get("stackId").Int()
 		s := Stacks.Get(uint32(stackId))
 
-		ipAddress := options.Get("ipAddress")
-
-		if ipAddress.IsUndefined() {
-			return nil, fmt.Errorf("ipAddress not set")
-		}
-
-		prefix, prefixErr := netip.ParsePrefix(ipAddress.String())
-		if prefixErr != nil {
-			return nil, prefixErr
-		}
-
 		loopbackEndpoint := loopback.New()
 		loopbackInterface := &LoopbackInterface{}
 
@@ -56,23 +42,10 @@ func ImplementLoopbackInterface() {
 			return nil, errors.New(createNicErr.String())
 		}
 
-		protoAddr := tcpip.ProtocolAddress{
-			Protocol: ipv4.ProtocolNumber,
-			AddressWithPrefix: tcpip.AddressWithPrefix{
-				Address:   tcpip.Address(prefix.Addr().AsSlice()),
-				PrefixLen: prefix.Masked().Bits(),
-			},
+		initError := initCommon(s.stack, nicID, options)
+		if initError != nil {
+			return nil, initError
 		}
-
-		addProtoAddrError := s.stack.AddProtocolAddress(nicID, protoAddr, stack.AddressProperties{})
-		if addProtoAddrError != nil {
-			return nil, errors.New(addProtoAddrError.String())
-		}
-
-		s.stack.AddRoute(tcpip.Route{
-			Destination: protoAddr.AddressWithPrefix.Subnet(),
-			NIC:         nicID,
-		})
 
 		return nil, nil
 	})

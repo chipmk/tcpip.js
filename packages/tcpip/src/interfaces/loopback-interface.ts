@@ -1,8 +1,7 @@
 import Stack from '../stack.js';
+import { BaseInterfaceOptions } from './base-interface.js';
 
-export interface LoopbackInterfaceOptions {
-  ipAddress: string;
-}
+export interface LoopbackInterfaceOptions extends BaseInterfaceOptions {}
 
 // Methods implemented in WASM
 interface LoopbackInterface {}
