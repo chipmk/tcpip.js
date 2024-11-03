@@ -1,0 +1,7 @@
+services:
+  wasi-sdk:
+    image: ghcr.io/webassembly/wasi-sdk:latest
+    container_name: wasi-sdk-container
+    working_dir: /work
+    volumes:
+      - $PWD:/work
