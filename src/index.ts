@@ -2,9 +2,9 @@ import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
 import { readFile } from 'node:fs/promises';
 import { serializeMacAddress, type MacAddress } from './protocols/ethernet.js';
 import { serializeIPv4Cidr, type IPv4Cidr } from './protocols/ipv4.js';
-import { Hooks } from './util.js';
+import { Hooks, UniquePointer } from './util.js';
 
-type Pointer = number;
+type Pointer = UniquePointer;
 type TapInterfaceHandle = Pointer;
 
 type WasmInstance = {
@@ -14,8 +14,8 @@ type WasmInstance = {
     _start(): unknown;
 
     // Sys
-    malloc(size: number): Pointer;
-    free(ptr: Pointer): void;
+    malloc(size: number): number;
+    free(ptr: number): void;
 
     // Lib
     create_tap_interface(
@@ -54,13 +54,17 @@ export class NetworkStack {
     return this.#instance.exports;
   }
 
-  #copyToMemory(data: Uint8Array): Pointer {
+  #smartMalloc(size: number) {
+    return new UniquePointer(this.#bridge.malloc(size), this.#bridge.free);
+  }
+
+  #copyToMemory(data: Uint8Array) {
     const length = data.length;
-    const pointer = this.#bridge.malloc(length);
+    const pointer = this.#smartMalloc(length);
 
     const memoryView = new Uint8Array(
       this.#bridge.memory.buffer,
-      pointer,
+      pointer.valueOf(),
       length
     );
 
@@ -69,7 +73,7 @@ export class NetworkStack {
     return pointer;
   }
 
-  #copyFromMemory(ptr: Pointer, length: number): Uint8Array {
+  #copyFromMemory(ptr: number, length: number): Uint8Array {
     const buffer = this.#bridge.memory.buffer.slice(ptr, ptr + length);
     return new Uint8Array(buffer);
   }
@@ -98,13 +102,11 @@ export class NetworkStack {
       env: {
         receive_frame: (
           handle: TapInterfaceHandle,
-          framePtr: Pointer,
+          framePtr: number,
           length: number
         ) => {
           const frame = this.#copyFromMemory(framePtr, length);
           const tapInterface = this.#tapInterfaces.get(handle);
-
-          // console.log('received frame', parseEthernetFrame(frame));
 
           if (!tapInterface) {
             console.error('received frame on unknown tap interface');
@@ -120,9 +122,8 @@ export class NetworkStack {
 
           tapInterfaceHooks.setOuter(tapInterface, {
             sendFrame: (frame) => {
-              const framePtr = this.#copyToMemory(frame);
+              using framePtr = this.#copyToMemory(frame);
               this.#bridge.send_tap_interface(handle, framePtr, frame.length);
-              this.#bridge.free(framePtr);
             },
           });
 
@@ -143,19 +144,15 @@ export class NetworkStack {
     const macAddress = serializeMacAddress(options.macAddress);
     const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
 
-    const macAddressPtr = this.#copyToMemory(macAddress);
-    const ipAddressPtr = this.#copyToMemory(ipAddress);
-    const netmaskPtr = this.#copyToMemory(netmask);
+    using macAddressPtr = this.#copyToMemory(macAddress);
+    using ipAddressPtr = this.#copyToMemory(ipAddress);
+    using netmaskPtr = this.#copyToMemory(netmask);
 
     const handle = this.#bridge.create_tap_interface(
       macAddressPtr,
       ipAddressPtr,
       netmaskPtr
     );
-
-    this.#bridge.free(macAddressPtr);
-    this.#bridge.free(ipAddressPtr);
-    this.#bridge.free(netmaskPtr);
 
     const tapInterface = this.#tapInterfaces.get(handle);
 

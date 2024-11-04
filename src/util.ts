@@ -30,3 +30,33 @@ export class Hooks<K extends WeakKey, O, I> {
     return hooks;
   }
 }
+
+export class UniquePointer extends Number {
+  free: (ptr: number) => void;
+
+  /**
+   * A unique pointer that will automatically free virtual memory when
+   * it is garbage collected. Named after the C++ concept of a unique pointer.
+   *
+   * Should be used with the `using` keyword to ensure that the pointer is
+   * freed (via dispose function) when it is no longer in scope.
+   *
+   * Useful with WASM modules that require allocating and freeing memory.
+   *
+   * @example
+   * ```ts
+   * using ptr = new UniquePointer(wasmBridge.malloc(10), wasmBridge.free);
+   * ```
+   *
+   * @param address The address of the pointer
+   * @param free The function to call to free the pointer
+   */
+  constructor(address: number, free: (ptr: number) => void) {
+    super(address);
+    this.free = free;
+  }
+
+  [Symbol.dispose]() {
+    this.free(this.valueOf());
+  }
+}
