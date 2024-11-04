@@ -1,11 +1,23 @@
 import { describe, expect, test } from 'vitest';
-import { TapInterface, createStack } from './index.js';
+import { LoopbackInterface, TapInterface, createStack } from './index.js';
 import {
   createEthernetFrame,
   parseEthernetFrame,
 } from './protocols/ethernet.js';
 
 describe('NetworkStack', () => {
+  describe('createLoopbackInterface', () => {
+    test('should create a LoopbackInterface with the given options', async () => {
+      const stack = await createStack();
+
+      const loopbackInterface = await stack.createLoopbackInterface({
+        cidr: '127.0.0.1/8',
+      });
+
+      expect(loopbackInterface).toBeInstanceOf(LoopbackInterface);
+    });
+  });
+
   describe('createTapInterface', () => {
     test('should create a TapInterface with the given options', async () => {
       const stack = await createStack();

@@ -5,6 +5,8 @@ import { serializeIPv4Cidr, type IPv4Cidr } from './protocols/ipv4.js';
 import { Hooks, UniquePointer } from './util.js';
 
 type Pointer = UniquePointer;
+
+type LoopbackInterfaceHandle = Pointer;
 type TapInterfaceHandle = Pointer;
 
 type WasmInstance = {
@@ -17,7 +19,13 @@ type WasmInstance = {
     malloc(size: number): number;
     free(ptr: number): void;
 
-    // Lib
+    // Loopback interface
+    create_loopback_interface(
+      ipAddress: Pointer,
+      netmask: Pointer
+    ): LoopbackInterfaceHandle;
+
+    // Tap interface
     create_tap_interface(
       macAddress: Pointer,
       ipAddress: Pointer,
@@ -39,7 +47,10 @@ export async function createStack() {
 
 export class NetworkStack {
   #instance?: WasmInstance;
+
+  #loopbackInterfaces = new Map<LoopbackInterfaceHandle, LoopbackInterface>();
   #tapInterfaces = new Map<TapInterfaceHandle, TapInterface>();
+
   ready: Promise<void>;
 
   constructor() {
@@ -117,6 +128,10 @@ export class NetworkStack {
             .getInner(tapInterface)
             .receiveFrame(new Uint8Array(frame));
         },
+        register_loopback_interface: (handle: LoopbackInterfaceHandle) => {
+          const loopbackInterface = new LoopbackInterface();
+          this.#loopbackInterfaces.set(handle, loopbackInterface);
+        },
         register_tap_interface: (handle: TapInterfaceHandle) => {
           const tapInterface = new TapInterface();
 
@@ -134,6 +149,30 @@ export class NetworkStack {
 
     this.#instance = instance as WasmInstance;
     wasi.start(this.#instance);
+  }
+
+  async createLoopbackInterface(
+    options: LoopbackInterfaceOptions
+  ): Promise<LoopbackInterface> {
+    await this.ready;
+
+    const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
+
+    using ipAddressPtr = this.#copyToMemory(ipAddress);
+    using netmaskPtr = this.#copyToMemory(netmask);
+
+    const handle = this.#bridge.create_loopback_interface(
+      ipAddressPtr,
+      netmaskPtr
+    );
+
+    const loopbackInterface = this.#loopbackInterfaces.get(handle);
+
+    if (!loopbackInterface) {
+      throw new Error('loopback interface failed to register');
+    }
+
+    return loopbackInterface;
   }
 
   async createTapInterface(
@@ -163,6 +202,11 @@ export class NetworkStack {
     return tapInterface;
   }
 }
+
+export type LoopbackInterfaceOptions = {
+  cidr: IPv4Cidr;
+};
+export class LoopbackInterface {}
 
 type TapInterfaceOuterHooks = {
   sendFrame(frame: Uint8Array): void;
