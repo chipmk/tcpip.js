@@ -39,8 +39,8 @@ export function parseIPv4Packet(data: Uint8Array): IPv4Packet {
   const ttl = dataView.getUint8(8);
   const protocol = dataView.getUint8(9);
   const headerChecksum = dataView.getUint16(10);
-  const sourceIP = formatIPv4Address(data.subarray(12, 16));
-  const destinationIP = formatIPv4Address(data.subarray(16, 20));
+  const sourceIP = parseIPv4Address(data.subarray(12, 16));
+  const destinationIP = parseIPv4Address(data.subarray(16, 20));
   const payload = data.subarray(headerLength);
 
   return {
@@ -79,32 +79,32 @@ export function createIPv4Packet(packet: IPv4Packet): Uint8Array {
   dataView.setUint8(8, packet.ttl);
   dataView.setUint8(9, packet.protocol);
   dataView.setUint16(10, checksum);
-  data.set(parseIPv4Address(packet.sourceIP), 12);
-  data.set(parseIPv4Address(packet.destinationIP), 16);
+  data.set(serializeIPv4Address(packet.sourceIP), 12);
+  data.set(serializeIPv4Address(packet.destinationIP), 16);
   data.set(packet.payload, 20);
 
   return data;
 }
 
 /**
- * Formats an IPv4 address Uint8Array into a string.
+ * Parses an IPv4 address Uint8Array into a string.
  */
-export function formatIPv4Address(data: Uint8Array) {
+export function parseIPv4Address(data: Uint8Array) {
   return data.join('.') as IPv4Address;
 }
 
 /**
- * Parses an IPv4 address string into a Uint8Array.
+ * Serialize an IPv4 address string into a Uint8Array.
  */
-export function parseIPv4Address(ip: string) {
+export function serializeIPv4Address(ip: string) {
   return new Uint8Array(ip.split('.').map((byte) => parseInt(byte, 10)));
 }
 
 /**
- * Parses a CIDR notation string into an object with an
- * IP address and netmask.
+ * Serialize a CIDR notation string into an object with a
+ * Uint8Array IP address and netmask.
  */
-export function parseIPv4Cidr(cidr: IPv4Cidr) {
+export function serializeIPv4Cidr(cidr: IPv4Cidr) {
   const [ipString, maskSizeString] = cidr.split('/');
 
   if (!ipString || !maskSizeString) {
@@ -115,7 +115,7 @@ export function parseIPv4Cidr(cidr: IPv4Cidr) {
   const netmask = generateNetmask(maskSize);
 
   return {
-    ipAddress: parseIPv4Address(ipString),
+    ipAddress: serializeIPv4Address(ipString),
     netmask,
   };
 }

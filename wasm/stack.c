@@ -13,6 +13,7 @@ typedef struct tap_interface {
   u16_t mtu;
 } tap_interface;
 
+extern void register_tap_interface(tap_interface *interface);
 extern void receive_frame(tap_interface *interface, const uint8_t *frame, u16_t length);
 
 err_t tap_interface_output(struct netif *netif, struct pbuf *p) {
@@ -58,6 +59,8 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
   IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
   IP4_ADDR(&gw, 0, 0, 0, 0);  // Assuming none for now
 
+  register_tap_interface(interface);
+
   netif_add(&interface->netif, &ipaddr, &netmask_addr, &gw, interface, tap_interface_init, netif_input);
   netif_set_link_up(&interface->netif);
   netif_set_up(&interface->netif);
@@ -65,8 +68,8 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
   return interface;
 }
 
-EXPORT_NAME("inject_tap_interface")
-void inject_tap_interface(tap_interface *interface, const uint8_t *frame, u16_t length) {
+EXPORT_NAME("send_tap_interface")
+void send_tap_interface(tap_interface *interface, const uint8_t *frame, u16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to frame buffer data
   struct pbuf *p = pbuf_alloc(PBUF_RAW, length, PBUF_REF);
   if (p != NULL) {

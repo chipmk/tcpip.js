@@ -2,7 +2,7 @@ import { createArpMessage, parseArpMessage, type ArpMessage } from './arp.js';
 import { createIPv4Packet, parseIPv4Packet, type IPv4Packet } from './ipv4.js';
 
 export type MacAddress =
-  `${number}:${number}:${number}:${number}:${number}:${number}`;
+  `${string}:${string}:${string}:${string}:${string}:${string}`;
 
 export type EthernetFrameBase = {
   destinationMac: MacAddress;
@@ -31,8 +31,8 @@ export function parseEthernetFrame(frame: Uint8Array): EthernetFrame {
   const typeBytes = frame.subarray(12, 14);
   const payload = frame.subarray(14);
 
-  const destinationMac = formatMacAddress(destinationMacBytes);
-  const sourceMac = formatMacAddress(sourceMacBytes);
+  const destinationMac = parseMacAddress(destinationMacBytes);
+  const sourceMac = parseMacAddress(sourceMacBytes);
   const type = parseEthernetType(typeBytes);
 
   switch (type) {
@@ -75,8 +75,8 @@ export function createEthernetFrame(frame: EthernetFrame): Uint8Array {
 
   const data = new Uint8Array(14 + payload.length);
 
-  data.set(parseMacAddress(frame.destinationMac), 0);
-  data.set(parseMacAddress(frame.sourceMac), 6);
+  data.set(serializeMacAddress(frame.destinationMac), 0);
+  data.set(serializeMacAddress(frame.sourceMac), 6);
   data.set(createEthernetType(frame.type), 12);
   data.set(payload, 14);
 
@@ -84,9 +84,9 @@ export function createEthernetFrame(frame: EthernetFrame): Uint8Array {
 }
 
 /**
- * Formats a MAC address Uint8Array into a string.
+ * Parses a MAC address Uint8Array into a string.
  */
-export function formatMacAddress(mac: Uint8Array) {
+export function parseMacAddress(mac: Uint8Array) {
   if (mac.length !== 6) {
     throw new Error('invalid mac address');
   }
@@ -97,9 +97,9 @@ export function formatMacAddress(mac: Uint8Array) {
 }
 
 /**
- * Parses a MAC address string into a Uint8Array.
+ * Serializes a MAC address string into a Uint8Array.
  */
-export function parseMacAddress(mac: string) {
+export function serializeMacAddress(mac: string) {
   const segments = mac.split(':');
 
   if (segments.length !== 6) {

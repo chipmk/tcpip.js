@@ -1,11 +1,11 @@
 import {
-  formatMacAddress,
   parseMacAddress,
+  serializeMacAddress,
   type MacAddress,
 } from './ethernet.js';
 import {
-  formatIPv4Address,
   parseIPv4Address,
+  serializeIPv4Address,
   type IPv4Address,
 } from './ipv4.js';
 
@@ -28,10 +28,10 @@ export function parseArpMessage(data: Uint8Array): ArpMessage {
   const hardwareType = parseHardwareType(dataView.getUint16(0));
   const protocolType = parseProtocolType(dataView.getUint16(2));
   const opcode = parseOpcode(dataView.getUint16(6));
-  const senderMac = formatMacAddress(data.subarray(8, 14));
-  const senderIP = formatIPv4Address(data.subarray(14, 18));
-  const targetMac = formatMacAddress(data.subarray(18, 24));
-  const targetIP = formatIPv4Address(data.subarray(24, 28));
+  const senderMac = parseMacAddress(data.subarray(8, 14));
+  const senderIP = parseIPv4Address(data.subarray(14, 18));
+  const targetMac = parseMacAddress(data.subarray(18, 24));
+  const targetIP = parseIPv4Address(data.subarray(24, 28));
 
   return {
     hardwareType,
@@ -56,10 +56,10 @@ export function createArpMessage(request: ArpMessage): Uint8Array {
   dataView.setUint8(4, 6);
   dataView.setUint8(5, 4);
   dataView.setUint16(6, createOpcode(request.opcode));
-  data.set(parseMacAddress(request.senderMac), 8);
-  data.set(parseIPv4Address(request.senderIP), 14);
-  data.set(parseMacAddress(request.targetMac), 18);
-  data.set(parseIPv4Address(request.targetIP), 24);
+  data.set(serializeMacAddress(request.senderMac), 8);
+  data.set(serializeIPv4Address(request.senderIP), 14);
+  data.set(serializeMacAddress(request.targetMac), 18);
+  data.set(serializeIPv4Address(request.targetIP), 24);
 
   return data;
 }
