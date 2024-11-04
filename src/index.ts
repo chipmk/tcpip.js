@@ -33,17 +33,17 @@ type WasmInstance = {
 
 export async function createStack() {
   const stack = new NetworkStack();
-  await stack.waitReady;
+  await stack.ready;
   return stack;
 }
 
 export class NetworkStack {
   #instance?: WasmInstance;
   #tapInterfaces = new Map<TapInterfaceHandle, TapInterface>();
-  waitReady: Promise<void>;
+  ready: Promise<void>;
 
   constructor() {
-    this.waitReady = this.#init();
+    this.ready = this.#init();
   }
 
   get #bridge() {
@@ -138,7 +138,7 @@ export class NetworkStack {
   async createTapInterface(
     options: TapInterfaceOptions
   ): Promise<TapInterface> {
-    await this.waitReady;
+    await this.ready;
 
     const macAddress = serializeMacAddress(options.macAddress);
     const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
