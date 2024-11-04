@@ -1,6 +1,6 @@
 import { calculateChecksum } from './util.js';
 
-export type ICMPMessage = {
+export type IcmpMessage = {
   type: string;
   code?: string;
   identifier: number;
@@ -11,16 +11,17 @@ export type ICMPMessage = {
 /**
  * Parses an ICMP message into an object.
  */
-export function parseICMPMessage(data: Uint8Array): ICMPMessage {
+export function parseIcmpMessage(data: Uint8Array): IcmpMessage {
   const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
   const checksum = dataView.getUint16(2);
-  if (calculateChecksum(data) !== checksum) {
+
+  if (calculateChecksum(data, 2) !== checksum) {
     throw new Error('invalid icmp checksum');
   }
 
-  const type = parseICMPType(dataView.getUint8(0));
-  const code = parseICMPCode(type, dataView.getUint8(1));
+  const type = parseIcmpType(dataView.getUint8(0));
+  const code = parseIcmpCode(type, dataView.getUint8(1));
   const identifier = dataView.getUint16(4);
   const sequenceNumber = dataView.getUint16(6);
   const payload = data.subarray(8);
@@ -37,23 +38,24 @@ export function parseICMPMessage(data: Uint8Array): ICMPMessage {
 /**
  * Serializes an ICMP message from an `ICMPMessage` object.
  */
-export function createICMPMessage(message: ICMPMessage): Uint8Array {
+export function createIcmpMessage(message: IcmpMessage): Uint8Array {
   const data = new Uint8Array(8 + message.payload.length);
   const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-  const checksum = calculateChecksum(data);
-
-  dataView.setUint8(0, createICMPType(message.type));
-  dataView.setUint8(1, createICMPCode(message.type, message.code));
-  dataView.setUint16(2, checksum);
+  dataView.setUint8(0, serializeIcmpType(message.type));
+  dataView.setUint8(1, serializeIcmpCode(message.type, message.code));
   dataView.setUint16(4, message.identifier);
   dataView.setUint16(6, message.sequenceNumber);
   data.set(message.payload, 8);
 
+  // Checksum applies to both header and payload
+  const checksum = calculateChecksum(data, 2);
+  dataView.setUint16(2, checksum);
+
   return data;
 }
 
-export function parseICMPType(type: number) {
+export function parseIcmpType(type: number) {
   switch (type) {
     case 0:
       return 'echo-reply';
@@ -68,7 +70,7 @@ export function parseICMPType(type: number) {
   }
 }
 
-export function createICMPType(type: string) {
+export function serializeIcmpType(type: string) {
   switch (type) {
     case 'echo-reply':
       return 0;
@@ -83,7 +85,7 @@ export function createICMPType(type: string) {
   }
 }
 
-export function parseICMPCode(type: string, code: number) {
+export function parseIcmpCode(type: string, code: number) {
   switch (type) {
     case 'echo-reply':
     case 'echo-request': {
@@ -120,7 +122,7 @@ export function parseICMPCode(type: string, code: number) {
   }
 }
 
-export function createICMPCode(type: string, code?: string) {
+export function serializeIcmpCode(type: string, code?: string) {
   switch (type) {
     case 'echo-reply':
     case 'echo-request': {

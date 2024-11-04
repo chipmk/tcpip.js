@@ -55,11 +55,10 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
   ip4_addr_t ipaddr, netmask_addr, gw;
   IP4_ADDR(&ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
   IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
-  IP4_ADDR(&gw, 0, 0, 0, 0);  // Assuming none for now
 
   register_tap_interface(interface);
 
-  netif_add(&interface->netif, &ipaddr, &netmask_addr, &gw, interface, tap_interface_init, netif_input);
+  netif_add(&interface->netif, &ipaddr, &netmask_addr, NULL, interface, tap_interface_init, netif_input);
   netif_set_link_up(&interface->netif);
   netif_set_up(&interface->netif);
 

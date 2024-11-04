@@ -1,9 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { LoopbackInterface, TapInterface, createStack } from './index.js';
+import {
+  LoopbackInterface,
+  TapInterface,
+  TunInterface,
+  createStack,
+} from './index.js';
 import {
   createEthernetFrame,
   parseEthernetFrame,
 } from './protocols/ethernet.js';
+import { createIPv4Packet, parseIPv4Packet } from './protocols/ipv4.js';
 
 describe('NetworkStack', () => {
   describe('createLoopbackInterface', () => {
@@ -15,6 +21,69 @@ describe('NetworkStack', () => {
       });
 
       expect(loopbackInterface).toBeInstanceOf(LoopbackInterface);
+    });
+  });
+
+  describe('createTunInterface', () => {
+    test('should create a TunInterface with the given options', async () => {
+      const stack = await createStack();
+
+      const tunInterface = await stack.createTunInterface({
+        cidr: '192.168.1.1/24',
+      });
+
+      expect(tunInterface).toBeInstanceOf(TunInterface);
+    });
+
+    test('can send and receive packets', async () => {
+      const stack = await createStack();
+
+      const tunInterface = await stack.createTunInterface({
+        cidr: '192.168.1.1/24',
+      });
+
+      // Start listening before sending
+      const listener = tunInterface.listen();
+
+      const payload = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+      const packet = createIPv4Packet({
+        version: 4,
+        dscp: 0,
+        ecn: 0,
+        identification: 1,
+        flags: 0,
+        fragmentOffset: 0,
+        ttl: 64,
+        sourceIP: '192.168.1.2',
+        destinationIP: '192.168.1.1',
+        protocol: 'icmp',
+        payload: {
+          type: 'echo-request',
+          identifier: 1,
+          sequenceNumber: 0,
+          payload,
+        },
+      });
+
+      // Send an ICMP echo request to 192.168.1.1 from 192.168.1.2
+      await tunInterface.send(packet);
+
+      const receivedPacket = await getFirstValue(listener);
+      const parsedPacket = parseIPv4Packet(receivedPacket);
+
+      // Expect our tun interface to reply
+      expect(parsedPacket.sourceIP).toBe('192.168.1.1');
+      expect(parsedPacket.destinationIP).toBe('192.168.1.2');
+
+      if (parsedPacket.protocol !== 'icmp') {
+        throw new Error('expected icmp packet');
+      }
+
+      expect(parsedPacket.payload.type).toBe('echo-reply');
+      expect(parsedPacket.payload.identifier).toBe(1);
+      expect(parsedPacket.payload.sequenceNumber).toBe(0);
+      expect(parsedPacket.payload.payload).toStrictEqual(payload);
     });
   });
 

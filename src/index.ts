@@ -7,6 +7,7 @@ import { Hooks, UniquePointer } from './util.js';
 type Pointer = UniquePointer;
 
 type LoopbackInterfaceHandle = Pointer;
+type TunInterfaceHandle = Pointer;
 type TapInterfaceHandle = Pointer;
 
 type WasmInstance = {
@@ -24,6 +25,17 @@ type WasmInstance = {
       ipAddress: Pointer,
       netmask: Pointer
     ): LoopbackInterfaceHandle;
+
+    // Tun interface
+    create_tun_interface(
+      ipAddress: Pointer,
+      netmask: Pointer
+    ): TunInterfaceHandle;
+    send_tun_interface(
+      handle: TunInterfaceHandle,
+      packet: Pointer,
+      size: number
+    ): void;
 
     // Tap interface
     create_tap_interface(
@@ -49,6 +61,7 @@ export class NetworkStack {
   #instance?: WasmInstance;
 
   #loopbackInterfaces = new Map<LoopbackInterfaceHandle, LoopbackInterface>();
+  #tunInterfaces = new Map<TunInterfaceHandle, TunInterface>();
   #tapInterfaces = new Map<TapInterfaceHandle, TapInterface>();
 
   ready: Promise<void>;
@@ -128,9 +141,38 @@ export class NetworkStack {
             .getInner(tapInterface)
             .receiveFrame(new Uint8Array(frame));
         },
+        receive_packet: (
+          handle: TunInterfaceHandle,
+          packetPtr: number,
+          length: number
+        ) => {
+          const packet = this.#copyFromMemory(packetPtr, length);
+          const tunInterface = this.#tunInterfaces.get(handle);
+
+          if (!tunInterface) {
+            console.error('received packet on unknown tun interface');
+            return;
+          }
+
+          tunInterfaceHooks
+            .getInner(tunInterface)
+            .receivePacket(new Uint8Array(packet));
+        },
         register_loopback_interface: (handle: LoopbackInterfaceHandle) => {
           const loopbackInterface = new LoopbackInterface();
           this.#loopbackInterfaces.set(handle, loopbackInterface);
+        },
+        register_tun_interface: (handle: TunInterfaceHandle) => {
+          const tunInterface = new TunInterface();
+
+          tunInterfaceHooks.setOuter(tunInterface, {
+            sendPacket: (packet) => {
+              using packetPtr = this.#copyToMemory(packet);
+              this.#bridge.send_tun_interface(handle, packetPtr, packet.length);
+            },
+          });
+
+          this.#tunInterfaces.set(handle, tunInterface);
         },
         register_tap_interface: (handle: TapInterfaceHandle) => {
           const tapInterface = new TapInterface();
@@ -175,6 +217,27 @@ export class NetworkStack {
     return loopbackInterface;
   }
 
+  async createTunInterface(
+    options: TunInterfaceOptions
+  ): Promise<TunInterface> {
+    await this.ready;
+
+    const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
+
+    using ipAddressPtr = this.#copyToMemory(ipAddress);
+    using netmaskPtr = this.#copyToMemory(netmask);
+
+    const handle = this.#bridge.create_tun_interface(ipAddressPtr, netmaskPtr);
+
+    const tunInterface = this.#tunInterfaces.get(handle);
+
+    if (!tunInterface) {
+      throw new Error('tun interface failed to register');
+    }
+
+    return tunInterface;
+  }
+
   async createTapInterface(
     options: TapInterfaceOptions
   ): Promise<TapInterface> {
@@ -207,6 +270,79 @@ export type LoopbackInterfaceOptions = {
   cidr: IPv4Cidr;
 };
 export class LoopbackInterface {}
+
+type TunInterfaceOuterHooks = {
+  sendPacket(packet: Uint8Array): void;
+};
+
+type TunInterfaceInnerHooks = {
+  receivePacket(packet: Uint8Array): void;
+};
+
+const tunInterfaceHooks = new Hooks<
+  TunInterface,
+  TunInterfaceOuterHooks,
+  TunInterfaceInnerHooks
+>();
+
+export type TunInterfaceOptions = {
+  cidr: IPv4Cidr;
+};
+
+export class TunInterface {
+  #buffer: Uint8Array[] = [];
+  #notifyPacket?: () => void;
+  #isListening = false;
+
+  constructor() {
+    tunInterfaceHooks.setInner(this, {
+      receivePacket: async (packet: Uint8Array) => {
+        // Do not buffer packets if not listening
+        // since memory will grow indefinitely
+        if (!this.#isListening) {
+          return;
+        }
+
+        this.#buffer.push(packet);
+        this.#notifyPacket?.();
+      },
+    });
+  }
+
+  async send(packet: Uint8Array) {
+    tunInterfaceHooks.getOuter(this).sendPacket(packet);
+  }
+
+  listen() {
+    if (this.#isListening) {
+      throw new Error('already listening');
+    }
+
+    this.#isListening = true;
+    return this.#listen();
+  }
+
+  async *#listen(): AsyncIterableIterator<Uint8Array> {
+    try {
+      if (this.#buffer.length > 0) {
+        yield* this.#buffer;
+        this.#buffer = [];
+      }
+
+      while (true) {
+        await new Promise<void>((resolve) => {
+          this.#notifyPacket = resolve;
+        });
+
+        yield* this.#buffer;
+        this.#buffer = [];
+      }
+    } finally {
+      this.#isListening = false;
+      this.#buffer = [];
+    }
+  }
+}
 
 type TapInterfaceOuterHooks = {
   sendFrame(frame: Uint8Array): void;
