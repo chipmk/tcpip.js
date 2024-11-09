@@ -1,14 +1,21 @@
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
 import { readFile } from 'node:fs/promises';
 import { serializeMacAddress, type MacAddress } from './protocols/ethernet.js';
-import { serializeIPv4Cidr, type IPv4Cidr } from './protocols/ipv4.js';
-import { Hooks, UniquePointer } from './util.js';
+import {
+  serializeIPv4Address,
+  serializeIPv4Cidr,
+  type IPv4Address,
+  type IPv4Cidr,
+} from './protocols/ipv4.js';
+import { Hooks, UniquePointer, EventMap } from './util.js';
 
 type Pointer = UniquePointer;
 
 type LoopbackInterfaceHandle = Pointer;
 type TunInterfaceHandle = Pointer;
 type TapInterfaceHandle = Pointer;
+type TcpListenerHandle = Pointer;
+type TcpConnectionHandle = Pointer;
 
 type WasmInstance = {
   exports: {
@@ -19,6 +26,10 @@ type WasmInstance = {
     // Sys
     malloc(size: number): number;
     free(ptr: number): void;
+
+    // Stack
+    process_queued_packets(): void;
+    process_timeouts(): void;
 
     // Loopback interface
     create_loopback_interface(
@@ -34,7 +45,7 @@ type WasmInstance = {
     send_tun_interface(
       handle: TunInterfaceHandle,
       packet: Pointer,
-      size: number
+      length: number
     ): void;
 
     // Tap interface
@@ -46,8 +57,18 @@ type WasmInstance = {
     send_tap_interface(
       handle: TapInterfaceHandle,
       frame: Pointer,
-      size: number
+      length: number
     ): void;
+
+    // TCP
+    create_tcp_listener(host: Pointer | null, port: number): TcpListenerHandle;
+    create_tcp_connection(host: Pointer, port: number): TcpConnectionHandle;
+    close_tcp_connection(handle: TcpConnectionHandle): number;
+    send_tcp_chunk(
+      handle: TcpConnectionHandle,
+      chunk: Pointer,
+      length: number
+    ): number;
   };
 };
 
@@ -59,10 +80,14 @@ export async function createStack() {
 
 export class NetworkStack {
   #instance?: WasmInstance;
+  #loopIntervalId?: number;
 
   #loopbackInterfaces = new Map<LoopbackInterfaceHandle, LoopbackInterface>();
   #tunInterfaces = new Map<TunInterfaceHandle, TunInterface>();
   #tapInterfaces = new Map<TapInterfaceHandle, TapInterface>();
+
+  #tcpListeners = new Map<TcpListenerHandle, TcpListener>();
+  #tcpConnections = new EventMap<TcpConnectionHandle, TcpConnection>();
 
   ready: Promise<void>;
 
@@ -186,11 +211,83 @@ export class NetworkStack {
 
           this.#tapInterfaces.set(handle, tapInterface);
         },
+        accept_tcp_connection: (
+          listenerHandle: TcpListenerHandle,
+          connectionHandle: TcpConnectionHandle
+        ) => {
+          const listener = this.#tcpListeners.get(listenerHandle);
+
+          if (!listener) {
+            console.error('new tcp connection to unknown listener');
+            return;
+          }
+
+          const connection = new TcpConnection();
+
+          tcpConnectionHooks.setOuter(connection, {
+            send: (data) => {
+              using dataPtr = this.#copyToMemory(data);
+              this.#bridge.send_tcp_chunk(
+                connectionHandle,
+                dataPtr,
+                data.length
+              );
+            },
+            close: () => {
+              this.#bridge.close_tcp_connection(connectionHandle);
+            },
+          });
+
+          this.#tcpConnections.set(connectionHandle, connection);
+
+          tcpListenerHooks.getInner(listener).accept(connection);
+        },
+        connected_tcp_connection: (handle: TcpConnectionHandle) => {
+          const connection = new TcpConnection();
+
+          tcpConnectionHooks.setOuter(connection, {
+            send: (data) => {
+              using dataPtr = this.#copyToMemory(data);
+              this.#bridge.send_tcp_chunk(handle, dataPtr, data.length);
+            },
+            close: () => {
+              this.#bridge.close_tcp_connection(handle);
+            },
+          });
+
+          this.#tcpConnections.set(handle, connection);
+        },
+        receive_tcp_chunk: (
+          handle: TcpConnectionHandle,
+          chunkPtr: number,
+          length: number
+        ) => {
+          const chunk = this.#copyFromMemory(chunkPtr, length);
+          const connection = this.#tcpConnections.get(handle);
+
+          if (!connection) {
+            console.error('received chunk on unknown tcp connection');
+            return;
+          }
+
+          tcpConnectionHooks
+            .getInner(connection)
+            .receive(new Uint8Array(chunk));
+        },
       },
     });
 
     this.#instance = instance as WasmInstance;
     wasi.start(this.#instance);
+
+    // Call lwIP's main loop regularly (required in NO_SYS mode)
+    // Used to process queued packets (eg. loopback) and expired timeouts
+    this.#loopIntervalId = Number(
+      setInterval(() => {
+        this.#bridge.process_queued_packets();
+        this.#bridge.process_timeouts();
+      }, 100)
+    );
   }
 
   async createLoopbackInterface(
@@ -263,6 +360,40 @@ export class NetworkStack {
     }
 
     return tapInterface;
+  }
+
+  async listenTcp(options: TcpListenerOptions): Promise<TcpListener> {
+    await this.ready;
+
+    using hostPtr = options.host
+      ? this.#copyToMemory(serializeIPv4Address(options.host))
+      : null;
+
+    const handle = this.#bridge.create_tcp_listener(hostPtr, options.port);
+
+    const tcpListener = new TcpListener();
+
+    tcpListenerHooks.setOuter(tcpListener, {});
+
+    this.#tcpListeners.set(handle, tcpListener);
+
+    return tcpListener;
+  }
+
+  async connectTcp(options: TcpConnectionOptions): Promise<TcpConnection> {
+    await this.ready;
+
+    using hostPtr = this.#copyToMemory(serializeIPv4Address(options.host));
+
+    const handle = this.#bridge.create_tcp_connection(hostPtr, options.port);
+
+    const tcpConnection = await this.#tcpConnections.wait(handle);
+
+    if (!tcpConnection) {
+      throw new Error('tcp failed to connect');
+    }
+
+    return tcpConnection;
   }
 }
 
@@ -413,6 +544,110 @@ export class TapInterface {
       }
     } finally {
       this.#isListening = false;
+      this.#buffer = [];
+    }
+  }
+}
+
+type TcpListenerOuterHooks = {};
+
+type TcpListenerInnerHooks = {
+  accept(connection: TcpConnection): void;
+};
+
+const tcpListenerHooks = new Hooks<
+  TcpListener,
+  TcpListenerOuterHooks,
+  TcpListenerInnerHooks
+>();
+
+export type TcpListenerOptions = {
+  host?: IPv4Address;
+  port: number;
+};
+
+export class TcpListener implements AsyncIterable<TcpConnection> {
+  #connections: TcpConnection[] = [];
+  #notifyConnection?: () => void;
+
+  constructor() {
+    tcpListenerHooks.setInner(this, {
+      accept: async (connection: TcpConnection) => {
+        this.#connections.push(connection);
+        this.#notifyConnection?.();
+      },
+    });
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<TcpConnection> {
+    while (true) {
+      await new Promise<void>((resolve) => {
+        this.#notifyConnection = resolve;
+      });
+
+      yield* this.#connections;
+      this.#connections = [];
+    }
+  }
+}
+
+type TcpConnectionOuterHooks = {
+  send(data: Uint8Array): void;
+  close(): void;
+};
+
+type TcpConnectionInnerHooks = {
+  receive(data: Uint8Array): void;
+  close(): void;
+};
+
+const tcpConnectionHooks = new Hooks<
+  TcpConnection,
+  TcpConnectionOuterHooks,
+  TcpConnectionInnerHooks
+>();
+
+export type TcpConnectionOptions = {
+  host: IPv4Address;
+  port: number;
+};
+
+export class TcpConnection implements AsyncIterable<Uint8Array> {
+  #buffer: Uint8Array[] = [];
+  #notifyData?: () => void;
+
+  constructor() {
+    tcpConnectionHooks.setInner(this, {
+      receive: async (data: Uint8Array) => {
+        this.#buffer.push(data);
+        this.#notifyData?.();
+      },
+      close: () => {
+        this.close();
+      },
+    });
+  }
+
+  async send(data: Uint8Array) {
+    tcpConnectionHooks.getOuter(this).send(data);
+  }
+
+  async close() {
+    tcpConnectionHooks.getOuter(this).close();
+  }
+
+  async *[Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array> {
+    if (this.#buffer.length > 0) {
+      yield* this.#buffer;
+      this.#buffer = [];
+    }
+
+    while (true) {
+      await new Promise<void>((resolve) => {
+        this.#notifyData = resolve;
+      });
+
+      yield* this.#buffer;
       this.#buffer = [];
     }
   }

@@ -69,7 +69,7 @@ describe('NetworkStack', () => {
       // Send an ICMP echo request to 192.168.1.1 from 192.168.1.2
       await tunInterface.send(packet);
 
-      const receivedPacket = await getFirstValue(listener);
+      const receivedPacket = await nextValue(listener);
       const parsedPacket = parseIPv4Packet(receivedPacket);
 
       // Expect our tun interface to reply
@@ -128,7 +128,7 @@ describe('NetworkStack', () => {
         })
       );
 
-      const receivedFrame = await getFirstValue(listener);
+      const receivedFrame = await nextValue(listener);
       const parsedFrame = parseEthernetFrame(receivedFrame);
 
       // Expect our tap interface to reply
@@ -146,11 +146,43 @@ describe('NetworkStack', () => {
       expect(parsedFrame.payload.targetIP).toBe('192.168.1.2');
     });
   });
+
+  describe('tcp', () => {
+    test('can create a TCP server and client', async () => {
+      const stack = await createStack();
+
+      await stack.createLoopbackInterface({
+        cidr: '127.0.0.1/8',
+      });
+
+      const listener = await stack.listenTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      });
+
+      const [outbound, inbound] = await Promise.all([
+        stack.connectTcp({
+          host: '127.0.0.1',
+          port: 8080,
+        }),
+        nextValue(listener),
+      ]);
+
+      const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+      await outbound.send(data);
+      const received = await nextValue(inbound);
+
+      expect(received).toStrictEqual(data);
+    });
+  });
 });
 
-async function getFirstValue<T>(iterable: AsyncIterable<T>) {
-  for await (const value of iterable) {
-    return value;
+async function nextValue<T>(iterable: AsyncIterable<T>) {
+  const iterator = iterable[Symbol.asyncIterator]();
+  const { value, done } = await iterator.next();
+  if (done) {
+    throw new Error('iterator done');
   }
-  throw new Error('no values');
+  return value;
 }

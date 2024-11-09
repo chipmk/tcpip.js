@@ -9,7 +9,7 @@ typedef struct tun_interface {
 } tun_interface;
 
 extern void register_tun_interface(tun_interface *interface);
-extern void receive_packet(tun_interface *interface, const uint8_t *packet, u16_t length);
+extern void receive_packet(tun_interface *interface, const uint8_t *packet, uint16_t length);
 
 err_t tun_interface_output(struct netif *netif, struct pbuf *p, const ip4_addr_t *ipaddr) {
   receive_packet(netif->state, (uint8_t *)p->payload, p->tot_len);
@@ -17,8 +17,6 @@ err_t tun_interface_output(struct netif *netif, struct pbuf *p, const ip4_addr_t
 }
 
 static err_t tun_interface_init(struct netif *netif) {
-  tun_interface *interface = (tun_interface *)netif->state;
-
   // Setup callback for outgoing IP packets
   netif->output = tun_interface_output;
 
@@ -33,8 +31,7 @@ tun_interface *create_tun_interface(const uint8_t *ip4, const uint8_t *netmask) 
     return NULL;
   }
 
-  // Add interface to lwIP
-  ip4_addr_t ipaddr, netmask_addr, gw;
+  ip4_addr_t ipaddr, netmask_addr;
   IP4_ADDR(&ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
   IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
 
@@ -47,7 +44,7 @@ tun_interface *create_tun_interface(const uint8_t *ip4, const uint8_t *netmask) 
 }
 
 EXPORT("send_tun_interface")
-void send_tun_interface(tun_interface *interface, const uint8_t *packet, u16_t length) {
+void send_tun_interface(tun_interface *interface, const uint8_t *packet, uint16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to packet buffer data
   struct pbuf *p = pbuf_alloc(PBUF_RAW, length, PBUF_REF);
   if (p != NULL) {

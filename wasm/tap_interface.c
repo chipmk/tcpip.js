@@ -12,7 +12,7 @@ typedef struct tap_interface {
 } tap_interface;
 
 extern void register_tap_interface(tap_interface *interface);
-extern void receive_frame(tap_interface *interface, const uint8_t *frame, u16_t length);
+extern void receive_frame(tap_interface *interface, const uint8_t *frame, uint16_t length);
 
 err_t tap_interface_output(struct netif *netif, struct pbuf *p) {
   receive_frame(netif->state, (uint8_t *)p->payload, p->tot_len);
@@ -51,8 +51,7 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
 
   memcpy(interface->mac_address, mac_address, 6);
 
-  // Add interface to lwIP
-  ip4_addr_t ipaddr, netmask_addr, gw;
+  ip4_addr_t ipaddr, netmask_addr;
   IP4_ADDR(&ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
   IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
 
@@ -66,7 +65,7 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
 }
 
 EXPORT("send_tap_interface")
-void send_tap_interface(tap_interface *interface, const uint8_t *frame, u16_t length) {
+void send_tap_interface(tap_interface *interface, const uint8_t *frame, uint16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to frame buffer data
   struct pbuf *p = pbuf_alloc(PBUF_RAW, length, PBUF_REF);
   if (p != NULL) {

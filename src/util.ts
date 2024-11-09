@@ -60,3 +60,33 @@ export class UniquePointer extends Number {
     this.free(this.valueOf());
   }
 }
+
+/**
+ * Map that allows waiting for changes to values.
+ */
+export class EventMap<K, V> extends Map<K, V> {
+  #listeners = new Map<K, Set<(value: V) => void>>();
+
+  wait(key: K): Promise<V> {
+    return new Promise((resolve) => {
+      const listeners = this.#listeners.get(key) ?? new Set();
+      listeners.add(resolve);
+      this.#listeners.set(key, listeners);
+    });
+  }
+
+  override set(key: K, value: V) {
+    super.set(key, value);
+
+    const listeners = this.#listeners.get(key);
+
+    if (listeners) {
+      for (const listener of listeners) {
+        listener(value);
+        listeners.delete(listener);
+      }
+    }
+
+    return this;
+  }
+}
