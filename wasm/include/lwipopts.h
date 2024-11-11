@@ -31,7 +31,10 @@
 #define LWIP_ICMP 1  // Enable ICMP (ping)
 
 // TCP options
-#define LWIP_TCP 1  // Enable TCP functionality
+#define LWIP_TCP 1                 // Enable TCP functionality
+#define TCP_MSS 536                // Maximum segment size
+#define TCP_WND (4 * TCP_MSS)      // TCP window size
+#define TCP_SND_BUF (4 * TCP_MSS)  // TCP send buffer size
 
 // Checksum options (packet integrity)
 #define CHECKSUM_GEN_IP 1      // Generate checksums for IP packets

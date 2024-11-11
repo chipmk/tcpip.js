@@ -7,11 +7,32 @@
 
 extern void accept_tcp_connection(struct tcp_pcb *listener, struct tcp_pcb *pcb);
 extern void connected_tcp_connection(struct tcp_pcb *conn);
+extern void closed_tcp_connection(struct tcp_pcb *conn);
 extern void receive_tcp_chunk(struct tcp_pcb *conn, const uint8_t *chunk, uint16_t length);
+extern void sent_tcp_chunk(struct tcp_pcb *conn, uint16_t length);
+
+EXPORT("update_tcp_receive_buffer")
+void update_tcp_receive_buffer(struct tcp_pcb *conn, uint16_t length) {
+  tcp_recved(conn, length);
+}
 
 EXPORT("send_tcp_chunk")
-err_t send_tcp_chunk(struct tcp_pcb *conn, uint8_t *chunk, uint16_t length) {
-  return tcp_write(conn, chunk, length, TCP_WRITE_FLAG_COPY);
+uint16_t send_tcp_chunk(struct tcp_pcb *conn, uint8_t *chunk, uint16_t length) {
+  uint16_t available_space = tcp_sndbuf(conn);
+
+  if (available_space == 0) {
+    return 0;
+  }
+
+  uint16_t bytes_to_send = length < available_space ? length : available_space;
+
+  err_t result = tcp_write(conn, chunk, bytes_to_send, 0);
+
+  if (result != ERR_OK) {
+    return 0;
+  }
+
+  return bytes_to_send;
 }
 
 EXPORT("close_tcp_connection")
@@ -23,16 +44,19 @@ err_t close_tcp_connection(struct tcp_pcb *conn) {
 err_t recv_callback(void *arg, struct tcp_pcb *conn, struct pbuf *p, err_t err) {
   // TODO: review this logic (should we half-close?)
   if (p == NULL) {
-    // Connection closed
-    tcp_close(conn);
+    closed_tcp_connection(conn);
     return ERR_OK;
   }
 
   receive_tcp_chunk(conn, p->payload, p->len);
   pbuf_free(p);
 
-  tcp_recved(conn, p->tot_len);
+  return ERR_OK;
+}
 
+// Callback for when sent data is acknowledged and new buffer space is available
+err_t sent_callback(void *arg, struct tcp_pcb *conn, uint16_t len) {
+  sent_tcp_chunk(conn, len);
   return ERR_OK;
 }
 
@@ -87,6 +111,9 @@ err_t connected_callback(void *arg, struct tcp_pcb *conn, err_t err) {
 
   // Set a receive callback to handle incoming data
   tcp_recv(conn, recv_callback);
+
+  // Set a sent callback to handle outgoing data
+  tcp_sent(conn, sent_callback);
 
   return ERR_OK;
 }

@@ -1,5 +1,5 @@
 node_modules
-lwip
+/lwip
 *.o
 *.a
 *.wasm

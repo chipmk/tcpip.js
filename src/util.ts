@@ -90,3 +90,41 @@ export class EventMap<K, V> extends Map<K, V> {
     return this;
   }
 }
+
+/**
+ * Converts a `ReadableStream` into an `AsyncIterableIterator`.
+ *
+ * Allows you to use ReadableStreams in a `for await ... of` loop.
+ */
+export function fromReadable<R>(
+  readable: ReadableStream<R>,
+  options?: { preventCancel?: boolean }
+): AsyncIterator<R> {
+  const reader = readable.getReader();
+  return fromReader(reader, options);
+}
+
+/**
+ * Converts a `ReadableStreamDefaultReader` into an `AsyncIterableIterator`.
+ *
+ * Allows you to use Readers in a `for await ... of` loop.
+ */
+export async function* fromReader<R>(
+  reader: ReadableStreamDefaultReader<R>,
+  options?: { preventCancel?: boolean }
+): AsyncIterator<R> {
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return value;
+      }
+      yield value;
+    }
+  } finally {
+    if (!options?.preventCancel) {
+      await reader.cancel();
+    }
+    reader.releaseLock();
+  }
+}

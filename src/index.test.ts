@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import {
+  createStack,
   LoopbackInterface,
+  MAX_WINDOW_SIZE,
+  READABLE_HIGH_WATER_MARK,
+  SEND_BUFFER_SIZE,
   TapInterface,
   TunInterface,
-  createStack,
 } from './index.js';
 import {
   createEthernetFrame,
@@ -170,10 +173,96 @@ describe('NetworkStack', () => {
 
       const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
 
-      await outbound.send(data);
-      const received = await nextValue(inbound);
+      const inboundReader = inbound.readable.getReader();
+      const outboundWriter = outbound.writable.getWriter();
 
-      expect(received).toStrictEqual(data);
+      await outboundWriter.write(data);
+      const received = await inboundReader.read();
+
+      expect(received.value).toStrictEqual(data);
+    });
+
+    test('throws when iterating over a locked readable stream', async () => {
+      const stack = await createStack();
+
+      await stack.createLoopbackInterface({
+        cidr: '127.0.0.1/8',
+      });
+
+      const listener = await stack.listenTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      });
+
+      const [_, inbound] = await Promise.all([
+        stack.connectTcp({
+          host: '127.0.0.1',
+          port: 8080,
+        }),
+        nextValue(listener),
+      ]);
+
+      // Lock the readable stream
+      inbound.readable.getReader();
+
+      expect(collect(inbound)).rejects.toThrowError(
+        'readable stream already locked'
+      );
+    });
+
+    test('tcp backpressure', async () => {
+      const stack = await createStack();
+
+      await stack.createLoopbackInterface({
+        cidr: '127.0.0.1/8',
+      });
+
+      const listener = await stack.listenTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      });
+
+      const [outbound, inbound] = await Promise.all([
+        stack.connectTcp({
+          host: '127.0.0.1',
+          port: 8080,
+        }),
+        nextValue(listener),
+      ]);
+
+      const inboundReader = inbound.readable.getReader();
+      const outboundWriter = outbound.writable.getWriter();
+
+      // To simulate backpressure, we need to fill the TCP stack's send buffer,
+      // the peer's TCP receive window, and the peer's readable stream buffer
+      const data = new Uint8Array(
+        SEND_BUFFER_SIZE + MAX_WINDOW_SIZE + READABLE_HIGH_WATER_MARK
+      );
+
+      // Fill all the buffers
+      await outboundWriter.write(data);
+
+      // Now create a single byte of overflow data
+      const overflowData = new Uint8Array(1);
+
+      // Send the overflow data to see if backpressure is being applied
+      let isWritePending = true;
+      outboundWriter.write(overflowData).then(() => {
+        isWritePending = false;
+      });
+
+      // Wait to ensure enough time has passed for the TCP stack
+      // to process the data
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(isWritePending).toBe(true);
+
+      // Drain the readable stream buffer, signaling a window update
+      await inboundReader.read();
+
+      // Wait to ensure enough time has passed for the TCP stack
+      // to process the window update and send the overflow data
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(isWritePending).toBe(false);
     });
   });
 });
@@ -185,4 +274,12 @@ async function nextValue<T>(iterable: AsyncIterable<T>) {
     throw new Error('iterator done');
   }
   return value;
+}
+
+async function collect<T>(iterable: AsyncIterable<T>) {
+  const values = [];
+  for await (const value of iterable) {
+    values.push(value);
+  }
+  return values;
 }
