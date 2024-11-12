@@ -51,7 +51,10 @@ clean:
 	rm $(OBJ_FILES)
 
 clean-vendor:
+	rm $(LWIP_OBJ_FILES)
+
+clean-all: clean clean-vendor
 	rm -rf $(LWIP_DIR)
 
-.PHONY: build clean clean-vendor
+.PHONY: build clean clean-vendor clean-all
 .SUFFIXES:
