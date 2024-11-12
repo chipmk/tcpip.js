@@ -30,7 +30,7 @@ LWIP_OBJ_FILES := $(LWIP_SRC_FILES:.c=.o)
 
 .DEFAULT_GOAL := build
 
-%.o: %.c | $(LWIP_STAMP)
+%.o: %.c $(INCLUDE)/lwipopts.h | $(LWIP_STAMP)
 	$(CC) --target=$(TARGET) -I$(LWIP_INCLUDE) -I$(INCLUDE) $(CFLAGS) -c $< -o $@
 
 $(OUTPUT): $(OBJ_FILES) $(LWIP_LIB)
