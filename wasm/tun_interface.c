@@ -38,6 +38,7 @@ tun_interface *create_tun_interface(const uint8_t *ip4, const uint8_t *netmask) 
   register_tun_interface(interface);
 
   netif_add(&interface->netif, &ipaddr, &netmask_addr, NULL, interface, tun_interface_init, netif_input);
+  netif_set_link_up(&interface->netif);
   netif_set_up(&interface->netif);
 
   return interface;

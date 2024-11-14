@@ -67,6 +67,9 @@ export class UniquePointer extends Number {
 export class EventMap<K, V> extends Map<K, V> {
   #listeners = new Map<K, Set<(value: V) => void>>();
 
+  /**
+   * Waits for the next `set()` call on the given key.
+   */
   wait(key: K): Promise<V> {
     return new Promise((resolve) => {
       const listeners = this.#listeners.get(key) ?? new Set();
@@ -99,7 +102,7 @@ export class EventMap<K, V> extends Map<K, V> {
 export function fromReadable<R>(
   readable: ReadableStream<R>,
   options?: { preventCancel?: boolean }
-): AsyncIterator<R> {
+): AsyncIterableIterator<R> {
   const reader = readable.getReader();
   return fromReader(reader, options);
 }
@@ -112,7 +115,7 @@ export function fromReadable<R>(
 export async function* fromReader<R>(
   reader: ReadableStreamDefaultReader<R>,
   options?: { preventCancel?: boolean }
-): AsyncIterator<R> {
+): AsyncIterableIterator<R> {
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -127,4 +130,79 @@ export async function* fromReader<R>(
     }
     reader.releaseLock();
   }
+}
+
+export type UnderlyingSourceLockCallback = () => void;
+
+/**
+ * `ReadableStream` with an optional lock callback.
+ */
+export class ExtendedReadableStream<R> extends ReadableStream<R> {
+  #notifyLock?: () => void;
+
+  constructor(
+    {
+      lock,
+      ...underlyingSource
+    }: UnderlyingSource & { lock?: UnderlyingSourceLockCallback },
+    strategy?: QueuingStrategy<R>
+  ) {
+    super(underlyingSource, strategy);
+    this.#notifyLock = lock;
+  }
+
+  override getReader() {
+    const reader = super.getReader() as any;
+    if (this.locked) {
+      this.#notifyLock?.();
+    }
+    return reader;
+  }
+
+  override pipeThrough<T>(
+    transform: ReadableWritablePair<T, R>,
+    options?: StreamPipeOptions
+  ): ReadableStream<T> {
+    const stream = super.pipeThrough(transform, options);
+    if (this.locked) {
+      this.#notifyLock?.();
+    }
+    return stream;
+  }
+
+  override pipeTo(
+    dest: WritableStream<R>,
+    options?: StreamPipeOptions
+  ): Promise<void> {
+    const promise = super.pipeTo(dest, options);
+    if (this.locked) {
+      this.#notifyLock?.();
+    }
+    return promise;
+  }
+
+  override tee(): [ReadableStream<R>, ReadableStream<R>] {
+    const [a, b] = super.tee();
+    if (this.locked) {
+      this.#notifyLock?.();
+    }
+    return [a, b];
+  }
+}
+
+/**
+ * Queues a microtask and returns a promise that resolves when
+ * the microtask is executed.
+ *
+ * Microtasks are executed after the current task has completed,
+ * but before the next task begins (tasks are the main unit of
+ * work in the event loop).
+ *
+ * Useful when you want synchronous code from the current task to
+ * complete before executing asynchronous code.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide
+ */
+export async function microtask() {
+  return await new Promise<void>((resolve) => queueMicrotask(resolve));
 }

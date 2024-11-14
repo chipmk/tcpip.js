@@ -45,8 +45,8 @@ describe('NetworkStack', () => {
         cidr: '192.168.1.1/24',
       });
 
-      // Start listening before sending
       const listener = tunInterface.listen();
+      const writer = tunInterface.writable.getWriter();
 
       const payload = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
 
@@ -70,10 +70,17 @@ describe('NetworkStack', () => {
       });
 
       // Send an ICMP echo request to 192.168.1.1 from 192.168.1.2
-      await tunInterface.send(packet);
+      await writer.write(packet);
 
-      const receivedPacket = await nextValue(listener);
-      const parsedPacket = parseIPv4Packet(receivedPacket);
+      const replyPacket = await waitFor(listener, (packet) => {
+        const parsedPacket = parseIPv4Packet(packet);
+        return (
+          parsedPacket.protocol === 'icmp' &&
+          parsedPacket.payload.type === 'echo-reply'
+        );
+      });
+
+      const parsedPacket = parseIPv4Packet(replyPacket);
 
       // Expect our tun interface to reply
       expect(parsedPacket.sourceIP).toBe('192.168.1.1');
@@ -112,9 +119,10 @@ describe('NetworkStack', () => {
 
       // Start listening before sending
       const listener = tapInterface.listen();
+      const writer = tapInterface.writable.getWriter();
 
       // ARP broadcast from 192.168.1.2 asking who has 192.168.1.1
-      await tapInterface.send(
+      await writer.write(
         createEthernetFrame({
           destinationMac: 'ff:ff:ff:ff:ff:ff',
           sourceMac: '00:1a:2b:3c:4d:5f',
@@ -131,8 +139,14 @@ describe('NetworkStack', () => {
         })
       );
 
-      const receivedFrame = await nextValue(listener);
-      const parsedFrame = parseEthernetFrame(receivedFrame);
+      const replyFrame = await waitFor(listener, (frame) => {
+        const parsedFrame = parseEthernetFrame(frame);
+        return (
+          parsedFrame.type === 'arp' && parsedFrame.payload.opcode === 'reply'
+        );
+      });
+
+      const parsedFrame = parseEthernetFrame(replyFrame);
 
       // Expect our tap interface to reply
       expect(parsedFrame.sourceMac).toBe('00:1a:2b:3c:4d:5e');
@@ -264,6 +278,86 @@ describe('NetworkStack', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       expect(isWritePending).toBe(false);
     });
+
+    test('communication between stacks via tun', async () => {
+      const stack1 = await createStack();
+      const stack2 = await createStack();
+
+      const tun1 = await stack1.createTunInterface({
+        cidr: '192.168.1.1/24',
+      });
+
+      const tun2 = await stack2.createTunInterface({
+        cidr: '192.168.1.2/24',
+      });
+
+      // Connect the two interfaces
+      tun1.readable.pipeTo(tun2.writable);
+      tun2.readable.pipeTo(tun1.writable);
+
+      const listener = await stack2.listenTcp({
+        port: 8080,
+      });
+
+      const [outbound, inbound] = await Promise.all([
+        stack1.connectTcp({
+          host: '192.168.1.2',
+          port: 8080,
+        }),
+        nextValue(listener),
+      ]);
+
+      const inboundReader = inbound.readable.getReader();
+      const outboundWriter = outbound.writable.getWriter();
+
+      const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+      await outboundWriter.write(data);
+      const received = await inboundReader.read();
+
+      expect(received.value).toStrictEqual(data);
+    });
+
+    test('communication between stacks via tap', async () => {
+      const stack1 = await createStack();
+      const stack2 = await createStack();
+
+      const tap1 = await stack1.createTapInterface({
+        macAddress: '00:1a:2b:3c:4d:5e',
+        cidr: '192.168.1.1/24',
+      });
+
+      const tap2 = await stack2.createTapInterface({
+        macAddress: '00:1a:2b:3c:4d:5f',
+        cidr: '192.168.1.2/24',
+      });
+
+      // Connect the two interfaces
+      tap1.readable.pipeTo(tap2.writable);
+      tap2.readable.pipeTo(tap1.writable);
+
+      const listener = await stack2.listenTcp({
+        port: 8080,
+      });
+
+      const [outbound, inbound] = await Promise.all([
+        stack1.connectTcp({
+          host: '192.168.1.2',
+          port: 8080,
+        }),
+        nextValue(listener),
+      ]);
+
+      const inboundReader = inbound.readable.getReader();
+      const outboundWriter = outbound.writable.getWriter();
+
+      const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+      await outboundWriter.write(data);
+      const received = await inboundReader.read();
+
+      expect(received.value).toStrictEqual(data);
+    });
   });
 });
 
@@ -282,4 +376,19 @@ async function collect<T>(iterable: AsyncIterable<T>) {
     values.push(value);
   }
   return values;
+}
+
+async function waitFor<T>(
+  iterator: AsyncIterator<T>,
+  predicate: (value: T) => boolean
+) {
+  while (true) {
+    const { value, done } = await iterator.next();
+    if (done) {
+      throw new Error('iterator done');
+    }
+    if (predicate(value)) {
+      return value;
+    }
+  }
 }

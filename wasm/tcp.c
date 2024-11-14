@@ -26,8 +26,7 @@ uint16_t send_tcp_chunk(struct tcp_pcb *conn, uint8_t *chunk, uint16_t length) {
 
   uint16_t bytes_to_send = length < available_space ? length : available_space;
 
-  err_t result = tcp_write(conn, chunk, bytes_to_send, 0);
-
+  err_t result = tcp_write(conn, chunk, bytes_to_send, TCP_WRITE_FLAG_COPY);
   if (result != ERR_OK) {
     return 0;
   }
@@ -129,8 +128,8 @@ struct tcp_pcb *create_tcp_connection(uint8_t *host, int port) {
   ip4_addr_t ipaddr;
   IP4_ADDR(&ipaddr, host[0], host[1], host[2], host[3]);
 
-  err_t err;
-  err = tcp_connect(conn, &ipaddr, port, connected_callback);
+  err_t err = tcp_connect(conn, &ipaddr, port, connected_callback);
+
   if (err != ERR_OK) {
     tcp_close(conn);
     return NULL;

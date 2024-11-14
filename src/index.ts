@@ -8,7 +8,14 @@ import {
   type IPv4Address,
   type IPv4Cidr,
 } from './protocols/ipv4.js';
-import { EventMap, fromReadable, Hooks, UniquePointer } from './util.js';
+import {
+  EventMap,
+  ExtendedReadableStream,
+  fromReadable,
+  Hooks,
+  microtask,
+  UniquePointer,
+} from './util.js';
 
 type Pointer = UniquePointer;
 
@@ -167,12 +174,17 @@ export class NetworkStack {
     const instance = await WebAssembly.instantiate(wasmModule, {
       wasi_snapshot_preview1: wasi.wasiImport,
       env: {
-        receive_frame: (
+        receive_frame: async (
           handle: TapInterfaceHandle,
           framePtr: number,
           length: number
         ) => {
           const frame = this.#copyFromMemory(framePtr, length);
+
+          // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
+          // This also gives the consumer a chance to start listening before we enqueue the first frame
+          await microtask();
+
           const tapInterface = this.#tapInterfaces.get(handle);
 
           if (!tapInterface) {
@@ -184,12 +196,17 @@ export class NetworkStack {
             .getInner(tapInterface)
             .receiveFrame(new Uint8Array(frame));
         },
-        receive_packet: (
+        receive_packet: async (
           handle: TunInterfaceHandle,
           packetPtr: number,
           length: number
         ) => {
           const packet = this.#copyFromMemory(packetPtr, length);
+
+          // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
+          // This also gives the consumer a chance to start listening before we enqueue the first packet
+          await microtask();
+
           const tunInterface = this.#tunInterfaces.get(handle);
 
           if (!tunInterface) {
@@ -229,7 +246,7 @@ export class NetworkStack {
 
           this.#tapInterfaces.set(handle, tapInterface);
         },
-        accept_tcp_connection: (
+        accept_tcp_connection: async (
           listenerHandle: TcpListenerHandle,
           connectionHandle: TcpConnectionHandle
         ) => {
@@ -239,6 +256,9 @@ export class NetworkStack {
             console.error('new tcp connection to unknown listener');
             return;
           }
+
+          // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
+          await microtask();
 
           const connection = new TcpConnection();
 
@@ -284,7 +304,10 @@ export class NetworkStack {
 
           tcpListenerHooks.getInner(listener).accept(connection);
         },
-        connected_tcp_connection: (handle: TcpConnectionHandle) => {
+        connected_tcp_connection: async (handle: TcpConnectionHandle) => {
+          // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
+          await microtask();
+
           const connection = new TcpConnection();
 
           tcpConnectionHooks.setOuter(connection, {
@@ -332,7 +355,7 @@ export class NetworkStack {
 
           await tcpConnectionHooks.getInner(connection).close();
         },
-        receive_tcp_chunk: (
+        receive_tcp_chunk: async (
           handle: TcpConnectionHandle,
           chunkPtr: number,
           length: number
@@ -344,6 +367,9 @@ export class NetworkStack {
             console.error('received chunk on unknown tcp connection');
             return;
           }
+
+          // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
+          await microtask();
 
           tcpConnectionHooks
             .getInner(connection)
@@ -501,57 +527,56 @@ export type TunInterfaceOptions = {
 };
 
 export class TunInterface {
-  #buffer: Uint8Array[] = [];
-  #notifyPacket?: () => void;
+  #readableController?: ReadableStreamController<Uint8Array>;
   #isListening = false;
+
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
 
   constructor() {
     tunInterfaceHooks.setInner(this, {
       receivePacket: async (packet: Uint8Array) => {
-        // Do not buffer packets if not listening
-        // since memory will grow indefinitely
+        // Do not buffer packets until the consumer signals intent
+        // to listen - otherwise memory will grow indefinitely
         if (!this.#isListening) {
           return;
         }
 
-        this.#buffer.push(packet);
-        this.#notifyPacket?.();
+        if (!this.#readableController) {
+          throw new Error('readable stream not initialized');
+        }
+
+        this.#readableController?.enqueue(packet);
+      },
+    });
+
+    this.readable = new ExtendedReadableStream<Uint8Array>({
+      start: (controller) => {
+        this.#readableController = controller;
+      },
+      lock: () => {
+        // We interpret anything that locks the stream (getReader, pipeThrough, pipeTo, tee)
+        // as intent to start listening
+        this.#isListening = true;
+      },
+    });
+
+    this.writable = new WritableStream({
+      write: (packet) => {
+        tunInterfaceHooks.getOuter(this).sendPacket(packet);
       },
     });
   }
 
-  async send(packet: Uint8Array) {
-    tunInterfaceHooks.getOuter(this).sendPacket(packet);
-  }
-
   listen() {
-    if (this.#isListening) {
-      throw new Error('already listening');
+    if (this.readable.locked) {
+      throw new Error('readable stream already locked');
     }
-
-    this.#isListening = true;
-    return this.#listen();
+    return fromReadable(this.readable);
   }
 
-  async *#listen(): AsyncIterableIterator<Uint8Array> {
-    try {
-      if (this.#buffer.length > 0) {
-        yield* this.#buffer;
-        this.#buffer = [];
-      }
-
-      while (true) {
-        await new Promise<void>((resolve) => {
-          this.#notifyPacket = resolve;
-        });
-
-        yield* this.#buffer;
-        this.#buffer = [];
-      }
-    } finally {
-      this.#isListening = false;
-      this.#buffer = [];
-    }
+  [Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array> {
+    return this.listen();
   }
 }
 
@@ -575,57 +600,56 @@ export type TapInterfaceOptions = {
 };
 
 export class TapInterface {
-  #buffer: Uint8Array[] = [];
-  #notifyFrame?: () => void;
+  #readableController?: ReadableStreamController<Uint8Array>;
   #isListening = false;
+
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
 
   constructor() {
     tapInterfaceHooks.setInner(this, {
       receiveFrame: async (frame: Uint8Array) => {
-        // Do not buffer frames if not listening
-        // since memory will grow indefinitely
+        // Do not buffer frames until the consumer signals intent
+        // to listen - otherwise memory will grow indefinitely
         if (!this.#isListening) {
           return;
         }
 
-        this.#buffer.push(frame);
-        this.#notifyFrame?.();
+        if (!this.#readableController) {
+          throw new Error('readable stream not initialized');
+        }
+
+        this.#readableController?.enqueue(frame);
+      },
+    });
+
+    this.readable = new ExtendedReadableStream<Uint8Array>({
+      start: (controller) => {
+        this.#readableController = controller;
+      },
+      lock: () => {
+        // We interpret anything that locks the stream (getReader, pipeThrough, pipeTo, tee)
+        // as intent to start listening
+        this.#isListening = true;
+      },
+    });
+
+    this.writable = new WritableStream({
+      write: (packet) => {
+        tapInterfaceHooks.getOuter(this).sendFrame(packet);
       },
     });
   }
 
-  async send(frame: Uint8Array) {
-    tapInterfaceHooks.getOuter(this).sendFrame(frame);
-  }
-
   listen() {
-    if (this.#isListening) {
-      throw new Error('already listening');
+    if (this.readable.locked) {
+      throw new Error('readable stream already locked');
     }
-
-    this.#isListening = true;
-    return this.#listen();
+    return fromReadable(this.readable);
   }
 
-  async *#listen(): AsyncIterableIterator<Uint8Array> {
-    try {
-      if (this.#buffer.length > 0) {
-        yield* this.#buffer;
-        this.#buffer = [];
-      }
-
-      while (true) {
-        await new Promise<void>((resolve) => {
-          this.#notifyFrame = resolve;
-        });
-
-        yield* this.#buffer;
-        this.#buffer = [];
-      }
-    } finally {
-      this.#isListening = false;
-      this.#buffer = [];
-    }
+  [Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array> {
+    return this.listen();
   }
 }
 
@@ -688,7 +712,7 @@ const tcpConnectionHooks = new Hooks<
   TcpConnectionInnerHooks
 >();
 
-export const MAX_SEGMENT_SIZE = 536; // This must match TCP_MSS in lwipopts.h
+export const MAX_SEGMENT_SIZE = 1460; // This must match TCP_MSS in lwipopts.h
 export const MAX_WINDOW_SIZE = MAX_SEGMENT_SIZE * 4; // This must match TCP_WND in lwipopts.h
 export const SEND_BUFFER_SIZE = MAX_SEGMENT_SIZE * 4; // This must match TCP_SND_BUF in lwipopts.h
 export const READABLE_HIGH_WATER_MARK = MAX_SEGMENT_SIZE;

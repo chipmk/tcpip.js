@@ -49,6 +49,9 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
     return NULL;
   }
 
+  // TODO: make MTU configurable
+  interface->mtu = 1500;
+
   memcpy(interface->mac_address, mac_address, 6);
 
   ip4_addr_t ipaddr, netmask_addr;
