@@ -32,7 +32,7 @@ describe('NetworkStack', () => {
       const stack = await createStack();
 
       const tunInterface = await stack.createTunInterface({
-        cidr: '192.168.1.1/24',
+        ip: '192.168.1.1/24',
       });
 
       expect(tunInterface).toBeInstanceOf(TunInterface);
@@ -42,7 +42,7 @@ describe('NetworkStack', () => {
       const stack = await createStack();
 
       const tunInterface = await stack.createTunInterface({
-        cidr: '192.168.1.1/24',
+        ip: '192.168.1.1/24',
       });
 
       const listener = tunInterface.listen();
@@ -102,8 +102,8 @@ describe('NetworkStack', () => {
       const stack = await createStack();
 
       const tapInterface = await stack.createTapInterface({
-        macAddress: '00:1a:2b:3c:4d:5e',
-        cidr: '192.168.1.1/24',
+        mac: '00:1a:2b:3c:4d:5e',
+        ip: '192.168.1.1/24',
       });
 
       expect(tapInterface).toBeInstanceOf(TapInterface);
@@ -113,8 +113,8 @@ describe('NetworkStack', () => {
       const stack = await createStack();
 
       const tapInterface = await stack.createTapInterface({
-        macAddress: '00:1a:2b:3c:4d:5e',
-        cidr: '192.168.1.1/24',
+        mac: '00:1a:2b:3c:4d:5e',
+        ip: '192.168.1.1/24',
       });
 
       // Start listening before sending
@@ -284,11 +284,11 @@ describe('NetworkStack', () => {
       const stack2 = await createStack();
 
       const tun1 = await stack1.createTunInterface({
-        cidr: '192.168.1.1/24',
+        ip: '192.168.1.1/24',
       });
 
       const tun2 = await stack2.createTunInterface({
-        cidr: '192.168.1.2/24',
+        ip: '192.168.1.2/24',
       });
 
       // Connect the two interfaces
@@ -323,13 +323,13 @@ describe('NetworkStack', () => {
       const stack2 = await createStack();
 
       const tap1 = await stack1.createTapInterface({
-        macAddress: '00:1a:2b:3c:4d:5e',
-        cidr: '192.168.1.1/24',
+        mac: '00:1a:2b:3c:4d:5e',
+        ip: '192.168.1.1/24',
       });
 
       const tap2 = await stack2.createTapInterface({
-        macAddress: '00:1a:2b:3c:4d:5f',
-        cidr: '192.168.1.2/24',
+        mac: '00:1a:2b:3c:4d:5f',
+        ip: '192.168.1.2/24',
       });
 
       // Connect the two interfaces

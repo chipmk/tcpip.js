@@ -203,6 +203,6 @@ export class ExtendedReadableStream<R> extends ReadableStream<R> {
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/HTML_DOM_API/Microtask_guide
  */
-export async function microtask() {
+export async function nextMicrotask() {
   return await new Promise<void>((resolve) => queueMicrotask(resolve));
 }

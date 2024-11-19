@@ -13,7 +13,7 @@ import {
   ExtendedReadableStream,
   fromReadable,
   Hooks,
-  microtask,
+  nextMicrotask,
   UniquePointer,
 } from './util.js';
 
@@ -183,7 +183,7 @@ export class NetworkStack {
 
           // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
           // This also gives the consumer a chance to start listening before we enqueue the first frame
-          await microtask();
+          await nextMicrotask();
 
           const tapInterface = this.#tapInterfaces.get(handle);
 
@@ -205,7 +205,7 @@ export class NetworkStack {
 
           // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
           // This also gives the consumer a chance to start listening before we enqueue the first packet
-          await microtask();
+          await nextMicrotask();
 
           const tunInterface = this.#tunInterfaces.get(handle);
 
@@ -258,7 +258,7 @@ export class NetworkStack {
           }
 
           // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
-          await microtask();
+          await nextMicrotask();
 
           const connection = new TcpConnection();
 
@@ -306,7 +306,7 @@ export class NetworkStack {
         },
         connected_tcp_connection: async (handle: TcpConnectionHandle) => {
           // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
-          await microtask();
+          await nextMicrotask();
 
           const connection = new TcpConnection();
 
@@ -369,7 +369,7 @@ export class NetworkStack {
           }
 
           // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
-          await microtask();
+          await nextMicrotask();
 
           tcpConnectionHooks
             .getInner(connection)
@@ -425,7 +425,7 @@ export class NetworkStack {
   ): Promise<TunInterface> {
     await this.ready;
 
-    const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
+    const { ipAddress, netmask } = serializeIPv4Cidr(options.ip);
 
     using ipAddressPtr = this.#copyToMemory(ipAddress);
     using netmaskPtr = this.#copyToMemory(netmask);
@@ -446,8 +446,8 @@ export class NetworkStack {
   ): Promise<TapInterface> {
     await this.ready;
 
-    const macAddress = serializeMacAddress(options.macAddress);
-    const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
+    const macAddress = serializeMacAddress(options.mac);
+    const { ipAddress, netmask } = serializeIPv4Cidr(options.ip);
 
     using macAddressPtr = this.#copyToMemory(macAddress);
     using ipAddressPtr = this.#copyToMemory(ipAddress);
@@ -523,7 +523,7 @@ const tunInterfaceHooks = new Hooks<
 >();
 
 export type TunInterfaceOptions = {
-  cidr: IPv4Cidr;
+  ip: IPv4Cidr;
 };
 
 export class TunInterface {
@@ -595,8 +595,8 @@ const tapInterfaceHooks = new Hooks<
 >();
 
 export type TapInterfaceOptions = {
-  macAddress: MacAddress;
-  cidr: IPv4Cidr;
+  mac: MacAddress;
+  ip: IPv4Cidr;
 };
 
 export class TapInterface {
