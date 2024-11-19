@@ -6,7 +6,7 @@
 
 - **Portable:** User-space network stack implemented on top of [`lwIP` + WASM](#why-lwip)
 - **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun) and [`TapInterface`](#tap)
-- **TCP API:** Create TCP clients and servers that forward packets through the virtual stack
+- **TCP API:** Establish TCP connections over the virtual network stack using clients and servers
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
 - **Fast:** Over 500Mbps between stacks
@@ -18,6 +18,8 @@ Originally built to communicate with in-browser VMs. Projects like [v86](https:/
 ### Why is communication hard?
 
 With desktop VMs like VMWare, you simply talk to the guest over a network bridge: ethernet frames are forwarded from the VM's virtual NIC to your host's network stack and vice versa. In the browser though, there is no "host network stack" to send frames to - you're stuck with just the ethernet frames. We need a way to communicate at the ethernet (L2) level.
+
+## How does tcpip.js work?
 
 tcpip.js implements the entire network stack in user space and provides APIs to send and receive messages at each layer of the stack (L2, L3, L4).
 
@@ -66,6 +68,8 @@ const vmNic = {
 tapInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tapInterface.writable);
 ```
+
+This is the virtual equivalent to connecting a patch cable between two physical NICs.
 
 Now that the plumbing is in place, we can start sending TCP packets between our `NetworkStack` and the VM. Let's assume the VM has an IP address of `192.168.1.2` and is running a TCP server that is listening on port `80`.
 
