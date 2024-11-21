@@ -1,3 +1,12 @@
+/**
+ * Utility class to facilitate internal communication
+ * between bindings and JS instances.
+ * Hooks are created for both the outer (bindings) and
+ * inner (JS instance) sides of the communication.
+ *
+ * Uses `WeakMap` to map each JS instance to a set of
+ * hooks while avoiding memory leaks.
+ */
 export class Hooks<K extends WeakKey, O, I> {
   #outerHooks = new WeakMap<K, O>();
   #innerHooks = new WeakMap<K, I>();
@@ -36,7 +45,7 @@ export class UniquePointer extends Number {
 
   /**
    * A unique pointer that will automatically free virtual memory when
-   * it is garbage collected. Named after the C++ concept of a unique pointer.
+   * it is disposed. Named after the C++ concept of a unique pointer.
    *
    * Should be used with the `using` keyword to ensure that the pointer is
    * freed (via dispose function) when it is no longer in scope.

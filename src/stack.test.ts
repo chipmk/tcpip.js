@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createStack,
-  LoopbackInterface,
   MAX_WINDOW_SIZE,
   READABLE_HIGH_WATER_MARK,
   SEND_BUFFER_SIZE,
+} from './bindings/tcp.js';
+import {
+  createStack,
+  LoopbackInterface,
   TapInterface,
   TunInterface,
 } from './index.js';
