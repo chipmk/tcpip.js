@@ -22,14 +22,20 @@ import {
 import { fetchFile } from './fetch-file.js';
 import type { WasmInstance } from './types.js';
 
-export async function createStack() {
-  const stack = new NetworkStack();
+export async function createStack(options?: NetworkStackOptions) {
+  const stack = new NetworkStack(options);
   await stack.ready;
   return stack;
 }
 
+export type NetworkStackOptions = {
+  initializeLoopback?: boolean;
+};
+
 export class NetworkStack {
+  #options: NetworkStackOptions;
   #loopIntervalId?: number;
+
   #loopbackBindings = new LoopbackBindings();
   #tunBindings = new TunBindings();
   #tapBindings = new TapBindings();
@@ -37,8 +43,21 @@ export class NetworkStack {
 
   ready: Promise<void>;
 
-  constructor() {
+  constructor(options: NetworkStackOptions = {}) {
+    this.#options = {
+      ...options,
+      initializeLoopback: options.initializeLoopback ?? true,
+    };
     this.ready = this.#init();
+
+    // Post-init setup
+    this.ready.then(async () => {
+      if (this.#options.initializeLoopback) {
+        await this.createLoopbackInterface({
+          ip: '127.0.0.1/8',
+        });
+      }
+    });
   }
 
   async #init() {
@@ -79,7 +98,11 @@ export class NetworkStack {
     this.#tapBindings.register(wasmInstance.exports);
     this.#tcpBindings.register(wasmInstance.exports);
 
-    wasi.start(wasmInstance);
+    const result = wasi.start(wasmInstance);
+
+    if (result !== 0) {
+      throw new Error(`wasi start failed with code ${result}`);
+    }
 
     // Call lwIP's main loop regularly (required in NO_SYS mode)
     // Used to process queued packets (eg. loopback) and expired timeouts

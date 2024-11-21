@@ -139,7 +139,7 @@ These interfaces are designed to resemble their counterparts in a traditional ho
 
 ### Loopback interface
 
-A loopback interface simply forwards packets back to itself. It's akin to 127.0.0.1 (`localhost`) on a traditional network stack.
+A loopback interface simply forwards packets back on to itself. It's akin to 127.0.0.1 (`localhost`) on a traditional network stack.
 
 ```ts
 const loopbackInterface = await stack.createLoopbackInterface({
@@ -147,7 +147,15 @@ const loopbackInterface = await stack.createLoopbackInterface({
 });
 ```
 
-Use this if you wish to both listen for and establish TCP connections on the same virtual stack without needing to forward packets to a real network interface.
+Note that `NetworkStack` will automatically create a single loopback interface with the above configuration by default. If you prefer to manage all loopback interfaces manually, you can disable the default loopback interface:
+
+```ts
+const stack = await createStack({
+  initializeLoopback: false,
+});
+```
+
+Loopback interfaces are useful when you want to both listen for and establish TCP connections on the same virtual stack without needing to forward packets to a real network interface.
 
 ```ts
 const listener = await stack.listenTcp({
@@ -159,6 +167,8 @@ const connection = await stack.connectTcp({
   port: 80,
 });
 ```
+
+You can create as many loopback interfaces as you wish.
 
 ### Tun interface
 
@@ -219,6 +229,8 @@ const connection = await stack.connectTcp({
 
 ...
 ```
+
+You can create as many tun interfaces as you wish.
 
 ### Tap interface
 
@@ -284,6 +296,8 @@ const connection = await stack.connectTcp({
 
 ...
 ```
+
+You can create as many tap interfaces as you wish.
 
 ### Other interfaces
 

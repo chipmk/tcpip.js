@@ -19,10 +19,10 @@ import { createIPv4Packet, parseIPv4Packet } from './protocols/ipv4.js';
 describe('NetworkStack', () => {
   describe('createLoopbackInterface', () => {
     test('should create a LoopbackInterface with the given options', async () => {
-      const stack = await createStack();
+      const stack = await createStack({ initializeLoopback: false });
 
       const loopbackInterface = await stack.createLoopbackInterface({
-        cidr: '127.0.0.1/8',
+        ip: '127.0.0.1/8',
       });
 
       expect(loopbackInterface).toBeInstanceOf(LoopbackInterface);
@@ -170,10 +170,6 @@ describe('NetworkStack', () => {
     test('can create a TCP server and client', async () => {
       const stack = await createStack();
 
-      await stack.createLoopbackInterface({
-        cidr: '127.0.0.1/8',
-      });
-
       const listener = await stack.listenTcp({
         host: '127.0.0.1',
         port: 8080,
@@ -201,10 +197,6 @@ describe('NetworkStack', () => {
     test('throws when iterating over a locked readable stream', async () => {
       const stack = await createStack();
 
-      await stack.createLoopbackInterface({
-        cidr: '127.0.0.1/8',
-      });
-
       const listener = await stack.listenTcp({
         host: '127.0.0.1',
         port: 8080,
@@ -228,10 +220,6 @@ describe('NetworkStack', () => {
 
     test('tcp backpressure', async () => {
       const stack = await createStack();
-
-      await stack.createLoopbackInterface({
-        cidr: '127.0.0.1/8',
-      });
 
       const listener = await stack.listenTcp({
         host: '127.0.0.1',

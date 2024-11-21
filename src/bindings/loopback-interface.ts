@@ -29,7 +29,7 @@ export class LoopbackBindings extends Bindings<
   };
 
   async create(options: LoopbackInterfaceOptions) {
-    const { ipAddress, netmask } = serializeIPv4Cidr(options.cidr);
+    const { ipAddress, netmask } = serializeIPv4Cidr(options.ip);
 
     using ipAddressPtr = this.copyToMemory(ipAddress);
     using netmaskPtr = this.copyToMemory(netmask);
@@ -50,6 +50,6 @@ export class LoopbackBindings extends Bindings<
 }
 
 export type LoopbackInterfaceOptions = {
-  cidr: IPv4Cidr;
+  ip: IPv4Cidr;
 };
 export class LoopbackInterface {}
