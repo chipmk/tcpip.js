@@ -29,7 +29,7 @@ tcpip.js is implemented on top of `lwIP` compiled to WASM.
 
 ### Why `lwIP`?
 
-Lightweight IP (`lwIP`) is a widely adopted network stack written in C. It's primarily used in embedded environments, like in [ESP8266](https://en.wikipedia.org/wiki/ESP8266) and [ESP32](https://en.wikipedia.org/wiki/ESP32) chips, but is also used in unikernals like [Unikraft](https://unikraft.org/docs/concepts). If you have a smart WiFi device in your home, there's a good chance it's running `lwIP`!
+[Lightweight IP](https://github.com/lwip-tcpip/lwip) (`lwIP`) is a widely adopted network stack written in C. It's primarily used in embedded environments, like in [ESP8266](https://en.wikipedia.org/wiki/ESP8266) and [ESP32](https://en.wikipedia.org/wiki/ESP32) chips, but is also used in unikernels like [Unikraft](https://unikraft.org/docs/concepts). If you have a smart WiFi device in your home, there's a good chance it's running `lwIP`!
 
 Because `lwIP` is both widely adopted and designed for embedded systems, it means that it's battle tested and also lightweight. These are perfect qualities for a WASM lib.
 
