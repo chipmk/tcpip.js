@@ -1,5 +1,4 @@
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
-import { readFile } from 'node:fs/promises';
 import {
   LoopbackBindings,
   LoopbackInterface,
@@ -20,6 +19,7 @@ import {
   TunInterface,
   type TunInterfaceOptions,
 } from './bindings/tun-interface.js';
+import { fetchFile } from './fetch-file.js';
 import type { WasmInstance } from './types.js';
 
 export async function createStack() {
@@ -56,11 +56,13 @@ export class NetworkStack {
       ]
     );
 
-    const wasmBytes = await readFile(new URL('../tcpip.wasm', import.meta.url));
-    const wasmModule = await WebAssembly.compile(wasmBytes);
+    const source = fetchFile(
+      new URL('../tcpip.wasm', import.meta.url),
+      'application/wasm'
+    );
 
     // Instantiate with both WASI and custom imports
-    const instance = await WebAssembly.instantiate(wasmModule, {
+    const { instance } = await WebAssembly.instantiateStreaming(source, {
       wasi_snapshot_preview1: wasi.wasiImport,
       env: {
         ...this.#loopbackBindings.imports,
