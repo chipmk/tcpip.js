@@ -20,7 +20,7 @@ import {
   type TunInterfaceOptions,
 } from './bindings/tun-interface.js';
 import { fetchFile } from './fetch-file.js';
-import type { WasmInstance } from './types.js';
+import type { NetworkInterface, WasmInstance } from './types.js';
 
 export async function createStack(options?: NetworkStackOptions) {
   const stack = new NetworkStack(options);
@@ -42,6 +42,9 @@ export class NetworkStack {
   #tcpBindings = new TcpBindings();
 
   ready: Promise<void>;
+  get interfaces() {
+    return this.#listInterfaces();
+  }
 
   constructor(options: NetworkStackOptions = {}) {
     this.#options = {
@@ -114,6 +117,12 @@ export class NetworkStack {
     );
   }
 
+  *#listInterfaces(): Iterable<NetworkInterface> {
+    yield* this.#loopbackBindings.interfaces.values();
+    yield* this.#tunBindings.interfaces.values();
+    yield* this.#tapBindings.interfaces.values();
+  }
+
   async createLoopbackInterface(
     options: LoopbackInterfaceOptions
   ): Promise<LoopbackInterface> {
@@ -133,6 +142,26 @@ export class NetworkStack {
   ): Promise<TapInterface> {
     await this.ready;
     return this.#tapBindings.create(options);
+  }
+
+  async removeInterface(
+    netInterface: LoopbackInterface | TunInterface | TapInterface
+  ) {
+    await this.ready;
+
+    if (netInterface instanceof LoopbackInterface) {
+      return this.#loopbackBindings.remove(netInterface);
+    }
+
+    if (netInterface instanceof TunInterface) {
+      return this.#tunBindings.remove(netInterface);
+    }
+
+    if (netInterface instanceof TapInterface) {
+      return this.#tapBindings.remove(netInterface);
+    }
+
+    throw new Error('unknown interface type');
   }
 
   async listenTcp(options: TcpListenerOptions) {

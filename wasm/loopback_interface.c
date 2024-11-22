@@ -43,3 +43,9 @@ loopback_interface *create_loopback_interface(const uint8_t *ip4, const uint8_t 
 
   return interface;
 }
+
+EXPORT("remove_loopback_interface")
+void remove_loopback_interface(loopback_interface *interface) {
+  netif_remove(&interface->netif);
+  free(interface);
+}

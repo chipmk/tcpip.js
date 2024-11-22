@@ -40,6 +40,7 @@ export type TapExports = {
     ipAddress: Pointer,
     netmask: Pointer
   ): TapInterfaceHandle;
+  remove_tap_interface(handle: TapInterfaceHandle): void;
   send_tap_interface(
     handle: TapInterfaceHandle,
     frame: Pointer,
@@ -48,7 +49,7 @@ export type TapExports = {
 };
 
 export class TapBindings extends Bindings<TapImports, TapExports> {
-  #tapInterfaces = new Map<TapInterfaceHandle, TapInterface>();
+  interfaces = new Map<TapInterfaceHandle, TapInterface>();
 
   imports = {
     register_tap_interface: (handle: TapInterfaceHandle) => {
@@ -61,7 +62,7 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
         },
       });
 
-      this.#tapInterfaces.set(handle, tapInterface);
+      this.interfaces.set(handle, tapInterface);
     },
     receive_frame: async (
       handle: TapInterfaceHandle,
@@ -74,7 +75,7 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
       // This also gives the consumer a chance to start listening before we enqueue the first frame
       await nextMicrotask();
 
-      const tapInterface = this.#tapInterfaces.get(handle);
+      const tapInterface = this.interfaces.get(handle);
 
       if (!tapInterface) {
         console.error('received frame on unknown tap interface');
@@ -101,13 +102,23 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
       netmaskPtr
     );
 
-    const tapInterface = this.#tapInterfaces.get(handle);
+    const tapInterface = this.interfaces.get(handle);
 
     if (!tapInterface) {
       throw new Error('tap interface failed to register');
     }
 
     return tapInterface;
+  }
+
+  async remove(tapInterface: TapInterface) {
+    for (const [handle, loopback] of this.interfaces.entries()) {
+      if (loopback === tapInterface) {
+        this.exports.remove_tap_interface(handle);
+        this.interfaces.delete(handle);
+        return;
+      }
+    }
   }
 }
 

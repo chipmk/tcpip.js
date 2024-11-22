@@ -303,6 +303,22 @@ You can create as many tap interfaces as you wish.
 
 Looking for another type of interface? See [Future plans](#future-plans).
 
+### Removing interfaces
+
+You can remove any network interface from the stack by calling `removeInterface()`:
+
+```ts
+await stack.removeInterface(tapInterface);
+```
+
+### Listing interfaces
+
+You can retrieve all interfaces on the stack via the `interfaces` property:
+
+```ts
+const allInterfaces = stack.interfaces;
+```
+
 ## TCP API
 
 The TCP API allows you to establish TCP connections over the virtual network stack using clients and servers.

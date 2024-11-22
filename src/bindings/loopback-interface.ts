@@ -13,18 +13,19 @@ export type LoopbackExports = {
     ipAddress: Pointer,
     netmask: Pointer
   ): LoopbackInterfaceHandle;
+  remove_loopback_interface(handle: LoopbackInterfaceHandle): void;
 };
 
 export class LoopbackBindings extends Bindings<
   LoopbackImports,
   LoopbackExports
 > {
-  #loopbackInterfaces = new Map<LoopbackInterfaceHandle, LoopbackInterface>();
+  interfaces = new Map<LoopbackInterfaceHandle, LoopbackInterface>();
 
   imports = {
     register_loopback_interface: (handle: LoopbackInterfaceHandle) => {
       const loopbackInterface = new LoopbackInterface();
-      this.#loopbackInterfaces.set(handle, loopbackInterface);
+      this.interfaces.set(handle, loopbackInterface);
     },
   };
 
@@ -39,13 +40,23 @@ export class LoopbackBindings extends Bindings<
       netmaskPtr
     );
 
-    const loopbackInterface = this.#loopbackInterfaces.get(handle);
+    const loopbackInterface = this.interfaces.get(handle);
 
     if (!loopbackInterface) {
       throw new Error('loopback interface failed to register');
     }
 
     return loopbackInterface;
+  }
+
+  async remove(loopbackInterface: LoopbackInterface) {
+    for (const [handle, loopback] of this.interfaces.entries()) {
+      if (loopback === loopbackInterface) {
+        this.exports.remove_loopback_interface(handle);
+        this.interfaces.delete(handle);
+        return;
+      }
+    }
   }
 }
 

@@ -67,6 +67,12 @@ tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t 
   return interface;
 }
 
+EXPORT("remove_tap_interface")
+void remove_tap_interface(tap_interface *interface) {
+  netif_remove(&interface->netif);
+  free(interface);
+}
+
 EXPORT("send_tap_interface")
 void send_tap_interface(tap_interface *interface, const uint8_t *frame, uint16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to frame buffer data

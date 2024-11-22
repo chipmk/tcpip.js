@@ -38,6 +38,7 @@ export type TunExports = {
     ipAddress: Pointer,
     netmask: Pointer
   ): TunInterfaceHandle;
+  remove_tun_interface(handle: TunInterfaceHandle): void;
   send_tun_interface(
     handle: TunInterfaceHandle,
     packet: Pointer,
@@ -46,7 +47,7 @@ export type TunExports = {
 };
 
 export class TunBindings extends Bindings<TunImports, TunExports> {
-  #tunInterfaces = new Map<TunInterfaceHandle, TunInterface>();
+  interfaces = new Map<TunInterfaceHandle, TunInterface>();
 
   imports = {
     register_tun_interface: (handle: TunInterfaceHandle) => {
@@ -59,7 +60,7 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
         },
       });
 
-      this.#tunInterfaces.set(handle, tunInterface);
+      this.interfaces.set(handle, tunInterface);
     },
     receive_packet: async (
       handle: TunInterfaceHandle,
@@ -72,7 +73,7 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
       // This also gives the consumer a chance to start listening before we enqueue the first packet
       await nextMicrotask();
 
-      const tunInterface = this.#tunInterfaces.get(handle);
+      const tunInterface = this.interfaces.get(handle);
 
       if (!tunInterface) {
         console.error('received packet on unknown tun interface');
@@ -93,13 +94,23 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
 
     const handle = this.exports.create_tun_interface(ipAddressPtr, netmaskPtr);
 
-    const tunInterface = this.#tunInterfaces.get(handle);
+    const tunInterface = this.interfaces.get(handle);
 
     if (!tunInterface) {
       throw new Error('tun interface failed to register');
     }
 
     return tunInterface;
+  }
+
+  async remove(tunInterface: TunInterface) {
+    for (const [handle, loopback] of this.interfaces.entries()) {
+      if (loopback === tunInterface) {
+        this.exports.remove_tun_interface(handle);
+        this.interfaces.delete(handle);
+        return;
+      }
+    }
   }
 }
 

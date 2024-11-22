@@ -1,4 +1,5 @@
 export { NetworkStack, createStack } from './stack.js';
+export type { NetworkInterface } from './types.js';
 
 export {
   LoopbackInterface,

@@ -44,6 +44,12 @@ tun_interface *create_tun_interface(const uint8_t *ip4, const uint8_t *netmask) 
   return interface;
 }
 
+EXPORT("remove_tun_interface")
+void remove_tun_interface(tun_interface *interface) {
+  netif_remove(&interface->netif);
+  free(interface);
+}
+
 EXPORT("send_tun_interface")
 void send_tun_interface(tun_interface *interface, const uint8_t *packet, uint16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to packet buffer data

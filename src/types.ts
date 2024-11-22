@@ -1,7 +1,10 @@
-import type { LoopbackExports } from './bindings/loopback-interface.js';
-import type { TapExports } from './bindings/tap-interface.js';
+import type {
+  LoopbackExports,
+  LoopbackInterface,
+} from './bindings/loopback-interface.js';
+import type { TapExports, TapInterface } from './bindings/tap-interface.js';
 import type { TcpExports } from './bindings/tcp.js';
-import type { TunExports } from './bindings/tun-interface.js';
+import type { TunExports, TunInterface } from './bindings/tun-interface.js';
 import type { UniquePointer } from './util.js';
 
 export type Pointer = UniquePointer;
@@ -32,3 +35,5 @@ export type WasmExports = WasiExports &
 export type WasmInstance = {
   exports: WasmExports;
 };
+
+export type NetworkInterface = LoopbackInterface | TunInterface | TapInterface;
