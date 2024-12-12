@@ -1,28 +1,27 @@
 {
   "name": "@tcpip/v86",
-  "version": "0.1.1",
+  "version": "0.2.0-dev.1",
   "description": "Network adapter that connects tcpip.js with v86",
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run clean && tsc -b tsconfig.cjs.json tsconfig.esm.json tsconfig.types.json",
+    "build": "tsup --clean",
     "prepublishOnly": "npm run build"
   },
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/types/index.d.ts",
   "files": [
     "dist/**/*"
   ],
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "module": "./dist/esm/index.js",
-      "default": "./dist/cjs/index.js"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.cjs"
     }
   },
   "dependencies": {},
   "devDependencies": {
-    "tcpip": "^0.1.1",
+    "@total-typescript/tsconfig": "^1.0.4",
+    "tcpip": "^0.2.0-dev.1",
     "typescript": "^5.0.4"
   }
 }

@@ -1,2 +1,0 @@
-let net = {};
-export = net;
