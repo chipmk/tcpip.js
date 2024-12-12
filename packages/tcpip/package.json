@@ -2,17 +2,32 @@
   "name": "tcpip",
   "version": "0.2.0-dev.1",
   "description": "Virtual TCP/IP stack that can run anywhere",
+  "license": "MIT",
   "type": "module",
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "dev": "tsx src/index.ts",
+    "build": "npm run build:js && npm run build:wasm",
+    "build:js": "tsup",
+    "build:wasm": "npm run make build",
     "test": "vitest",
     "clean": "rm -rf dist",
     "make": "CC='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/clang' AR='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/ar' make",
     "wasm-opt": "docker compose run --rm binaryen wasm-opt -Oz --enable-bulk-memory wasm/tcpip.wasm -o wasm/tcpip.min.wasm"
   },
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "tcpip.wasm"
   ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.cjs"
+    }
+  },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0"
   },
