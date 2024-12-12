@@ -159,6 +159,7 @@ interface Socket {
   prependOnceListener(event: 'ready', listener: () => void): this;
   prependOnceListener(event: 'timeout', listener: () => void): this;
 
+  setKeepAlive(enable?: boolean): this;
   setNoDelay(noDelay?: boolean): this;
   setTimeout(timeout: number, callback?: () => void): this;
 }

@@ -1,5 +1,6 @@
 import { getPort } from '../test/util';
 import { init } from './platforms/node';
+import Socket from './socket';
 import Stack from './stack';
 
 let stack: Stack;
@@ -13,7 +14,7 @@ beforeAll(async () => {
   });
 });
 
-test('server listens', async () => {
+test('listens', async () => {
   const port = getPort();
   const server = stack.net.createServer();
 
@@ -22,7 +23,7 @@ test('server listens', async () => {
   await new Promise<void>((r) => server.once('listening', r));
 });
 
-test('server closes', async () => {
+test('closes', async () => {
   const port = getPort();
   const server = stack.net.createServer();
 
@@ -35,7 +36,7 @@ test('server closes', async () => {
   await new Promise<void>((r) => server.once('close', r));
 });
 
-test('server close returns error if not listening', async () => {
+test('close returns error if not listening', async () => {
   const server = stack.net.createServer();
 
   const asyncTest = async () =>
@@ -46,7 +47,7 @@ test('server close returns error if not listening', async () => {
   await expect(asyncTest).rejects.toThrowError('Server is not running.');
 });
 
-test('server listening prop', async () => {
+test('listening prop', async () => {
   const port = getPort();
   const server = stack.net.createServer();
 
@@ -61,4 +62,43 @@ test('server listening prop', async () => {
   await new Promise<void>((r) => server.once('listening', r));
 
   expect(server.listening).toBe(true);
+});
+
+test('getConnections() count when opening/closing connections', async () => {
+  const port = getPort();
+  const server = stack.net.createServer();
+
+  server.listen({ port });
+  await new Promise<void>((r) => server.once('listening', r));
+
+  const count1 = await new Promise((resolve, reject) =>
+    server.getConnections((err, count) => (err ? reject(err) : resolve(count)))
+  );
+
+  expect(count1).toBe(0);
+
+  const socket = stack.net.createConnection(port, '127.0.0.1');
+
+  const serverSocket = await new Promise<Socket>((r) =>
+    server.once('connection', r)
+  );
+
+  const count2 = await new Promise((resolve, reject) =>
+    server.getConnections((err, count) => (err ? reject(err) : resolve(count)))
+  );
+
+  serverSocket.on('data', (data) => console.log(data));
+
+  expect(count2).toBe(1);
+
+  socket.end('test');
+  // socket.end();
+
+  await new Promise<void>((r) => serverSocket.once('close', r));
+
+  const count3 = await new Promise((resolve, reject) =>
+    server.getConnections((err, count) => (err ? reject(err) : resolve(count)))
+  );
+
+  expect(count3).toBe(0);
 });

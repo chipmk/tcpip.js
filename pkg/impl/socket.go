@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"syscall/js"
@@ -119,6 +120,7 @@ func ImplementSocket() {
 		var port uint16
 		var host string = "127.0.0.1"
 		var noDelay bool = false
+		var keepAlive bool = false
 		var callback js.Value
 
 		if args[0].Type() == js.TypeObject {
@@ -149,6 +151,11 @@ func ImplementSocket() {
 				if host == "localhost" {
 					host = "127.0.0.1"
 				}
+			}
+
+			keepAliveJs := options.Get("keepAlive")
+			if !keepAliveJs.IsUndefined() {
+				keepAlive = keepAliveJs.Bool()
 			}
 
 			noDelayJs := options.Get("noDelay")
@@ -206,21 +213,52 @@ func ImplementSocket() {
 				socket.ep = ep
 
 				// Set connection options
+				ep.SocketOptions().SetKeepAlive(keepAlive)
 				ep.SocketOptions().SetDelayOption(noDelay)
 
-				select {
-				case socket.connected <- true:
-				default:
-				}
+				// Close the channel to broadcast its signal
+				close(socket.connected)
 
 				this.Call("emit", "connect")
 
 				if !callback.IsUndefined() {
 					callback.Invoke()
 				}
+				fmt.Printf("end of settimeout goroutine\n")
 			}()
+			fmt.Printf("end of settimeout\n")
 			return nil
 		}), 0)
+
+		return this, nil
+	})
+
+	class.ImplementMethod("setKeepAlive", func(this js.Value, args []js.Value) (any, error) {
+		keepAlive := false
+
+		if len(args) > 0 {
+			keepAlive = args[0].Bool()
+		}
+
+		stackId := this.Get("stack").Get("stackId").Int()
+		s := Stacks.Get(uint32(stackId))
+
+		socketId := this.Get("socketId").Int()
+		socket := s.sockets.Get(uint32(socketId))
+
+		fmt.Printf("Called setKeepAlive()\n")
+
+		go func() {
+			if socket.conn == nil {
+				fmt.Printf("Waiting for connect\n")
+				<-socket.connected
+				fmt.Printf("Connected\n")
+			}
+
+			fmt.Printf("about to keep alive (%v)\n", keepAlive)
+			socket.ep.SocketOptions().SetKeepAlive(keepAlive)
+			fmt.Printf("after keep alive: %v\n", socket.ep.SocketOptions().GetKeepAlive())
+		}()
 
 		return this, nil
 	})
@@ -320,8 +358,25 @@ func ImplementSocket() {
 
 			buffer := make([]byte, size.Int())
 
-			// TODO: decide if we need to handle errors
-			s, _ := socket.conn.Read(buffer)
+			s, readErr := socket.conn.Read(buffer)
+
+			// TODO: handle other errors
+			if readErr == io.EOF {
+				fmt.Printf("got eof\n")
+				socket.conn.Close()
+
+				// TODO: handle `allowHalfOpen` logic
+				// https://nodejs.org/api/net.html#event-end
+				this.Call("end")
+
+				// TODO: emit `hadError` correctly
+				// https://nodejs.org/api/net.html#event-close_1
+				this.Call("emit", "close", false)
+				return
+			} else if readErr != nil {
+
+				fmt.Printf("got err: %v\n", readErr)
+			}
 
 			if !timeout.IsUndefined() && timeout.Int() > 0 {
 				go func() {
@@ -332,11 +387,15 @@ func ImplementSocket() {
 				}()
 			}
 
+			fmt.Printf("s: %v\n", s)
+
 			if s == 0 {
 				this.Call("push", js.Null())
 				this.Call("end")
 				return
 			}
+
+			fmt.Printf("bytes: %v\n", buffer[:s])
 
 			uint8Array := bridge.GlobalUint8Array.New(js.ValueOf(s))
 			js.CopyBytesToJS(uint8Array, buffer[:s])

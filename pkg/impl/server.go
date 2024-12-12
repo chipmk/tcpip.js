@@ -100,7 +100,10 @@ func ImplementServer() {
 				this.Call("emit", "listening")
 
 				for {
-					conn, acceptErr := listener.Accept()
+					if server.listener == nil {
+						return
+					}
+					conn, acceptErr := server.listener.Accept()
 					if acceptErr != nil {
 						this.Call("emit", "error", bridge.GlobalError.New(acceptErr.Error()))
 						return
@@ -112,7 +115,12 @@ func ImplementServer() {
 					socket := s.sockets.Get(uint32(socketId))
 					socket.conn = conn
 
-					server.sockets.Set(socket)
+					serverSocketId := server.sockets.Set(socket)
+
+					jsSocket.Call("on", "close", js.FuncOf(func(self js.Value, args []js.Value) any {
+						server.sockets.Remove(serverSocketId)
+						return nil
+					}))
 
 					this.Call("emit", "connection", jsSocket)
 				}

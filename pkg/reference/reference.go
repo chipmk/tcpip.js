@@ -25,6 +25,14 @@ func (r *Reference[T]) Get(key uint32) T {
 	return r.store[key]
 }
 
-func (r *Reference[T]) Count() uint32 {
-	return r.counter
+func (r *Reference[T]) Remove(key uint32) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	delete(r.store, key)
+}
+
+func (r *Reference[T]) Count() int {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	return len(r.store)
 }
