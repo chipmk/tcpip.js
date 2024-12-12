@@ -1,5 +1,2 @@
 node_modules
-/lwip
-*.o
-*.a
-*.wasm
+.DS_Store
