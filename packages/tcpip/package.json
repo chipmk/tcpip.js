@@ -10,8 +10,9 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "npm run build:js && npm run build:wasm",
-    "build:js": "tsup",
+    "build:js": "tsup --clean",
     "build:wasm": "npm run make build",
+    "prepublishOnly": "npm run build",
     "test": "vitest",
     "clean": "rm -rf dist",
     "make": "CC='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/clang' AR='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/ar' make",
