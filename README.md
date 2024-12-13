@@ -21,11 +21,9 @@ With desktop VMs like VMWare, you simply talk to the guest over a network bridge
 
 ## How does tcpip.js work?
 
-tcpip.js implements the entire network stack in user space and provides APIs to send and receive messages at each layer of the stack (L2, L3, L4).
+tcpip.js implements the entire network stack in user space and provides APIs to send and receive messages at each layer of the stack (L2, L3, L4). All APIs are built on web standards like [`ReadableStream`](https://developer.mozilla.org/docs/Web/API/ReadableStream), [`WritableStream`](https://developer.mozilla.org/docs/Web/API/WritableStream), [`AsyncIterator`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/AsyncIterator), etc, so it works on any modern JS runtime (browser, Node.js, Deno, Bun, etc). This library will probably feel similar to Deno's network APIs which strive to be web compliant.
 
-For example, you might use tcpip.js to establish an outbound (virtual) TCP connection to a v86 guest. The initial packet is sent down the stack until it generates an ethernet frame that you can then forward directly to v86's virtual NIC. The guest OS will receive the frame, send it up its own stack, process the reply, then send it back down and out its virtual NIC. When you receive this frame, you forward it back through the tcpip.js stack and receive the TCP reply packet.
-
-tcpip.js is implemented on top of `lwIP` compiled to WASM.
+It is implemented on top of `lwIP` compiled to WASM.
 
 ### Why `lwIP`?
 
@@ -35,11 +33,33 @@ Because `lwIP` is both widely adopted and designed for embedded systems, it mean
 
 tcpip.js was actually originally written in Go on top of [gvisor's](https://github.com/google/gvisor) `tcpip` stack, but was later rewritten in C using `lwIP` to be smaller and faster. It also avoids bundling Go's runtime into the compiled WASM file, which by itself is 1-2MB. `lwIP` on the other hand is less than 100KB.
 
+## Installation
+
+NPM
+
+```shell
+npm i tcpip
+```
+
+Yarn
+
+```shell
+yarn add tcpip
+```
+
+PNPM
+
+```shell
+pnpm add tcpip
+```
+
 ## Usage
 
 Start by creating a `NetworkStack`:
 
 ```ts
+import { createStack } from 'tcpip';
+
 const stack = await createStack();
 ```
 
@@ -59,17 +79,22 @@ In this example, we create a [tap interface](#tap-interface) with a MAC address 
 Next we'll pipe outbound ethernet frames from the tap interface to the VM's virtual NIC (and vice versa):
 
 ```ts
-const vmNic = {
-  readable: ...,
-  writable: ...
-}
+import { createV86NetworkStream } from '@tcpip/v86';
+
+// ...
+
+const vmNic = createV86NetworkStream();
+
+const v86 = new V86({
+  network_adapter: vmNic.adapter,
+});
 
 // Forward frames between the tap interface and the VM's NIC
 tapInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tapInterface.writable);
 ```
 
-This is the virtual equivalent to connecting a patch cable between two physical NICs.
+_This is the virtual equivalent to connecting a patch cable between two physical NICs._
 
 Now that the plumbing is in place, we can start sending TCP packets between our `NetworkStack` and the VM. Let's assume the VM has an IP address of `192.168.1.2` and is running a TCP server that is listening on port `80`.
 
@@ -257,10 +282,15 @@ interface TapInterface {
 Use a `TapInterface` to forward ethernet frames to another device that also communicates over ethernet (L2). You would typically use this to forward ethernet frames to a virtual NIC (like v86):
 
 ```ts
-const vmNic = {
-  readable: ...,
-  writable: ...
-}
+import { createV86NetworkStream } from '@tcpip/v86';
+
+// ...
+
+const vmNic = createV86NetworkStream();
+
+const v86 = new V86({
+  network_adapter: vmNic.adapter,
+});
 
 // Connect the tap interface with the VM's virtual NIC
 tapInterface.readable.pipeTo(vmNic.writable);
@@ -439,11 +469,12 @@ await connection.close();
 
 ## Future plans
 
+- [ ] HTTP API
 - [ ] UDP API
 - [ ] ICMP (ping) API
 - [ ] DHCP API
 - [ ] DNS API
-- [ ] HTTP API
+- [ ] mDNS API
 - [ ] Hosts file
 - [ ] Bridge interface
 - [ ] Experimental Wireguard interface
