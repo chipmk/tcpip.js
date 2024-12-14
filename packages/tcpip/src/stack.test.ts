@@ -254,6 +254,80 @@ describe('tcp', () => {
     expect(received.value).toStrictEqual(data);
   });
 
+  test('can close a TCP connection when reader/writer are unlocked', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    await inbound.close();
+    await outbound.close();
+  });
+
+  test('can close a TCP connection when reader/writer are locked', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const outboundWriter = outbound.writable.getWriter();
+    const inboundReader = inbound.readable.getReader();
+
+    await outbound.close();
+    await inbound.close();
+
+    const writePromise = outboundWriter.write(
+      new Uint8Array([0x01, 0x02, 0x03, 0x04])
+    );
+    const readPromise = inboundReader.read();
+
+    await expect(writePromise).rejects.toThrowError('tcp connection closed');
+    await expect(readPromise).rejects.toThrowError('tcp connection closed');
+  });
+
+  test('can close a TCP reader and writer', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const inboundReader = inbound.readable.getReader();
+    const outboundWriter = outbound.writable.getWriter();
+
+    await outboundWriter.close();
+    await inboundReader.cancel();
+  });
+
   test('throws when iterating over a locked readable stream', async () => {
     const stack = await createStack();
 

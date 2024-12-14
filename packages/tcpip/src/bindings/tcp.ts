@@ -276,6 +276,7 @@ export type TcpConnectionOptions = {
 export class TcpConnection implements AsyncIterable<Uint8Array> {
   #receiveBuffer: Uint8Array[] = [];
   #readableController?: ReadableStreamDefaultController<Uint8Array>;
+  #writableController?: WritableStreamDefaultController;
 
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
@@ -301,10 +302,6 @@ export class TcpConnection implements AsyncIterable<Uint8Array> {
         pull: () => {
           this.#enqueueBuffer();
         },
-        // TODO: separate readable and writable close logic
-        cancel: () => {
-          this.close();
-        },
       },
       {
         highWaterMark: READABLE_HIGH_WATER_MARK,
@@ -314,12 +311,11 @@ export class TcpConnection implements AsyncIterable<Uint8Array> {
 
     this.writable = new WritableStream(
       {
+        start: (controller) => {
+          this.#writableController = controller;
+        },
         write: async (chunk) => {
           await tcpConnectionHooks.getOuter(this).send(chunk);
-        },
-        // TODO: separate readable and writable close logic
-        close: async () => {
-          this.close();
         },
       },
       {
@@ -357,8 +353,8 @@ export class TcpConnection implements AsyncIterable<Uint8Array> {
 
   async close() {
     await tcpConnectionHooks.getOuter(this).close();
-    await this.readable.cancel();
-    await this.writable.close();
+    this.#readableController?.error(new Error('tcp connection closed'));
+    this.#writableController?.error(new Error('tcp connection closed'));
   }
 
   [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
