@@ -1,8 +1,4 @@
 {
-  "compilerOptions": {
-    "sourceMap": true,
-    "noImplicitAny": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true
-  },
+  "extends": "@total-typescript/tsconfig/bundler/dom/library",
+  "include": ["src/**/*.ts"]
 }

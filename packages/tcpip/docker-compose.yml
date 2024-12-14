@@ -1,0 +1,16 @@
+services:
+  wasi-sdk:
+    image: ghcr.io/webassembly/wasi-sdk:wasi-sdk-24
+    container_name: wasi-sdk-container
+    working_dir: /work
+    volumes:
+      - $PWD:/work
+  binaryen:
+    image: binaryen
+    container_name: binaryen-container
+    build:
+      context: tools/binaryen
+      dockerfile: Dockerfile
+    working_dir: /work
+    volumes:
+      - $PWD:/work
