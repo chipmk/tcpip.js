@@ -1,3 +1,8 @@
+export interface V86Emulator {
+  bus: BusConnector;
+  add_listener(event: string, listener: (data: Uint8Array) => void): void;
+}
+
 export interface BusConnector {
   pair: BusConnector;
 
@@ -14,61 +19,26 @@ export interface BusConnector {
 /**
  * Network adapter for v86 that exposes the VM's NIC as a duplex stream.
  *
- * Pass this instance's `adapter` function to v86's `network_adapter` option.
- *
  * Intended to be piped to/from a tcpip.js `TapInterface`.
  */
 export class V86NetworkStream {
-  #bus?: BusConnector;
-  #readableController?: ReadableStreamDefaultController<Uint8Array>;
-
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
 
-  constructor() {
+  constructor(emulator: V86Emulator) {
     this.readable = new ReadableStream<Uint8Array>({
       start: (controller) => {
-        this.#readableController = controller;
+        emulator.add_listener('net0-send', (frame: Uint8Array) => {
+          controller.enqueue(frame);
+        });
       },
     });
+
     this.writable = new WritableStream<Uint8Array>({
       write: (frame) => {
-        if (!this.#bus) {
-          throw new Error(
-            'writing frame to V86NetworkStream before VM is ready to receive'
-          );
-        }
-        this.#bus.send('net0-send', frame);
+        emulator.bus.send('net0-receive', frame);
       },
     });
-  }
-
-  /**
-   * Creates a network adapter for v86 and forwards frames
-   * to/from this instance's `readable` and `writable` streams.
-   *
-   * Pass this function to v86's `network_adapter` option.
-   */
-  get adapter() {
-    return (bus: BusConnector) => {
-      if (this.#bus) {
-        throw new Error('V86NetworkStream adapter already initialized');
-      }
-
-      this.#bus = bus;
-      this.#bus.register(
-        'net0-receive',
-        (frame: Uint8Array) => {
-          if (!this.#readableController) {
-            throw new Error(
-              'received frame from VM before V86NetworkStream is ready to receive'
-            );
-          }
-          this.#readableController.enqueue(frame);
-        },
-        this
-      );
-    };
   }
 
   /**
@@ -82,8 +52,6 @@ export class V86NetworkStream {
 /**
  * Network adapter for v86 that exposes the VM's NIC as a duplex stream.
  *
- * Pass this instance's `adapter` function to v86's `network_adapter` option.
- *
  * Intended to be piped to/from a tcpip.js `TapInterface`.
  *
  * @example
@@ -94,16 +62,13 @@ export class V86NetworkStream {
  *   ip: '192.168.1.1/24',
  * });
  *
- * const vmNic = createV86NetworkStream();
- *
- * const v86 = new V86Starter({
- *   network_adapter: vmNic.adapter,
- * });
+ * const emulator = new V86();
+ * const vmNic = createV86NetworkStream(emulator);
  *
  * // Forward frames between the tap interface and the VM's NIC
  * tapInterface.readable.pipeTo(vmNic.writable);
  * vmNic.readable.pipeTo(tapInterface.writable);
  */
-export function createV86NetworkStream() {
-  return new V86NetworkStream();
+export function createV86NetworkStream(emulator: V86Emulator) {
+  return new V86NetworkStream(emulator);
 }

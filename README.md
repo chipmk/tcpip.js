@@ -83,11 +83,8 @@ import { createV86NetworkStream } from '@tcpip/v86';
 
 // ...
 
-const vmNic = createV86NetworkStream();
-
-const v86 = new V86({
-  network_adapter: vmNic.adapter,
-});
+const emulator = new V86();
+const vmNic = createV86NetworkStream(emulator);
 
 // Forward frames between the tap interface and the VM's NIC
 tapInterface.readable.pipeTo(vmNic.writable);
@@ -286,11 +283,8 @@ import { createV86NetworkStream } from '@tcpip/v86';
 
 // ...
 
-const vmNic = createV86NetworkStream();
-
-const v86 = new V86({
-  network_adapter: vmNic.adapter,
-});
+const emulator = new V86();
+const vmNic = createV86NetworkStream(emulator);
 
 // Connect the tap interface with the VM's virtual NIC
 tapInterface.readable.pipeTo(vmNic.writable);
