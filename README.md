@@ -5,8 +5,8 @@
 ## Features
 
 - **Portable:** User-space network stack implemented on top of [`lwIP` + WASM](#why-lwip)
-- **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun) and [`TapInterface`](#tap)
-- **TCP API:** Establish TCP connections over the virtual network stack using clients and servers
+- **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun-interface) and [`TapInterface`](#tap-interface)
+- **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
 - **Fast:** Over 500Mbps between stacks
