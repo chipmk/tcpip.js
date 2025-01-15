@@ -9,5 +9,8 @@ export default defineConfig([
     dts: true,
     minify: true,
     splitting: true,
+    esbuildOptions: (options) => {
+      options.inject = ['polyfills/disposable.ts'];
+    },
   },
 ]);

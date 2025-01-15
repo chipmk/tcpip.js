@@ -347,7 +347,7 @@ describe('tcp', () => {
     // Lock the readable stream
     inbound.readable.getReader();
 
-    expect(collect(inbound)).rejects.toThrowError(
+    await expect(collect(inbound)).rejects.toThrowError(
       'readable stream already locked'
     );
   });
