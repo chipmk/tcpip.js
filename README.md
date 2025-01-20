@@ -55,6 +55,8 @@ pnpm add tcpip
 
 ## Usage
 
+> _`tcpip.js` not loading? Check [frameworks/bundlers](#frameworksbundlers)._
+
 Start by creating a `NetworkStack`:
 
 ```ts
@@ -462,6 +464,27 @@ To close the connection, call `close()`:
 ```ts
 await connection.close();
 ```
+
+## Frameworks/bundlers
+
+Some frameworks require additional configuration to correctly load WASM files (which `tcpip.js` depends on). Here are some common frameworks and how to configure them:
+
+### Vite
+
+Exclude `tcpip` from dependency optimization in your `vite.config.js`:
+
+```ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  // ...
+  optimizeDeps: {
+    exclude: ['tcpip'],
+  },
+});
+```
+
+_Background:_ Vite optimizes dependencies during development to improve build times. Unfortunately this breaks files loaded via the `new URL('./my-file.wasm', import.meta.url)` pattern (see [issue](https://github.com/vitejs/vite/issues/8427)). By excluding `tcpip` from optimization, Vite will not process the library and it will load the WASM file correctly.
 
 ## Future plans
 
