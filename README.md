@@ -293,7 +293,7 @@ tapInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tapInterface.writable);
 ```
 
-`TapInterface` has full ARP support, so it will both respond to ARP requests and send ARP requests for unknown MAC addresses.
+`TapInterface` has full ARP support, so it will both respond to ARP requests and send ARP requests for unknown IP addresses.
 
 **Important:** Tap interfaces will only listen for ethernet frames after you explicitly start listening (ie. by locking the readable stream). The following methods will lock the readable stream and begin buffering frames:
 
