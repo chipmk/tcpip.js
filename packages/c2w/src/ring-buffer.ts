@@ -28,6 +28,13 @@ export class RingBuffer {
     this.#data = new Uint8Array(sharedBuffer, byteOffset);
   }
 
+  get hasData() {
+    const wrPtr = Atomics.load(this.#control, WRITE_PTR_INDEX);
+    const rdPtr = Atomics.load(this.#control, READ_PTR_INDEX);
+
+    return wrPtr !== rdPtr;
+  }
+
   /**
    * Writes a single message into the ring buffer. If there's
    * not enough space, throws an error.
@@ -80,7 +87,7 @@ export class RingBuffer {
    * Reads a single message from the ring buffer, blocking if empty
    * (via Atomics.wait).
    */
-  read(): Uint8Array {
+  read(len?: number): Uint8Array {
     const capacity = this.#data.length;
 
     while (true) {
@@ -89,34 +96,60 @@ export class RingBuffer {
 
       if (wrPtr === rdPtr) {
         // Buffer is empty, so wait
-        Atomics.wait(this.#control, CONTROL_SIGNAL_INDEX, 0);
+        this.waitForData();
         continue;
       }
 
       // There's data, so read the length
-      const length = this.#readInt32(rdPtr);
+      const dataLength = this.#readInt32(rdPtr);
+
+      // Only read up to the requested length
+      const amountToRead = len ? Math.min(len, dataLength) : dataLength;
+
+      // Advance the read pointer to the message data
       rdPtr = (rdPtr + 4) % capacity;
 
       // Read the message
-      const result = new Uint8Array(length);
-      if (rdPtr + length <= capacity) {
-        // no wrap
-        result.set(this.#data.subarray(rdPtr, rdPtr + length));
-        rdPtr += length;
+      const result = new Uint8Array(amountToRead);
+
+      if (rdPtr + amountToRead <= capacity) {
+        // No wrap
+        result.set(this.#data.subarray(rdPtr, rdPtr + amountToRead));
+        rdPtr += amountToRead;
       } else {
-        // wrap
+        // Wrap
         const firstChunkSize = capacity - rdPtr;
         result.set(this.#data.subarray(rdPtr, rdPtr + firstChunkSize), 0);
-        const secondChunkSize = length - firstChunkSize;
+        const secondChunkSize = amountToRead - firstChunkSize;
         result.set(this.#data.subarray(0, secondChunkSize), firstChunkSize);
         rdPtr = secondChunkSize;
       }
+
+      // Wrap the read pointer if it's past the end
       rdPtr %= capacity;
 
+      // Store the updated read pointer
       Atomics.store(this.#control, READ_PTR_INDEX, rdPtr);
 
       return result;
     }
+  }
+
+  /**
+   * Waits for data to be available in the ring buffer, blocking if necessary.
+   *
+   * Returns `true` if data is available, `false` if timed out. If no timeout
+   * is provided, waits indefinitely.
+   */
+  waitForData(timeout?: number) {
+    if (this.hasData) {
+      return true;
+    }
+
+    // Otherwise, wait for data
+    Atomics.wait(this.#control, CONTROL_SIGNAL_INDEX, 0, timeout);
+
+    return this.hasData;
   }
 
   /**
