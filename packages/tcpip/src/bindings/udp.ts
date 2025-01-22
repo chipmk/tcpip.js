@@ -14,26 +14,26 @@ export type UdpDatagram = {
   data: Uint8Array;
 };
 
-type UdpConnectionHandle = Pointer;
+type UdpSocketHandle = Pointer;
 
-type UdpConnectionOuterHooks = {
+type UdpSocketOuterHooks = {
   send(datagram: UdpDatagram): Promise<void>;
   close(): Promise<void>;
 };
 
-type UdpConnectionInnerHooks = {
+type UdpSocketInnerHooks = {
   receive(datagram: UdpDatagram): Promise<void>;
 };
 
-const UdpConnectionHooks = new Hooks<
-  UdpConnection,
-  UdpConnectionOuterHooks,
-  UdpConnectionInnerHooks
+const UdpSocketHooks = new Hooks<
+  UdpSocket,
+  UdpSocketOuterHooks,
+  UdpSocketInnerHooks
 >();
 
 export type UdpImports = {
   receive_udp_datagram(
-    handle: UdpConnectionHandle,
+    handle: UdpSocketHandle,
     ip: number,
     port: number,
     datagramPtr: number,
@@ -42,14 +42,14 @@ export type UdpImports = {
 };
 
 export type UdpExports = {
-  open_udp_connection(
+  open_udp_socket(
     host: Pointer | null,
     port: number,
     allow_broadcast: boolean
-  ): UdpConnectionHandle;
-  close_udp_connection(handle: UdpConnectionHandle): void;
+  ): UdpSocketHandle;
+  close_udp_socket(handle: UdpSocketHandle): void;
   send_udp_datagram(
-    handle: UdpConnectionHandle,
+    handle: UdpSocketHandle,
     ip: Pointer | null,
     port: number,
     datagram: Pointer,
@@ -58,11 +58,11 @@ export type UdpExports = {
 };
 
 export class UdpBindings extends Bindings<UdpImports, UdpExports> {
-  #udpConnections = new EventMap<UdpConnectionHandle, UdpConnection>();
+  #UdpSockets = new EventMap<UdpSocketHandle, UdpSocket>();
 
   imports = {
     receive_udp_datagram: async (
-      handle: UdpConnectionHandle,
+      handle: UdpSocketHandle,
       hostPtr: number,
       port: number,
       datagramPtr: number,
@@ -70,17 +70,17 @@ export class UdpBindings extends Bindings<UdpImports, UdpExports> {
     ) => {
       const host = this.copyFromMemory(hostPtr, 4);
       const datagram = this.copyFromMemory(datagramPtr, length);
-      const connection = this.#udpConnections.get(handle);
+      const socket = this.#UdpSockets.get(handle);
 
-      if (!connection) {
-        console.error('received datagram on unknown udp connection');
+      if (!socket) {
+        console.error('received datagram on unknown udp socket');
         return;
       }
 
       // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
       await nextMicrotask();
 
-      UdpConnectionHooks.getInner(connection).receive({
+      UdpSocketHooks.getInner(socket).receive({
         host: parseIPv4Address(host),
         port,
         data: datagram,
@@ -88,20 +88,20 @@ export class UdpBindings extends Bindings<UdpImports, UdpExports> {
     },
   };
 
-  async open(options: UdpConnectionOptions) {
+  async open(options: UdpSocketOptions) {
     using hostPtr = options.host
       ? this.copyToMemory(serializeIPv4Address(options.host))
       : null;
 
-    const handle = this.exports.open_udp_connection(
+    const handle = this.exports.open_udp_socket(
       hostPtr,
       options.port ?? 0,
       options.allowBroadcast ?? false
     );
 
-    const udpConnection = new UdpConnection();
+    const udpSocket = new UdpSocket();
 
-    UdpConnectionHooks.setOuter(udpConnection, {
+    UdpSocketHooks.setOuter(udpSocket, {
       send: async (datagram: UdpDatagram) => {
         using hostPtr = this.copyToMemory(serializeIPv4Address(datagram.host));
         using datagramPtr = this.copyToMemory(datagram.data);
@@ -119,29 +119,29 @@ export class UdpBindings extends Bindings<UdpImports, UdpExports> {
         }
       },
       close: async () => {
-        this.exports.close_udp_connection(handle);
-        this.#udpConnections.delete(handle);
+        this.exports.close_udp_socket(handle);
+        this.#UdpSockets.delete(handle);
       },
     });
 
-    this.#udpConnections.set(handle, udpConnection);
+    this.#UdpSockets.set(handle, udpSocket);
 
-    return udpConnection;
+    return udpSocket;
   }
 }
 
-export type UdpConnectionOptions = {
+export type UdpSocketOptions = {
   /**
    * The local host to bind to.
    *
-   * If not provided, the connection will bind to all available interfaces.
+   * If not provided, the socket will bind to all available interfaces.
    */
   host?: IPv4Address;
 
   /**
    * The local port to bind to.
    *
-   * If not provided, the connection will bind to a random port.
+   * If not provided, the socket will bind to a random port.
    */
   port?: number;
 
@@ -151,7 +151,7 @@ export type UdpConnectionOptions = {
   allowBroadcast?: boolean;
 };
 
-export class UdpConnection implements AsyncIterable<UdpDatagram> {
+export class UdpSocket implements AsyncIterable<UdpDatagram> {
   #readableController?: ReadableStreamDefaultController<UdpDatagram>;
   #writableController?: WritableStreamDefaultController;
 
@@ -159,7 +159,7 @@ export class UdpConnection implements AsyncIterable<UdpDatagram> {
   writable: WritableStream<UdpDatagram>;
 
   constructor() {
-    UdpConnectionHooks.setInner(this, {
+    UdpSocketHooks.setInner(this, {
       receive: async (datagram: UdpDatagram) => {
         if (!this.#readableController) {
           throw new Error('readable controller not initialized');
@@ -179,15 +179,15 @@ export class UdpConnection implements AsyncIterable<UdpDatagram> {
         this.#writableController = controller;
       },
       write: async (datagram) => {
-        await UdpConnectionHooks.getOuter(this).send(datagram);
+        await UdpSocketHooks.getOuter(this).send(datagram);
       },
     });
   }
 
   async close() {
-    await UdpConnectionHooks.getOuter(this).close();
-    this.#readableController?.error(new Error('udp connection closed'));
-    this.#writableController?.error(new Error('udp connection closed'));
+    await UdpSocketHooks.getOuter(this).close();
+    this.#readableController?.error(new Error('udp socket closed'));
+    this.#writableController?.error(new Error('udp socket closed'));
   }
 
   [Symbol.asyncIterator](): AsyncIterator<UdpDatagram> {

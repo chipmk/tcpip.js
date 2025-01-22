@@ -19,7 +19,7 @@ import {
   TunInterface,
   type TunInterfaceOptions,
 } from './bindings/tun-interface.js';
-import { UdpBindings, type UdpConnectionOptions } from './bindings/udp.js';
+import { UdpBindings, type UdpSocketOptions } from './bindings/udp.js';
 import { fetchFile } from './fetch-file.js';
 import type { NetworkInterface, WasmInstance } from './types.js';
 
@@ -185,12 +185,12 @@ export class NetworkStack {
   }
 
   /**
-   * Opens a UDP connection for sending or receiving datagrams.
+   * Opens a UDP socket for sending and receiving datagrams.
    *
-   * If no local host is provided, the connection will bind to all available interfaces.
-   * If no local port is provided, the connection will bind to a random port.
+   * If no local host is provided, the socket will bind to all available interfaces.
+   * If no local port is provided, the socket will bind to a random port.
    */
-  async openUdp(options: UdpConnectionOptions = {}) {
+  async openUdp(options: UdpSocketOptions = {}) {
     await this.ready;
     return this.#udpBindings.open(options);
   }

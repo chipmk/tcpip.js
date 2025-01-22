@@ -488,11 +488,11 @@ describe('udp', () => {
   test('can send and receive a UDP datagram', async () => {
     const stack = await createStack();
 
-    const conn1 = await stack.openUdp({ port: 8080 });
-    const conn2 = await stack.openUdp({ port: 8081 });
+    const socket1 = await stack.openUdp({ port: 8080 });
+    const socket2 = await stack.openUdp({ port: 8081 });
 
-    const reader = conn1.readable.getReader();
-    const writer = conn2.writable.getWriter();
+    const reader = socket1.readable.getReader();
+    const writer = socket2.writable.getWriter();
 
     const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
 
