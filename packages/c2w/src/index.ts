@@ -1,1 +1,1 @@
-export * from './network-adapter.js';
+export * from './container/index.js';

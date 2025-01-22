@@ -1,99 +1,6 @@
 import { WASI, wasi as WasiDefs } from '@bjorn3/browser_wasi_shim';
-import { expose } from 'comlink';
-import { RingBuffer } from '../ring-buffer.js';
 
-type WasiInstance = WebAssembly.Instance & {
-  exports: {
-    memory: WebAssembly.Memory;
-    _start: () => unknown;
-  };
-};
-
-export type VMOptions = {
-  wasmUrl: string | URL;
-  netReceiveBuffer: SharedArrayBuffer;
-  netSendBuffer: SharedArrayBuffer;
-};
-
-export class VM {
-  #wasmUrl: string | URL;
-  #receiveRing: RingBuffer;
-  #sendRing: RingBuffer;
-
-  constructor(options: VMOptions, log: (...data: unknown[]) => void) {
-    console.log = (...data: unknown[]) => log('VM:', ...data);
-
-    this.#wasmUrl = options.wasmUrl;
-    this.#receiveRing = new RingBuffer(options.netReceiveBuffer);
-    this.#sendRing = new RingBuffer(options.netSendBuffer);
-  }
-
-  async run() {
-    const macAddress = parseMacAddress(generateMacAddress());
-    const wasi = new WASI(
-      ['arg0', '--net=socket', '--mac', macAddress],
-      [],
-      []
-    );
-
-    const listenFd = 3;
-    const connectionFd = 4;
-
-    handleWasiSocket(wasi, {
-      listenFd,
-      connectionFd,
-      accept: () => true,
-      send: (data) => this.#sendRing.write(data),
-      receive: (len) => this.#receiveRing.read(len),
-      hasData: () => this.#receiveRing.hasData,
-      waitForData: (timeout) => this.#receiveRing.waitForData(timeout),
-    });
-
-    const wasmResponse = await fetch(this.#wasmUrl);
-    const { instance } = await WebAssembly.instantiateStreaming(wasmResponse, {
-      wasi_snapshot_preview1: wasi.wasiImport,
-    });
-
-    const wasiInstance = instance as WasiInstance;
-    wasi.start(wasiInstance);
-  }
-}
-
-expose(VM);
-
-/**
- * Parses a MAC address `Uint8Array` into a `string`.
- */
-function parseMacAddress(mac: Uint8Array) {
-  if (mac.length !== 6) {
-    throw new Error('invalid mac address');
-  }
-
-  return Array.from(mac)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join(':');
-}
-
-/**
- * Generates a random MAC address.
- *
- * The generated address is locally administered (so won't conflict
- * with real devices) and unicast (so it can be used as a source address).
- */
-function generateMacAddress() {
-  const mac = new Uint8Array(6);
-  crypto.getRandomValues(mac);
-
-  mac[0] =
-    // Clear the 2 least significant bits
-    (mac[0]! & 0b11111100) |
-    // Set locally administered bit (bit 1) to 1 and unicast bit (bit 0) to 0
-    0b00000010;
-
-  return mac;
-}
-
-type WasiSocketOptions = {
+export type WasiSocketOptions = {
   listenFd: number;
   connectionFd: number;
   accept(): boolean;
@@ -106,7 +13,7 @@ type WasiSocketOptions = {
 /**
  * Extends the WASI implementation with socket function handlers.
  */
-function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
+export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
   const {
     listenFd,
     connectionFd,

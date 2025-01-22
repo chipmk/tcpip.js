@@ -1,5 +1,5 @@
 import { describe, test } from 'vitest';
-import { createContainer } from './container.js';
+import { createContainer } from './container/index.js';
 
 describe('c2w', () => {
   test('container communication', async () => {
@@ -7,8 +7,7 @@ describe('c2w', () => {
       wasmUrl: new URL('../shell.wasm', import.meta.url),
     });
 
-    for await (const chunk of container.networkStream
-      .readable as unknown as AsyncIterable<Uint8Array>) {
+    for await (const chunk of container.netInterface) {
       console.log('chunk', chunk.length);
     }
   });
