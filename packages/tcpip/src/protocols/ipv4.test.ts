@@ -80,8 +80,8 @@ test('parses an IPv4 packet containing a UDP datagram', () => {
     0x07, // destination port: 7
     0x00,
     0x0c, // length: 12
-    0x7c,
-    0x73, // checksum: 0x7c73
+    0x78,
+    0x6d, // checksum: 0x786d
     0x01,
     0x02,
     0x03,
@@ -158,8 +158,8 @@ test('serializes an IPv4 packet containing a UDP datagram', () => {
       0x07, // destination port: 7
       0x00,
       0x0c, // length: 12
-      0x7c,
-      0x73, // checksum: 0x7c73
+      0x78,
+      0x6d, // checksum: 0x786d
       0x01,
       0x02,
       0x03,

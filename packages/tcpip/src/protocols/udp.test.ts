@@ -11,15 +11,23 @@ describe('parseUdpDatagram', () => {
       0xbb, // destinationPort: 443
       0x00,
       0x0c, // length: 12
-      0x7a,
-      0x98, // checksum: 0x7a98
+      0xdc,
+      0xd9, // checksum: 0xdcd9
       0xde,
       0xad,
       0xbe,
       0xef, // payload
     ]);
 
-    const result = parseUdpDatagram(data);
+    const result = parseUdpDatagram(
+      data,
+      serializeIPv4PseudoHeader({
+        sourceIP: '192.168.1.1',
+        destinationIP: '192.168.1.2',
+        protocol: 'udp',
+        length: 12,
+      })
+    );
 
     expect(result).toEqual({
       sourcePort: 80,
@@ -131,8 +139,8 @@ describe('createUdpDatagram', () => {
         0xbb, // destinationPort: 443
         0x00,
         0x0c, // length: 12
-        0x7a,
-        0x77, // checksum: 0x7a77
+        0xdc,
+        0xd9, // checksum: 0xdcd9
         0xde,
         0xad,
         0xbe,
@@ -164,7 +172,7 @@ describe('createUdpDatagram', () => {
         0x00,
         0x08, // length: 8
         0x7a,
-        0x98, // checksum: 0x7a98
+        0x7f, // checksum: 0x7a7f
       ])
     );
   });

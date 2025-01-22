@@ -26,13 +26,20 @@ export function parseUdpDatagram(
 
   // If the IP packet is provided, verify the UDP checksum.
   if (pseudoHeader) {
-    const fullHeader = new Uint8Array(pseudoHeader.length + UDP_HEADER_LENGTH);
-    fullHeader.set(pseudoHeader);
-    fullHeader.set(header, pseudoHeader.length);
+    // Create buffer for checksum verification (pseudo-header + UDP header + payload)
+    const checksumBuffer = new Uint8Array(pseudoHeader.length + data.length);
+    checksumBuffer.set(pseudoHeader);
+    checksumBuffer.set(data, pseudoHeader.length);
 
-    if (calculateChecksum(fullHeader, pseudoHeader.length + 6) !== checksum) {
+    if (
+      calculateChecksum(checksumBuffer, pseudoHeader.length + 6) !== checksum
+    ) {
       throw new Error('invalid udp checksum');
     }
+  } else {
+    console.warn(
+      'no pseudo header provided: udp checksum verification skipped'
+    );
   }
 
   const length = dataView.getUint16(4);
@@ -73,20 +80,30 @@ export function createUdpDatagram(
   dataView.setUint16(0, datagram.sourcePort);
   dataView.setUint16(2, datagram.destinationPort);
   dataView.setUint16(4, UDP_HEADER_LENGTH + datagram.payload.length);
-  dataView.setUint16(6, 0);
+  dataView.setUint16(6, 0); // checksum
+  buffer.set(datagram.payload, 8);
 
   if (pseudoHeader) {
     const pseudoHeaderBuffer = serializeIPv4PseudoHeader(pseudoHeader);
-    const headerBuffer = buffer.subarray(0, UDP_HEADER_LENGTH);
-    const fullHeader = new Uint8Array(pseudoHeader.length + UDP_HEADER_LENGTH);
-    fullHeader.set(pseudoHeaderBuffer);
-    fullHeader.set(headerBuffer, pseudoHeader.length);
 
-    const checksum = calculateChecksum(fullHeader, pseudoHeader.length + 6);
+    // Create buffer for checksum verification (pseudo-header + UDP header + payload)
+    const checksumBuffer = new Uint8Array(
+      pseudoHeaderBuffer.length + buffer.length
+    );
+    checksumBuffer.set(pseudoHeaderBuffer);
+    checksumBuffer.set(buffer, pseudoHeaderBuffer.length);
+
+    const checksum = calculateChecksum(
+      checksumBuffer,
+      pseudoHeaderBuffer.length + 6
+    );
+
     dataView.setUint16(6, checksum);
+  } else {
+    console.warn(
+      'no pseudo header provided: udp checksum calculation skipped (set to 0)'
+    );
   }
-
-  buffer.set(datagram.payload, 8);
 
   return buffer;
 }
