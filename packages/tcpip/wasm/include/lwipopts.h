@@ -45,6 +45,9 @@
 #define TCP_SND_BUF (4 * TCP_MSS)                     // TCP send buffer size
 #define TCP_SND_QUEUELEN (2 * TCP_SND_BUF / TCP_MSS)  // TCP send queue length
 
+// UDP options
+#define LWIP_UDP 1  // Enable UDP functionality
+
 // Checksum options (packet integrity)
 #define CHECKSUM_GEN_IP 1      // Generate checksums for IP packets
 #define CHECKSUM_GEN_UDP 1     // Generate checksums for UDP packets
@@ -65,5 +68,6 @@
 #define TCP_DEBUG LWIP_DBG_ON         // Enable debugging for TCP
 #define TCP_INPUT_DEBUG LWIP_DBG_ON   // Enable debugging for TCP input
 #define TCP_OUTPUT_DEBUG LWIP_DBG_ON  // Enable debugging for TCP input
+#define UDP_DEBUG LWIP_DBG_ON         // Enable debugging for UDP
 
 #endif /* LWIPOPTS_H */

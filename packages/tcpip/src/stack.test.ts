@@ -484,6 +484,31 @@ describe('tcp', () => {
   });
 });
 
+describe('udp', () => {
+  test('can send and receive a UDP datagram', async () => {
+    const stack = await createStack();
+
+    const conn1 = await stack.openUdp({ port: 8080 });
+    const conn2 = await stack.openUdp({ port: 8081 });
+
+    const reader = conn1.readable.getReader();
+    const writer = conn2.writable.getWriter();
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+    await writer.write({ host: '127.0.0.1', port: 8080, data: data });
+    const received = await reader.read();
+
+    if (received.done) {
+      throw new Error('expected value');
+    }
+
+    expect(received.value.host).toBe('127.0.0.1');
+    expect(received.value.port).toBe(8081);
+    expect(received.value.data).toStrictEqual(data);
+  });
+});
+
 async function nextValue<T>(iterable: Iterable<T> | AsyncIterable<T>) {
   const iterator =
     Symbol.asyncIterator in iterable
