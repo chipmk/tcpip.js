@@ -19,6 +19,7 @@ import {
   TunInterface,
   type TunInterfaceOptions,
 } from './bindings/tun-interface.js';
+import { UdpBindings, type UdpSocketOptions } from './bindings/udp.js';
 import { fetchFile } from './fetch-file.js';
 import type { NetworkInterface, WasmInstance } from './types.js';
 
@@ -40,6 +41,7 @@ export class NetworkStack {
   #tunBindings = new TunBindings();
   #tapBindings = new TapBindings();
   #tcpBindings = new TcpBindings();
+  #udpBindings = new UdpBindings();
 
   ready: Promise<void>;
   get interfaces() {
@@ -91,6 +93,7 @@ export class NetworkStack {
         ...this.#tunBindings.imports,
         ...this.#tapBindings.imports,
         ...this.#tcpBindings.imports,
+        ...this.#udpBindings.imports,
       },
     });
 
@@ -100,6 +103,7 @@ export class NetworkStack {
     this.#tunBindings.register(wasmInstance.exports);
     this.#tapBindings.register(wasmInstance.exports);
     this.#tcpBindings.register(wasmInstance.exports);
+    this.#udpBindings.register(wasmInstance.exports);
 
     const result = wasi.start(wasmInstance);
 
@@ -164,13 +168,30 @@ export class NetworkStack {
     throw new Error('unknown interface type');
   }
 
+  /**
+   * Listens for incoming TCP connections on the specified host/port.
+   */
   async listenTcp(options: TcpListenerOptions) {
     await this.ready;
     return this.#tcpBindings.listen(options);
   }
 
+  /**
+   * Establishes an outbound TCP connection to a remote host/port.
+   */
   async connectTcp(options: TcpConnectionOptions) {
     await this.ready;
     return this.#tcpBindings.connect(options);
+  }
+
+  /**
+   * Opens a UDP socket for sending and receiving datagrams.
+   *
+   * If no local host is provided, the socket will bind to all available interfaces.
+   * If no local port is provided, the socket will bind to a random port.
+   */
+  async openUdp(options: UdpSocketOptions = {}) {
+    await this.ready;
+    return this.#udpBindings.open(options);
   }
 }

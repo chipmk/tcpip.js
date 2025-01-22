@@ -3,6 +3,12 @@ import {
   parseIcmpMessage,
   type IcmpMessage,
 } from './icmp.js';
+import {
+  createUdpDatagram,
+  parseUdpDatagram,
+  UDP_HEADER_LENGTH,
+  type UdpDatagram,
+} from './udp.js';
 import { calculateChecksum } from './util.js';
 
 export type IPv4Address = `${number}.${number}.${number}.${number}`;
@@ -33,10 +39,19 @@ export type TcpIPv4Packet = IPv4PacketBase & {
 
 export type UdpIPv4Packet = IPv4PacketBase & {
   protocol: 'udp';
-  payload: Uint8Array;
+  payload: UdpDatagram;
 };
 
 export type IPv4Packet = IcmpIPv4Packet | TcpIPv4Packet | UdpIPv4Packet;
+
+export type IPv4Protocol = IPv4Packet['protocol'];
+
+export type IPv4PseudoHeader = {
+  sourceIP: IPv4Address;
+  destinationIP: IPv4Address;
+  protocol: IPv4Protocol;
+  length: number;
+};
 
 export const IPV4_HEADER_LENGTH = 20;
 
@@ -115,7 +130,15 @@ export function parseIPv4Packet(data: Uint8Array): IPv4Packet {
         protocol,
         sourceIP,
         destinationIP,
-        payload,
+        payload: parseUdpDatagram(
+          payload,
+          serializeIPv4PseudoHeader({
+            sourceIP,
+            destinationIP,
+            protocol,
+            length: payload.length,
+          })
+        ),
       };
     default:
       throw new Error('unknown ipv4 protocol');
@@ -136,7 +159,12 @@ export function createIPv4Packet(packet: IPv4Packet): Uint8Array {
       payload = packet.payload;
       break;
     case 'udp':
-      payload = packet.payload;
+      payload = createUdpDatagram(packet.payload, {
+        sourceIP: packet.sourceIP,
+        destinationIP: packet.destinationIP,
+        protocol: packet.protocol,
+        length: UDP_HEADER_LENGTH + packet.payload.payload.length,
+      });
       break;
     default:
       throw new Error('unknown ipv4 protocol');
@@ -196,7 +224,7 @@ export function parseIPv4Protocol(protocol: number) {
   }
 }
 
-export function serializeIPv4Protocol(protocol: string) {
+export function serializeIPv4Protocol(protocol: IPv4Protocol) {
   switch (protocol) {
     case 'icmp':
       return 1;
@@ -246,4 +274,28 @@ export function generateNetmask(maskSize: number) {
   }
 
   return mask;
+}
+
+/**
+ * Creates a pseudo header for use in calculating transport layer checksums.
+ */
+export function serializeIPv4PseudoHeader(pseudoHeader: IPv4PseudoHeader) {
+  const buffer = new Uint8Array(12);
+  const dataView = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
+  );
+
+  const sourceIPBuffer = serializeIPv4Address(pseudoHeader.sourceIP);
+  const destinationIPBuffer = serializeIPv4Address(pseudoHeader.destinationIP);
+  const protocolNumber = serializeIPv4Protocol(pseudoHeader.protocol);
+
+  buffer.set(sourceIPBuffer, 0);
+  buffer.set(destinationIPBuffer, 4);
+  dataView.setUint8(8, 0);
+  dataView.setUint8(9, protocolNumber);
+  dataView.setUint16(10, pseudoHeader.length);
+
+  return buffer;
 }

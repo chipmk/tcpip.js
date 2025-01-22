@@ -5,6 +5,7 @@ import type {
 import type { TapExports, TapInterface } from './bindings/tap-interface.js';
 import type { TcpExports } from './bindings/tcp.js';
 import type { TunExports, TunInterface } from './bindings/tun-interface.js';
+import type { UdpExports } from './bindings/udp.js';
 import type { UniquePointer } from './util.js';
 
 export type Pointer = UniquePointer;
@@ -30,7 +31,8 @@ export type WasmExports = WasiExports &
   LoopbackExports &
   TunExports &
   TapExports &
-  TcpExports;
+  TcpExports &
+  UdpExports;
 
 export type WasmInstance = {
   exports: WasmExports;

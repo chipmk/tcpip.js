@@ -7,6 +7,7 @@
 - **Portable:** User-space network stack implemented on top of [`lwIP` + WASM](#why-lwip)
 - **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun-interface) and [`TapInterface`](#tap-interface)
 - **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
+- **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#openudp)
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
 - **Fast:** Over 500Mbps between stacks
@@ -54,6 +55,8 @@ pnpm add tcpip
 ```
 
 ## Usage
+
+> _`tcpip.js` not loading? Check [frameworks/bundlers](#frameworksbundlers)._
 
 Start by creating a `NetworkStack`:
 
@@ -291,7 +294,7 @@ tapInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tapInterface.writable);
 ```
 
-`TapInterface` has full ARP support, so it will both respond to ARP requests and send ARP requests for unknown MAC addresses.
+`TapInterface` has full ARP support, so it will both respond to ARP requests and send ARP requests for unknown IP addresses.
 
 **Important:** Tap interfaces will only listen for ethernet frames after you explicitly start listening (ie. by locking the readable stream). The following methods will lock the readable stream and begin buffering frames:
 
@@ -463,10 +466,126 @@ To close the connection, call `close()`:
 await connection.close();
 ```
 
+## UDP API
+
+The UDP API allows you to send and receive UDP datagrams over the virtual network stack.
+
+### `openUdp()`
+
+To open a UDP socket, call `openUdp()`:
+
+```ts
+const udpSocket = await stack.openUdp();
+```
+
+Since UDP is connectionless, `openUdp()` is used to create a socket that can both listen for UDP datagrams and send UDP datagrams. It returns a [`UdpSocket`](#udpsocket) that you can use to send and receive data.
+
+Passing no arguments to `openUdp()` will create a socket that sends and receives datagrams on any interface (ie. `0.0.0.0`) and on a random port. If you want to bind to a specific IP address or port, you can pass an options object:
+
+```ts
+const udpSocket = await stack.openUdp({
+  ip: '10.0.0.1',
+  port: 1234,
+});
+```
+
+If you are creating a UDP server, you would typically just bind to a port:
+
+```ts
+const udpSocket = await stack.openUdp({
+  port: 1234,
+});
+```
+
+If you are creating a UDP client, you would typically let the stack choose a random port:
+
+```ts
+const udpSocket = await stack.openUdp();
+```
+
+### `UdpSocket`
+
+A `UdpSocket` represents a bound UDP socket. It exposes a [`ReadableStream`](https://developer.mozilla.org/docs/Web/API/ReadableStream) and [`WritableStream`](https://developer.mozilla.org/docs/Web/API/WritableStream) as the underlying APIs to send and receive data. It also implements the async iterable protocol for convenience.
+
+```ts
+type UdpDatagram = {
+  host: string;
+  port: number;
+  data: Uint8Array;
+};
+
+interface UdpSocket {
+  readable: ReadableStream<UdpDatagram>;
+  writable: WritableStream<UdpDatagram>;
+  close(): Promise<void>;
+  [Symbol.asyncIterator](): AsyncIterator<UdpDatagram>;
+}
+```
+
+You would typically read incoming datagrams by iterating over the `UdpSocket` using the `for await` syntax:
+
+```ts
+for await (const datagram of udpSocket) {
+  console.log(
+    datagram.host,
+    datagram.port,
+    new TextDecoder().decode(datagram.data)
+  );
+}
+```
+
+Notice that each datagram is an object with `host`, `port`, and `data` properties. This is because UDP is connectionless so we need a way to identify the sender of each datagram.
+
+You can also read datagrams from the `readable` stream directly by acquiring a reader:
+
+```ts
+const reader = udpSocket.readable.getReader();
+
+// Read datagram
+const { value, done } = await reader.read();
+```
+
+To send datagrams, you would typically acquire a writer from the `writable` stream:
+
+```ts
+const writer = udpSocket.writable.getWriter();
+
+// Send datagram
+await writer.write({
+  host: '10.0.0.2',
+  port: 1234,
+  data: new TextEncoder().encode('Hello, world!'),
+});
+```
+
+Outbound datagrams follow the same format as inbound datagrams: an object with `host`, `port`, and `data` properties indicating the destination host, port, and data.
+
+Unlike Tun and Tap interfaces which are also connectionless, UDP sockets do not require you to lock the stream before receiving data - simply calling `stack.openUdp()` will begin listening for datagrams.
+
+## Frameworks/bundlers
+
+Some frameworks require additional configuration to correctly load WASM files (which `tcpip.js` depends on). Here are some common frameworks and how to configure them:
+
+### Vite
+
+Exclude `tcpip` from dependency optimization in your `vite.config.js`:
+
+```ts
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  // ...
+  optimizeDeps: {
+    exclude: ['tcpip'],
+  },
+});
+```
+
+_Background:_ Vite optimizes dependencies during development to improve build times. Unfortunately this breaks files loaded via the `new URL('./my-file.wasm', import.meta.url)` pattern (see [issue](https://github.com/vitejs/vite/issues/8427)). By excluding `tcpip` from optimization, Vite will not process the library and it will load the WASM file correctly.
+
 ## Future plans
 
 - [ ] HTTP API
-- [ ] UDP API
 - [ ] ICMP (ping) API
 - [ ] DHCP API
 - [ ] DNS API
