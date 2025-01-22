@@ -39,6 +39,7 @@ loopback_interface *create_loopback_interface(const uint8_t *ip4, const uint8_t 
 
   netif_add(&interface->netif, &ipaddr, &netmask_addr, NULL, interface, netif_loopif_init, ip_input);
 
+  netif_set_link_up(&interface->netif);
   netif_set_up(&interface->netif);
 
   return interface;
