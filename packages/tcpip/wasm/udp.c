@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "lwip/err.h"
+#include "lwip/netif.h"
 #include "macros.h"
 
 extern void receive_udp_datagram(struct udp_pcb *socket, const uint8_t *addr, uint16_t port, const uint8_t *datagram, uint16_t length);
@@ -14,14 +15,33 @@ err_t send_udp_datagram(struct udp_pcb *socket, const uint8_t *addr, uint16_t po
   if (p == NULL) {
     return ERR_MEM;
   }
+  pbuf_take(p, datagram, length);
 
   ip4_addr_t ipaddr;
   IP4_ADDR(&ipaddr, addr[0], addr[1], addr[2], addr[3]);
 
-  pbuf_take(p, datagram, length);
-  err_t code = udp_sendto(socket, p, &ipaddr, port);
-  pbuf_free(p);
+  err_t code = ERR_OK;
 
+  // If the destination IP is the limited broadcast address (255.255.255.255),
+  // send on all interfaces that are up and have the broadcast flag set
+  if (ipaddr.addr == PP_HTONL(IPADDR_BROADCAST)) {
+    struct netif *netif;
+    NETIF_FOREACH(netif) {
+      if (netif_is_up(netif) && netif_is_flag_set(netif, NETIF_FLAG_BROADCAST)) {
+        code = udp_sendto_if(socket, p, IP_ADDR_BROADCAST, port, netif);
+        if (code != ERR_OK) {
+          pbuf_free(p);
+          return code;
+        }
+      }
+    }
+  }
+  // Otherwise, send to the specified IP address using lwIP's automatic routing
+  else {
+    code = udp_sendto(socket, p, &ipaddr, port);
+  }
+
+  pbuf_free(p);
   return code;
 }
 
@@ -41,16 +61,14 @@ void recv_udp_callback(void *arg, struct udp_pcb *socket, struct pbuf *p, const 
 }
 
 EXPORT("open_udp_socket")
-struct udp_pcb *open_udp_socket(uint8_t *host, int port, bool allow_broadcast) {
+struct udp_pcb *open_udp_socket(uint8_t *host, int port) {
   struct udp_pcb *socket = udp_new();
 
   if (socket == NULL) {
     return NULL;
   }
 
-  if (allow_broadcast) {
-    ip_set_option(socket, SOF_BROADCAST);
-  }
+  ip_set_option(socket, SOF_BROADCAST);
 
   ip4_addr_t ipaddr;
   if (host != NULL) {

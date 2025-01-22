@@ -14,7 +14,11 @@ import {
   createEthernetFrame,
   parseEthernetFrame,
 } from './protocols/ethernet.js';
-import { createIPv4Packet, parseIPv4Packet } from './protocols/ipv4.js';
+import {
+  createIPv4Packet,
+  parseIPv4Packet,
+  type IPv4Packet,
+} from './protocols/ipv4.js';
 
 describe('general', () => {
   test('loopback interface is created by default', async () => {
@@ -506,6 +510,172 @@ describe('udp', () => {
     expect(received.value.host).toBe('127.0.0.1');
     expect(received.value.port).toBe(8081);
     expect(received.value.data).toStrictEqual(data);
+  });
+
+  test('can receive udp datagram via tun interface', async () => {
+    const stack = await createStack();
+
+    const tunInterface = await stack.createTunInterface({
+      ip: '10.0.0.1/24',
+    });
+
+    const socket = await stack.openUdp({ port: 8080 });
+
+    const writer = tunInterface.writable.getWriter();
+    const reader = socket.readable.getReader();
+
+    const ipv4Packet: IPv4Packet = {
+      version: 4,
+      dscp: 0,
+      ecn: 0,
+      identification: 0,
+      flags: 0,
+      fragmentOffset: 0,
+      ttl: 64,
+      protocol: 'udp',
+      sourceIP: '10.0.0.2',
+      destinationIP: '10.0.0.1',
+      payload: {
+        sourcePort: 8080,
+        destinationPort: 8080,
+        payload: new Uint8Array([0x01, 0x02, 0x03, 0x04]),
+      },
+    };
+
+    const packet = createIPv4Packet(ipv4Packet);
+    await writer.write(packet);
+
+    const received = await reader.read();
+
+    if (received.done) {
+      throw new Error('expected value');
+    }
+
+    expect(received.value.host).toBe('10.0.0.2');
+  });
+
+  test('can send udp datagram via tun interface', async () => {
+    const stack = await createStack();
+
+    const tunInterface = await stack.createTunInterface({
+      ip: '10.0.0.1/24',
+    });
+
+    const socket = await stack.openUdp({ port: 8080 });
+
+    const reader = tunInterface.readable.getReader();
+    const writer = socket.writable.getWriter();
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    await writer.write({
+      host: '10.0.0.2',
+      port: 8080,
+      data,
+    });
+
+    const received = await reader.read();
+
+    if (received.done) {
+      throw new Error('expected value');
+    }
+
+    const parsedPacket = parseIPv4Packet(received.value);
+
+    if (parsedPacket.protocol !== 'udp') {
+      throw new Error('expected udp packet');
+    }
+
+    expect(parsedPacket.sourceIP).toBe('10.0.0.1');
+    expect(parsedPacket.destinationIP).toBe('10.0.0.2');
+    expect(parsedPacket.payload.sourcePort).toBe(8080);
+    expect(parsedPacket.payload.destinationPort).toBe(8080);
+    expect(parsedPacket.payload.payload).toStrictEqual(data);
+  });
+
+  test('can receive broadcast udp datagram', async () => {
+    const stack = await createStack();
+
+    const tunInterface = await stack.createTunInterface({
+      ip: '10.0.0.1/24',
+    });
+
+    const socket = await stack.openUdp({ port: 8080 });
+
+    const reader = socket.readable.getReader();
+    const writer = tunInterface.writable.getWriter();
+
+    const ipv4Packet: IPv4Packet = {
+      version: 4,
+      dscp: 0,
+      ecn: 0,
+      identification: 0,
+      flags: 0,
+      fragmentOffset: 0,
+      ttl: 64,
+      protocol: 'udp',
+      sourceIP: '0.0.0.0',
+      destinationIP: '255.255.255.255',
+      payload: {
+        sourcePort: 8080,
+        destinationPort: 8080,
+        payload: new Uint8Array([0x01, 0x02, 0x03, 0x04]),
+      },
+    };
+
+    const packet = createIPv4Packet(ipv4Packet);
+    await writer.write(packet);
+
+    const received = await reader.read();
+
+    if (received.done) {
+      throw new Error('expected value');
+    }
+
+    expect(received.value.host).toBe('0.0.0.0');
+  });
+
+  test('can send broadcast udp datagram', async () => {
+    const stack = await createStack();
+
+    const tapInterface = await stack.createTapInterface({
+      ip: '10.0.0.1/24',
+      mac: '00:1a:2b:3c:4d:5e',
+    });
+
+    const socket = await stack.openUdp({ port: 8080 });
+
+    const listener = tapInterface.listen();
+    const writer = socket.writable.getWriter();
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    await writer.write({
+      host: '255.255.255.255',
+      port: 8080,
+      data,
+    });
+
+    const received = await waitFor(listener, (frame) => {
+      const parsedFrame = parseEthernetFrame(frame);
+      return parsedFrame.type === 'ipv4';
+    });
+
+    const parsedFrame = parseEthernetFrame(received);
+
+    if (parsedFrame.type !== 'ipv4') {
+      throw new Error('expected ipv4 packet');
+    }
+
+    const parsedPacket = parsedFrame.payload;
+
+    if (parsedPacket.protocol !== 'udp') {
+      throw new Error('expected udp packet');
+    }
+
+    expect(parsedPacket.sourceIP).toBe('10.0.0.1');
+    expect(parsedPacket.destinationIP).toBe('255.255.255.255');
+    expect(parsedPacket.payload.sourcePort).toBe(8080);
+    expect(parsedPacket.payload.destinationPort).toBe(8080);
+    expect(parsedPacket.payload.payload).toStrictEqual(data);
   });
 });
 

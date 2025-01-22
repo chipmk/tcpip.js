@@ -46,7 +46,8 @@
 #define TCP_SND_QUEUELEN (2 * TCP_SND_BUF / TCP_MSS)  // TCP send queue length
 
 // UDP options
-#define LWIP_UDP 1  // Enable UDP functionality
+#define LWIP_UDP 1                             // Enable UDP functionality
+#define LWIP_IP_ACCEPT_UDP_PORT(dst_port) (1)  // Allow broadcast IP packets on all UDP ports
 
 // Checksum options (packet integrity)
 #define CHECKSUM_GEN_IP 1      // Generate checksums for IP packets

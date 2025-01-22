@@ -42,11 +42,7 @@ export type UdpImports = {
 };
 
 export type UdpExports = {
-  open_udp_socket(
-    host: Pointer | null,
-    port: number,
-    allow_broadcast: boolean
-  ): UdpSocketHandle;
+  open_udp_socket(host: Pointer | null, port: number): UdpSocketHandle;
   close_udp_socket(handle: UdpSocketHandle): void;
   send_udp_datagram(
     handle: UdpSocketHandle,
@@ -93,11 +89,7 @@ export class UdpBindings extends Bindings<UdpImports, UdpExports> {
       ? this.copyToMemory(serializeIPv4Address(options.host))
       : null;
 
-    const handle = this.exports.open_udp_socket(
-      hostPtr,
-      options.port ?? 0,
-      options.allowBroadcast ?? false
-    );
+    const handle = this.exports.open_udp_socket(hostPtr, options.port ?? 0);
 
     const udpSocket = new UdpSocket();
 
@@ -144,11 +136,6 @@ export type UdpSocketOptions = {
    * If not provided, the socket will bind to a random port.
    */
   port?: number;
-
-  /**
-   * Whether to allow sending and receiving from broadcast IP addresses.
-   */
-  allowBroadcast?: boolean;
 };
 
 export class UdpSocket implements AsyncIterable<UdpDatagram> {
