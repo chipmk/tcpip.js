@@ -87,3 +87,9 @@ export async function* fromReader<R>(
     reader.releaseLock();
   }
 }
+
+export function asHex(data: Uint8Array, delimiter = ' ') {
+  return Array.from(data)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join(delimiter);
+}

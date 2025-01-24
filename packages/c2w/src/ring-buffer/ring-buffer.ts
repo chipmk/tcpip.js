@@ -1,179 +1,238 @@
-// Store three Int32s for control: CONTROL_SIGNAL, WRITE_PTR, READ_PTR
-const CONTROL_SIZE = 3;
-const CONTROL_SIGNAL_INDEX = 0;
-const WRITE_PTR_INDEX = 1;
-const READ_PTR_INDEX = 2;
+import { asHex } from '../util.js';
+
+// Constants for buffer configuration
+const CONTROL_SIZE = 2; // READ_PTR and WRITE_PTR
+const WRITE_PTR_INDEX = 0;
+const READ_PTR_INDEX = 1;
 
 /**
- * A ring buffer that uses a SharedArrayBuffer for storage.
- * The layout of the underlying SharedArrayBuffer is:
+ * A lock-free ring buffer implementation using SharedArrayBuffer for cross-worker communication.
+ * The buffer layout consists of a control section and a data section:
  *
- * `[ int32: CONTROL_SIGNAL, int32: WRITE_PTR, int32: READ_PTR ] + [ data region in bytes ]`
+ * Control section (8 bytes):
+ *   - 4 bytes: Write pointer (Int32)
+ *   - 4 bytes: Read pointer (Int32)
  *
- * So total size = `(CONTROL_SIZE * 4) + capacityInBytes`
- *
- * This class reads/writes "messages" in the ring. Each message is stored as:
- *
- * `[ 4-byte length (little-endian) ] + [ message bytes ]`
+ * Data section:
+ *   Continuous stream of bytes that can be partially read/written.
+ *   The write and read pointers wrap around when they reach the end.
  */
 export class RingBuffer {
-  #control: Int32Array;
-  #data: Uint8Array;
+  readonly #control: Int32Array;
+  readonly #data: Uint8Array;
 
-  constructor(sharedBuffer: SharedArrayBuffer) {
-    // The first 3 Int32s are for control
-    this.#control = new Int32Array(sharedBuffer, 0, CONTROL_SIZE);
-
-    const byteOffset = CONTROL_SIZE * Int32Array.BYTES_PER_ELEMENT;
-    this.#data = new Uint8Array(sharedBuffer, byteOffset);
-  }
-
-  get hasData() {
-    const wrPtr = Atomics.load(this.#control, WRITE_PTR_INDEX);
-    const rdPtr = Atomics.load(this.#control, READ_PTR_INDEX);
-
-    return wrPtr !== rdPtr;
-  }
+  #log: (...data: unknown[]) => void = () => {};
 
   /**
-   * Writes a single message into the ring buffer. If there's
-   * not enough space, throws an error.
+   * Creates a new RingBuffer instance.
+   * @param sharedBuffer - The SharedArrayBuffer to use for storage
+   * @param log - Optional logging function
    */
-  write(msg: Uint8Array) {
-    const capacity = this.#data.length;
+  constructor(
+    sharedBuffer: SharedArrayBuffer,
+    log?: (...data: unknown[]) => void
+  ) {
+    if (log) {
+      this.#log = (...data: unknown[]) => log('RingBuffer:', ...data);
+    }
 
-    // Current read/write pointers
-    const wrPtr = Atomics.load(this.#control, WRITE_PTR_INDEX);
-    const rdPtr = Atomics.load(this.#control, READ_PTR_INDEX);
-
-    // 4 bytes for length + actual message length
-    const needed = 4 + msg.length;
-
-    // Calculate free space
-    const freeSpace = (rdPtr - wrPtr - 1 + capacity) % capacity;
-    if (needed > freeSpace) {
+    // Ensure we have enough space for the control structure
+    const minSize = CONTROL_SIZE * Int32Array.BYTES_PER_ELEMENT;
+    if (sharedBuffer.byteLength < minSize) {
       throw new Error(
-        `Not enough space in ring buffer (need ${needed}, have ${freeSpace})`
+        `SharedArrayBuffer too small: need at least ${minSize} bytes for control structure`
       );
     }
 
-    // Write the message length (4 bytes) in little-endian
-    this.#writeInt32(wrPtr, msg.length);
-    let newWrPtr = (wrPtr + 4) % capacity;
+    // Initialize control structure
+    this.#control = new Int32Array(sharedBuffer, 0, CONTROL_SIZE);
 
-    // Write the actual bytes
-    if (newWrPtr + msg.length <= capacity) {
-      // no wrap
-      this.#data.set(msg, newWrPtr);
-      newWrPtr += msg.length;
-    } else {
-      // wrap
-      const firstChunkSize = capacity - newWrPtr;
-      this.#data.set(msg.subarray(0, firstChunkSize), newWrPtr);
-      const secondChunkSize = msg.length - firstChunkSize;
-      this.#data.set(msg.subarray(firstChunkSize), 0);
-      newWrPtr = secondChunkSize; // we've wrapped
+    // Set up data region
+    const dataOffset = CONTROL_SIZE * Int32Array.BYTES_PER_ELEMENT;
+    this.#data = new Uint8Array(sharedBuffer, dataOffset);
+
+    // Ensure we have at least some space for data
+    if (this.#data.length <= 1) {
+      throw new Error('Buffer too small: no space available for data');
     }
-    newWrPtr %= capacity;
-
-    // Store updated write pointer
-    Atomics.store(this.#control, WRITE_PTR_INDEX, newWrPtr);
-
-    // Notify any readers that might be waiting
-    Atomics.notify(this.#control, CONTROL_SIGNAL_INDEX, 1);
   }
 
   /**
-   * Reads a single message from the ring buffer, blocking if empty
-   * (via Atomics.wait).
+   * Checks if there is data available to read.
    */
-  read(len?: number): Uint8Array {
-    const capacity = this.#data.length;
+  get hasData(): boolean {
+    return this.writePtr !== this.readPtr;
+  }
+
+  /**
+   * Gets the current write pointer position.
+   */
+  get writePtr(): number {
+    return Atomics.load(this.#control, WRITE_PTR_INDEX);
+  }
+
+  /**
+   * Gets the current read pointer position.
+   */
+  get readPtr(): number {
+    return Atomics.load(this.#control, READ_PTR_INDEX);
+  }
+
+  /**
+   * Gets the buffer capacity in bytes.
+   */
+  get capacity(): number {
+    return this.#data.length;
+  }
+
+  /**
+   * Gets the number of bytes available to read.
+   */
+  get availableData(): number {
+    const wrPtr = this.writePtr;
+    const rdPtr = this.readPtr;
+    return (wrPtr - rdPtr + this.capacity) % this.capacity;
+  }
+
+  /**
+   * Calculates available free space in the buffer.
+   */
+  get freeSpace(): number {
+    return this.#calculateFreeSpace(this.readPtr, this.writePtr);
+  }
+
+  /**
+   * Writes data to the buffer.
+   * @throws {Error} If there isn't enough space
+   */
+  write(data: Uint8Array): void {
+    const wrPtr = this.writePtr;
+    const rdPtr = this.readPtr;
+
+    // Check if we have enough space
+    const available = this.#calculateFreeSpace(rdPtr, wrPtr);
+    if (data.length > available) {
+      throw new Error(
+        `Buffer full: need ${data.length} bytes, have ${available} bytes`
+      );
+    }
+
+    // Write the data and update the pointer
+    const newWrPtr = this.#writeData(data, wrPtr);
+
+    this.#log('Wrote data:', data.length, 'bytes');
+
+    // Update write pointer atomically
+    Atomics.store(this.#control, WRITE_PTR_INDEX, newWrPtr);
+
+    // Wake up any waiting readers
+    Atomics.notify(this.#control, WRITE_PTR_INDEX, 1);
+  }
+
+  /**
+   * Reads data from the buffer. Blocks if the buffer is empty.
+   * @param length - Number of bytes to read. If not specified, reads all available data.
+   * @returns The read data
+   */
+  read(length?: number): Uint8Array {
+    if (length !== undefined && length <= 0) {
+      throw new Error(`Invalid read length: ${length}`);
+    }
 
     while (true) {
-      const wrPtr = Atomics.load(this.#control, WRITE_PTR_INDEX);
-      let rdPtr = Atomics.load(this.#control, READ_PTR_INDEX);
+      const wrPtr = this.writePtr;
+      let rdPtr = this.readPtr;
 
       if (wrPtr === rdPtr) {
-        // Buffer is empty, so wait
-        this.waitForData();
+        // Buffer is empty, wait for the write pointer to change
+        Atomics.wait(this.#control, WRITE_PTR_INDEX, wrPtr);
         continue;
       }
 
-      // There's data, so read the length
-      const dataLength = this.#readInt32(rdPtr);
+      // Calculate available data
+      const available = (wrPtr - rdPtr + this.capacity) % this.capacity;
+      this.#log('Data available:', available, 'bytes, requested:', length);
 
-      // Only read up to the requested length
-      const amountToRead = len ? Math.min(len, dataLength) : dataLength;
+      // Read what we can
+      const readLength = length ? Math.min(length, available) : available;
+      const data = this.#readData(rdPtr, readLength);
 
-      // Advance the read pointer to the message data
-      rdPtr = (rdPtr + 4) % capacity;
+      this.#log('Read data:', asHex(data), ',', data.length, 'bytes');
 
-      // Read the message
-      const result = new Uint8Array(amountToRead);
+      // Update read pointer atomically
+      const newRdPtr = (rdPtr + readLength) % this.capacity;
+      Atomics.store(this.#control, READ_PTR_INDEX, newRdPtr);
 
-      if (rdPtr + amountToRead <= capacity) {
-        // No wrap
-        result.set(this.#data.subarray(rdPtr, rdPtr + amountToRead));
-        rdPtr += amountToRead;
-      } else {
-        // Wrap
-        const firstChunkSize = capacity - rdPtr;
-        result.set(this.#data.subarray(rdPtr, rdPtr + firstChunkSize), 0);
-        const secondChunkSize = amountToRead - firstChunkSize;
-        result.set(this.#data.subarray(0, secondChunkSize), firstChunkSize);
-        rdPtr = secondChunkSize;
-      }
-
-      // Wrap the read pointer if it's past the end
-      rdPtr %= capacity;
-
-      // Store the updated read pointer
-      Atomics.store(this.#control, READ_PTR_INDEX, rdPtr);
-
-      return result;
+      return data;
     }
   }
 
   /**
-   * Waits for data to be available in the ring buffer, blocking if necessary.
-   *
-   * Returns `true` if data is available, `false` if timed out. If no timeout
-   * is provided, waits indefinitely.
+   * Waits for data to be available in the ring buffer.
+   * @param timeout - Optional timeout in milliseconds
+   * @returns true if data is available, false if timed out
    */
-  waitForData(timeout?: number) {
+  waitForData(timeout?: number): boolean {
     if (this.hasData) {
       return true;
     }
 
-    // Otherwise, wait for data
-    Atomics.wait(this.#control, CONTROL_SIGNAL_INDEX, 0, timeout);
+    const currentWritePtr = this.writePtr;
+    Atomics.wait(this.#control, WRITE_PTR_INDEX, currentWritePtr, timeout);
 
     return this.hasData;
   }
 
   /**
-   * Helper to write a 32-bit integer into the ring buffer while
-   * handling wrap-around.
+   * Calculates available free space between read and write pointers.
    */
-  #writeInt32(offset: number, value: number) {
-    const cap = this.#data.length;
-    this.#data[offset] = value & 0xff;
-    this.#data[(offset + 1) % cap] = (value >>> 8) & 0xff;
-    this.#data[(offset + 2) % cap] = (value >>> 16) & 0xff;
-    this.#data[(offset + 3) % cap] = (value >>> 24) & 0xff;
+  #calculateFreeSpace(rdPtr: number, wrPtr: number): number {
+    // We reserve one byte to distinguish between full and empty buffer
+    return (rdPtr - wrPtr - 1 + this.capacity) % this.capacity;
   }
 
   /**
-   * Helper to read a 32-bit integer from the ring buffer while
-   * handling wrap-around.
+   * Writes data to the buffer, handling wrap-around using modulo.
+   * @returns New write pointer position
    */
-  #readInt32(offset: number) {
-    const cap = this.#data.length;
-    const b0 = this.#data[offset]!;
-    const b1 = this.#data[(offset + 1) % cap]!;
-    const b2 = this.#data[(offset + 2) % cap]!;
-    const b3 = this.#data[(offset + 3) % cap]!;
-    return (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
+  #writeData(data: Uint8Array, startPos: number): number {
+    const capacity = this.capacity;
+    const endPos = (startPos + data.length) % capacity;
+
+    if (endPos > startPos) {
+      // No wrap-around needed
+      this.#data.set(data, startPos);
+    } else {
+      // Handle wrap-around
+      const firstChunkSize = capacity - startPos;
+      this.#data.set(data.subarray(0, firstChunkSize), startPos);
+      this.#data.set(data.subarray(firstChunkSize), 0);
+    }
+
+    return endPos;
+  }
+
+  /**
+   * Reads data from the buffer, handling wrap-around using modulo.
+   */
+  #readData(startPos: number, length: number): Uint8Array {
+    const result = new Uint8Array(length);
+    const capacity = this.capacity;
+    const endPos = (startPos + length) % capacity;
+
+    if (endPos > startPos) {
+      // No wrap-around needed
+      result.set(this.#data.subarray(startPos, startPos + length));
+    } else {
+      // Handle wrap-around
+      const firstChunkSize = capacity - startPos;
+      result.set(this.#data.subarray(startPos, startPos + firstChunkSize), 0);
+      result.set(
+        this.#data.subarray(0, length - firstChunkSize),
+        firstChunkSize
+      );
+    }
+
+    return result;
   }
 }

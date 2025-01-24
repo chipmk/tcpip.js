@@ -47,15 +47,14 @@ export class NetworkInterface
     this.#receiveBuffer = new SharedArrayBuffer(1024 * 1024);
     this.#sendBuffer = new SharedArrayBuffer(1024 * 1024);
 
-    // Initialize the shared data
-    const receiveView = new Int32Array(this.#receiveBuffer);
-    const sendView = new Int32Array(this.#sendBuffer);
-    Atomics.store(receiveView, 0, 0);
-    Atomics.store(sendView, 0, 0);
-
     // Create ring buffers for network communication
-    const receiveRingPromise = createAsyncRingBuffer(this.#receiveBuffer);
-    const sendRing = createRingBuffer(this.#sendBuffer);
+    const receiveRingPromise = createAsyncRingBuffer(
+      this.#receiveBuffer,
+      (...data: unknown[]) => console.log('Net interface: Receive:', ...data)
+    );
+    const sendRing = createRingBuffer(this.#sendBuffer, (...data: unknown[]) =>
+      console.log('Net interface: Send:', ...data)
+    );
 
     // Create a raw duplex stream for reading and writing frames
     const rawStream: DuplexStream<Uint8Array> = {

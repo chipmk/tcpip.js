@@ -1,6 +1,5 @@
 import { WASI } from '@bjorn3/browser_wasi_shim';
 import { createRingBuffer, type RingBuffer } from '../ring-buffer/index.js';
-import { generateMacAddress, parseMacAddress } from '../util.js';
 import { handleWasiSocket } from '../wasi/socket-extension.js';
 
 type WasiInstance = WebAssembly.Instance & {
@@ -33,8 +32,14 @@ export class VM {
     }
 
     this.#wasmUrl = options.wasmUrl;
-    this.#receiveRing = createRingBuffer(options.net.receiveBuffer);
-    this.#sendRing = createRingBuffer(options.net.sendBuffer);
+    this.#receiveRing = createRingBuffer(
+      options.net.receiveBuffer,
+      (...data: unknown[]) => console.log('Receive:', ...data)
+    );
+    this.#sendRing = createRingBuffer(
+      options.net.sendBuffer,
+      (...data: unknown[]) => console.log('Send:', ...data)
+    );
     this.#macAddress = options.net.macAddress;
   }
 

@@ -220,7 +220,6 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
    */
   wasi.wasiImport.fd_prestat_get = (fd: number, prestat_ptr: number) => {
     if (fd === listenFd || fd === connectionFd) {
-      console.log('got here 1');
       // reserve socket-related fds
       let buffer = new DataView(wasi.inst.exports.memory.buffer);
       buffer.setUint8(prestat_ptr, 1);
@@ -288,7 +287,6 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
       }
 
       try {
-        console.log('sock_send: sending ' + asHex(buf));
         send(buf);
       } catch (error) {
         console.log('sock_send: error ' + error);

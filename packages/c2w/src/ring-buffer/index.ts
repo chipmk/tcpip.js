@@ -1,4 +1,4 @@
-import { wrap } from 'comlink';
+import { proxy, wrap } from 'comlink';
 import { RingBuffer } from './ring-buffer.js';
 
 export type { RingBuffer };
@@ -9,8 +9,11 @@ export type { RingBuffer };
  * This is a synchronous ring buffer that blocks via Atomics until
  * data is added to the shared array buffer from another thread.
  */
-export function createRingBuffer(buffer: SharedArrayBuffer) {
-  return new RingBuffer(buffer);
+export function createRingBuffer(
+  buffer: SharedArrayBuffer,
+  log?: (...data: unknown[]) => void
+) {
+  return new RingBuffer(buffer, log);
 }
 
 /**
@@ -22,7 +25,10 @@ export function createRingBuffer(buffer: SharedArrayBuffer) {
  *
  * Can be replaced by `Atomics.waitAsync` once it has better support.
  */
-export async function createAsyncRingBuffer(buffer: SharedArrayBuffer) {
+export async function createAsyncRingBuffer(
+  buffer: SharedArrayBuffer,
+  log?: (...data: unknown[]) => void
+) {
   const worker = new Worker(
     new URL('./ring-buffer-worker.ts', import.meta.url),
     {
@@ -31,5 +37,5 @@ export async function createAsyncRingBuffer(buffer: SharedArrayBuffer) {
   );
 
   const AsyncRingBuffer = wrap<typeof RingBuffer>(worker);
-  return await new AsyncRingBuffer(buffer);
+  return await new AsyncRingBuffer(buffer, log ? proxy(log) : undefined);
 }
