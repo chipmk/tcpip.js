@@ -1,5 +1,6 @@
 import { WASI } from '@bjorn3/browser_wasi_shim';
-import { createRingBuffer, type RingBuffer } from '../ring-buffer/index.js';
+import { fetchFile } from '../fetch-file.js';
+import { RingBuffer } from '../ring-buffer/ring-buffer.js';
 import { handleWasiSocket } from '../wasi/socket-extension.js';
 
 type WasiInstance = WebAssembly.Instance & {
@@ -15,13 +16,25 @@ export type VMNetOptions = {
   macAddress: string;
 };
 
+export type VMStdioOptions = {
+  stdinBuffer: SharedArrayBuffer;
+  stdoutBuffer: SharedArrayBuffer;
+  stderrBuffer: SharedArrayBuffer;
+};
+
 export type VMOptions = {
   wasmUrl: string | URL;
+  stdio: VMStdioOptions;
   net: VMNetOptions;
 };
 
 export class VM {
   #wasmUrl: string | URL;
+
+  #stdinRing: RingBuffer;
+  #stdoutRing: RingBuffer;
+  #stderrRing: RingBuffer;
+
   #receiveRing: RingBuffer;
   #sendRing: RingBuffer;
   #macAddress: string;
@@ -32,11 +45,22 @@ export class VM {
     }
 
     this.#wasmUrl = options.wasmUrl;
-    this.#receiveRing = createRingBuffer(
+
+    this.#stdinRing = new RingBuffer(options.stdio.stdinBuffer, (data) =>
+      console.log('Stdin:', data)
+    );
+    this.#stdoutRing = new RingBuffer(options.stdio.stdoutBuffer, (data) =>
+      console.log('Stdout:', data)
+    );
+    this.#stderrRing = new RingBuffer(options.stdio.stderrBuffer, (data) =>
+      console.log('Stderr:', data)
+    );
+
+    this.#receiveRing = new RingBuffer(
       options.net.receiveBuffer,
       (...data: unknown[]) => console.log('Receive:', ...data)
     );
-    this.#sendRing = createRingBuffer(
+    this.#sendRing = new RingBuffer(
       options.net.sendBuffer,
       (...data: unknown[]) => console.log('Send:', ...data)
     );
@@ -56,11 +80,24 @@ export class VM {
     handleWasiSocket(wasi, {
       listenFd,
       connectionFd,
-      accept: () => true,
-      send: (data) => this.#sendRing.write(data),
-      receive: (len) => this.#receiveRing.read(len),
-      hasData: () => this.#receiveRing.hasData,
-      waitForData: (timeout) => this.#receiveRing.waitForData(timeout),
+      stdin: {
+        read: (len) => this.#stdinRing.read(len),
+        hasData: () => this.#stdinRing.hasData,
+        waitForData: (timeout) => this.#stdinRing.waitForData(timeout),
+      },
+      stdout: {
+        write: (data) => this.#stdoutRing.write(data),
+      },
+      stderr: {
+        write: (data) => this.#stderrRing.write(data),
+      },
+      net: {
+        accept: () => true,
+        send: (data) => this.#sendRing.write(data),
+        receive: (len) => this.#receiveRing.read(len),
+        hasData: () => this.#receiveRing.hasData,
+        waitForData: (timeout) => this.#receiveRing.waitForData(timeout),
+      },
     });
 
     const wasmResponse = await fetch(this.#wasmUrl);
@@ -69,6 +106,10 @@ export class VM {
     });
 
     const wasiInstance = instance as WasiInstance;
-    wasi.start(wasiInstance);
+    return wasi.start(wasiInstance);
+  }
+
+  close() {
+    self.close();
   }
 }

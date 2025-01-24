@@ -3,30 +3,31 @@ import { WASI, wasi as WasiDefs } from '@bjorn3/browser_wasi_shim';
 export type WasiSocketOptions = {
   listenFd: number;
   connectionFd: number;
-  accept(): boolean;
-  send(data: Uint8Array): void;
-  receive(len: number): Uint8Array;
-  hasData(): boolean;
-  waitForData(timeout?: number): boolean;
+  stdin: {
+    read(len: number): Uint8Array;
+    hasData(): boolean;
+    waitForData(timeout?: number): boolean;
+  };
+  stdout: {
+    write(data: Uint8Array): void;
+  };
+  stderr: {
+    write(data: Uint8Array): void;
+  };
+  net: {
+    accept(): boolean;
+    send(data: Uint8Array): void;
+    receive(len: number): Uint8Array;
+    hasData(): boolean;
+    waitForData(timeout?: number): boolean;
+  };
 };
 
 /**
  * Extends the WASI implementation with socket function handlers.
  */
 export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
-  const {
-    listenFd,
-    connectionFd,
-    accept,
-    send,
-    receive,
-    hasData,
-    waitForData,
-  } = options;
-
-  const errStatus = {
-    val: 0,
-  };
+  const { listenFd, connectionFd, stdin, stdout, stderr, net } = options;
 
   /**
    * Implements the `poll_oneoff` WASI syscall.
@@ -94,9 +95,21 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
     if (clockSub || stdinSub || socketSub) {
       // Nanoseconds to milliseconds
       const timeoutMilliseconds = timeout / 1e6;
-      const isSocketReadable = waitForData(timeoutMilliseconds);
 
+      if (stdinSub) {
+        const isStdinReadable = stdin.waitForData(timeoutMilliseconds);
+
+        if (isStdinReadable) {
+          events.push({
+            type: 'fd_read',
+            userdata: stdinSub.userdata,
+            error: 0,
+          });
+        }
+      }
       if (socketSub) {
+        const isSocketReadable = net.waitForData(timeoutMilliseconds);
+
         if (isSocketReadable) {
           events.push({
             type: 'fd_read',
@@ -154,6 +167,27 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
     iovs_len: number,
     nread_ptr: number
   ) => {
+    if (fd === 0) {
+      const buffer = new DataView(wasi.inst.exports.memory.buffer);
+      const buffer8 = new Uint8Array(wasi.inst.exports.memory.buffer);
+      const iovecs = WasiDefs.Iovec.read_bytes_array(
+        buffer,
+        iovs_ptr,
+        iovs_len
+      );
+      let nread = 0;
+      for (let i = 0; i < iovecs.length; i++) {
+        const iovec = iovecs[i]!;
+        if (iovec.buf_len == 0) {
+          continue;
+        }
+        const data = stdin.read(iovec.buf_len);
+        buffer8.set(data, iovec.buf);
+        nread += data.length;
+      }
+      buffer.setUint32(nread_ptr, nread, true);
+      return 0;
+    }
     if (fd === connectionFd) {
       return wasi.wasiImport.sock_recv!(
         fd,
@@ -178,6 +212,31 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
     iovs_len: number,
     nwritten_ptr: number
   ) => {
+    if (fd == 1 || fd == 2) {
+      const buffer = new DataView(wasi.inst.exports.memory.buffer);
+      const buffer8 = new Uint8Array(wasi.inst.exports.memory.buffer);
+      const iovecs = WasiDefs.Ciovec.read_bytes_array(
+        buffer,
+        iovs_ptr,
+        iovs_len
+      );
+      let wtotal = 0;
+      for (let i = 0; i < iovecs.length; i++) {
+        const iovec = iovecs[i]!;
+        const buf = buffer8.slice(iovec.buf, iovec.buf + iovec.buf_len);
+        if (buf.length == 0) {
+          continue;
+        }
+        if (fd == 1) {
+          stdout.write(buf);
+        } else {
+          stderr.write(buf);
+        }
+        wtotal += buf.length;
+      }
+      buffer.setUint32(nwritten_ptr, wtotal, true);
+      return 0;
+    }
     if (fd === connectionFd) {
       return wasi.wasiImport.sock_send!(
         fd,
@@ -245,7 +304,7 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
       return ERRNO_INVAL;
     }
 
-    if (!accept()) {
+    if (!net.accept()) {
       return ERRNO_AGAIN;
     }
 
@@ -287,7 +346,7 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
       }
 
       try {
-        send(buf);
+        net.send(buf);
       } catch (error) {
         console.log('sock_send: error ' + error);
         return ERRNO_INVAL;
@@ -323,7 +382,7 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
       return ERRNO_INVAL;
     }
 
-    if (!hasData()) {
+    if (!net.hasData()) {
       return ERRNO_AGAIN;
     }
 
@@ -339,7 +398,7 @@ export function handleWasiSocket(wasi: WASI, options: WasiSocketOptions) {
         continue;
       }
 
-      const data = receive(iovec.buf_len);
+      const data = net.receive(iovec.buf_len);
 
       buffer8.set(data, iovec.buf);
       nread += data.length;
