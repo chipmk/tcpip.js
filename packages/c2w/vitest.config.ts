@@ -20,6 +20,6 @@ export default defineConfig({
       headless: true,
       screenshotFailures: false,
     },
-    forceRerunTriggers: ['**/workers/**'],
+    forceRerunTriggers: ['**/*-worker.ts'],
   },
 });

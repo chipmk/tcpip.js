@@ -1,4 +1,5 @@
 import { proxy, wrap } from 'comlink';
+import Worker from 'web-worker';
 import { RingBuffer } from './ring-buffer.js';
 
 export type { RingBuffer };

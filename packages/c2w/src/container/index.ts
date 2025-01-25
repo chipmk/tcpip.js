@@ -1,4 +1,5 @@
 import { proxy, wrap } from 'comlink';
+import Worker from 'web-worker';
 import { NetworkInterface } from './network-interface.js';
 import { StdioInterface } from './stdio-interface.js';
 import type { VM, VMOptions } from './vm.js';

@@ -100,7 +100,7 @@ export class VM {
       },
     });
 
-    const wasmResponse = await fetch(this.#wasmUrl);
+    const wasmResponse = await fetchFile(this.#wasmUrl, 'application/wasm');
     const { instance } = await WebAssembly.instantiateStreaming(wasmResponse, {
       wasi_snapshot_preview1: wasi.wasiImport,
     });
