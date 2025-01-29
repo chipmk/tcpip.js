@@ -21,7 +21,8 @@ export class RingBuffer {
   readonly #control: Int32Array;
   readonly #data: Uint8Array;
 
-  #log: (...data: unknown[]) => void = () => {};
+  // Logging function, helpful for debugging in web workers
+  #debug: (...data: unknown[]) => void = () => {};
 
   /**
    * Creates a new RingBuffer instance.
@@ -30,10 +31,11 @@ export class RingBuffer {
    */
   constructor(
     sharedBuffer: SharedArrayBuffer,
-    log?: (...data: unknown[]) => void
+    log?: (...data: unknown[]) => void,
+    debug?: boolean
   ) {
-    if (log) {
-      this.#log = (...data: unknown[]) => log('RingBuffer:', ...data);
+    if (debug && log) {
+      this.#debug = (...data: unknown[]) => log('RingBuffer:', ...data);
     }
 
     // Ensure we have enough space for the control structure
@@ -120,7 +122,7 @@ export class RingBuffer {
     // Write the data and update the pointer
     const newWrPtr = this.#writeData(data, wrPtr);
 
-    this.#log('Wrote data:', data.length, 'bytes');
+    this.#debug('Wrote data:', data.length, 'bytes');
 
     // Update write pointer atomically
     Atomics.store(this.#control, WRITE_PTR_INDEX, newWrPtr);
@@ -151,13 +153,13 @@ export class RingBuffer {
 
       // Calculate available data
       const available = (wrPtr - rdPtr + this.capacity) % this.capacity;
-      this.#log('Data available:', available, 'bytes, requested:', length);
+      this.#debug('Data available:', available, 'bytes, requested:', length);
 
       // Read what we can
       const readLength = length ? Math.min(length, available) : available;
       const data = this.#readData(rdPtr, readLength);
 
-      this.#log('Read data:', asHex(data), ',', data.length, 'bytes');
+      this.#debug('Read data:', asHex(data), ',', data.length, 'bytes');
 
       // Update read pointer atomically
       const newRdPtr = (rdPtr + readLength) % this.capacity;

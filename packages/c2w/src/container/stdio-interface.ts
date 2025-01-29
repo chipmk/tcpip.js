@@ -1,9 +1,14 @@
-import {
-  createAsyncRingBuffer,
-  createRingBuffer,
-} from '../ring-buffer/index.js';
+import { createAsyncRingBuffer } from '../ring-buffer/index.js';
+import { RingBuffer } from '../ring-buffer/ring-buffer.js';
 import { fromReadable } from '../util.js';
 import type { VMStdioOptions } from './vm.js';
+
+export type StdioInterfaceOptions = {
+  /**
+   * Enable debug logging.
+   */
+  debug?: boolean;
+};
 
 export class StdioInterface {
   #stdinBuffer: SharedArrayBuffer;
@@ -35,24 +40,27 @@ export class StdioInterface {
     };
   }
 
-  constructor() {
+  constructor(options: StdioInterfaceOptions = {}) {
     // Create shared buffers for network communication
     this.#stdinBuffer = new SharedArrayBuffer(1024 * 1024);
     this.#stdoutBuffer = new SharedArrayBuffer(1024 * 1024);
     this.#stderrBuffer = new SharedArrayBuffer(1024 * 1024);
 
     // Create ring buffers for network communication
-    const stdinRing = createRingBuffer(
-      this.#stdinBuffer
-      // (...data: unknown[]) => console.log('Stdio interface: Stdin:', ...data)
+    const stdinRing = new RingBuffer(
+      this.#stdinBuffer,
+      (...data: unknown[]) => console.log('Stdio interface: Stdin:', ...data),
+      options.debug
     );
-    const stdoutRing = createAsyncRingBuffer(
-      this.#stdoutBuffer
-      // (...data: unknown[]) => console.log('Stdio interface: Stdout:', ...data)
+    const stdoutRingPromise = createAsyncRingBuffer(
+      this.#stdoutBuffer,
+      (...data: unknown[]) => console.log('Stdio interface: Stdout:', ...data),
+      options.debug
     );
-    const stderrRing = createAsyncRingBuffer(
-      this.#stderrBuffer
-      // (...data: unknown[]) => console.log('Stdio interface: Stderr:', ...data)
+    const stderrRingPromise = createAsyncRingBuffer(
+      this.#stderrBuffer,
+      (...data: unknown[]) => console.log('Stdio interface: Stderr:', ...data),
+      options.debug
     );
 
     this.stdin = new WritableStream<Uint8Array>({
@@ -64,7 +72,7 @@ export class StdioInterface {
     this.stdout = new ReadableStream<Uint8Array>(
       {
         async pull(controller) {
-          const ring = await stdoutRing;
+          const ring = await stdoutRingPromise;
           const data = await ring.read(controller.desiredSize ?? undefined);
 
           controller.enqueue(data);
@@ -81,7 +89,7 @@ export class StdioInterface {
     this.stderr = new ReadableStream<Uint8Array>(
       {
         async pull(controller) {
-          const ring = await stderrRing;
+          const ring = await stderrRingPromise;
           const data = await ring.read(controller.desiredSize ?? undefined);
 
           controller.enqueue(data);

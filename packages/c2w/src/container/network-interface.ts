@@ -1,8 +1,6 @@
 import { frameStream } from '../frame/length-prefixed-frames.js';
-import {
-  createAsyncRingBuffer,
-  createRingBuffer,
-} from '../ring-buffer/index.js';
+import { createAsyncRingBuffer } from '../ring-buffer/index.js';
+import { RingBuffer } from '../ring-buffer/ring-buffer.js';
 import type { DuplexStream } from '../types.js';
 import { fromReadable, generateMacAddress, parseMacAddress } from '../util.js';
 import type { VMNetOptions } from './vm.js';
@@ -14,6 +12,11 @@ export type NetworkInterfaceOptions = {
    * If not provided, a random MAC address will be generated.
    */
   macAddress?: string;
+
+  /**
+   * Enable debug logging.
+   */
+  debug?: boolean;
 };
 
 export class NetworkInterface
@@ -50,10 +53,13 @@ export class NetworkInterface
     // Create ring buffers for network communication
     const receiveRingPromise = createAsyncRingBuffer(
       this.#receiveBuffer,
-      (...data: unknown[]) => console.log('Net interface: Receive:', ...data)
+      (...data: unknown[]) => console.log('Net interface: Receive:', ...data),
+      options.debug
     );
-    const sendRing = createRingBuffer(this.#sendBuffer, (...data: unknown[]) =>
-      console.log('Net interface: Send:', ...data)
+    const sendRing = new RingBuffer(
+      this.#sendBuffer,
+      (...data: unknown[]) => console.log('Net interface: Send:', ...data),
+      options.debug
     );
 
     // Create a raw duplex stream for reading and writing frames
