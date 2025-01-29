@@ -1,4 +1,4 @@
-export { NetworkStack, createStack } from './stack.js';
+export { createStack, NetworkStack } from './stack.js';
 export type { NetworkInterface } from './types.js';
 
 export {
@@ -22,3 +22,9 @@ export {
   type TcpConnectionOptions,
   type TcpListenerOptions,
 } from './bindings/tcp.js';
+
+export {
+  UdpSocket,
+  type UdpDatagram,
+  type UdpSocketOptions,
+} from './bindings/udp.js';
