@@ -40,7 +40,7 @@ err_t close_tcp_connection(struct tcp_pcb *conn) {
 }
 
 // Callback for when data is received
-err_t recv_callback(void *arg, struct tcp_pcb *conn, struct pbuf *p, err_t err) {
+err_t recv_tcp_callback(void *arg, struct tcp_pcb *conn, struct pbuf *p, err_t err) {
   // TODO: review this logic (should we half-close?)
   if (p == NULL) {
     closed_tcp_connection(conn);
@@ -66,7 +66,7 @@ err_t accept_callback(void *arg, struct tcp_pcb *conn, err_t err) {
   accept_tcp_connection(listener, conn);
 
   // Set a receive callback to handle incoming data
-  tcp_recv(conn, recv_callback);
+  tcp_recv(conn, recv_tcp_callback);
 
   return ERR_OK;
 }
@@ -109,7 +109,7 @@ err_t connected_callback(void *arg, struct tcp_pcb *conn, err_t err) {
   connected_tcp_connection(conn);
 
   // Set a receive callback to handle incoming data
-  tcp_recv(conn, recv_callback);
+  tcp_recv(conn, recv_tcp_callback);
 
   // Set a sent callback to handle outgoing data
   tcp_sent(conn, sent_callback);
