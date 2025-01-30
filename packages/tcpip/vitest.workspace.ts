@@ -17,47 +17,17 @@ export default defineWorkspace([
       target: 'es2022',
     },
     test: {
-      name: 'chromium',
+      name: 'browser',
       include: ['src/**/*.{test,spec}.ts'],
       setupFiles: 'test/setup.ts',
       browser: {
         enabled: true,
         provider: 'playwright',
-        name: 'chromium',
-        headless: true,
-        screenshotFailures: false,
-      },
-    },
-  },
-  {
-    esbuild: {
-      target: 'es2022',
-    },
-    test: {
-      name: 'firefox',
-      include: ['src/**/*.{test,spec}.ts'],
-      setupFiles: 'test/setup.ts',
-      browser: {
-        enabled: true,
-        provider: 'playwright',
-        name: 'firefox',
-        headless: true,
-        screenshotFailures: false,
-      },
-    },
-  },
-  {
-    esbuild: {
-      target: 'es2022',
-    },
-    test: {
-      name: 'webkit',
-      include: ['src/**/*.{test,spec}.ts'],
-      setupFiles: 'test/setup.ts',
-      browser: {
-        enabled: true,
-        provider: 'playwright',
-        name: 'webkit',
+        instances: [
+          { browser: 'chromium' },
+          { browser: 'firefox' },
+          { browser: 'webkit' },
+        ],
         headless: true,
         screenshotFailures: false,
       },

@@ -1,6 +1,6 @@
 {
   "name": "tcpip",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Virtual TCP/IP stack that can run anywhere",
   "license": "MIT",
   "type": "module",
@@ -35,12 +35,12 @@
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
     "@types/node": "^22.8.6",
-    "@vitest/browser": "^2.1.8",
-    "playwright": "^1.49.1",
+    "@vitest/browser": "^3.0.4",
+    "playwright": "^1.50.0",
     "prettier": "^3.3.3",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.4"
+    "vitest": "^3.0.4"
   }
 }
