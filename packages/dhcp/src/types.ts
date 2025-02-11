@@ -64,6 +64,21 @@ export type DHCPServerOptions = {
   router: string;
 
   /**
+   * Hostname to assign to clients
+   */
+  hostname?: string;
+
+  /**
+   * Domain name to assign to clients (e.g. `"example.com"`)
+   */
+  domainName?: string;
+
+  /**
+   * List of DNS search domains (e.g. `["eng.example.com", "example.com"]`)
+   */
+  searchDomains?: string[];
+
+  /**
    * IP addresses of DNS servers to assign to clients.
    */
   dnsServers?: string[];
