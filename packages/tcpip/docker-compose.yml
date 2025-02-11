@@ -14,3 +14,12 @@ services:
     working_dir: /work
     volumes:
       - $PWD:/work
+  wabt:
+    image: wabt
+    container_name: wabt-container
+    build:
+      context: tools/wabt
+      dockerfile: Dockerfile
+    working_dir: /work
+    volumes:
+      - $PWD:/work
