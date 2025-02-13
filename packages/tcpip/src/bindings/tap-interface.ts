@@ -1,25 +1,30 @@
-import { Bindings } from './base.js';
+import { LwipError } from '../lwip/errors.js';
 import { serializeMacAddress, type MacAddress } from '../protocols/ethernet.js';
 import { serializeIPv4Cidr, type IPv4Cidr } from '../protocols/ipv4.js';
 import type { Pointer } from '../types.js';
 import {
   ExtendedReadableStream,
   fromReadable,
+  generateMacAddress,
   Hooks,
   nextMicrotask,
 } from '../util.js';
+import { Bindings } from './base.js';
 
 type TapInterfaceHandle = Pointer;
 
 type TapInterfaceOuterHooks = {
+  handle: TapInterfaceHandle;
   sendFrame(frame: Uint8Array): void;
+  enable(): void;
+  disable(): void;
 };
 
 type TapInterfaceInnerHooks = {
   receiveFrame(frame: Uint8Array): void;
 };
 
-const tapInterfaceHooks = new Hooks<
+export const tapInterfaceHooks = new Hooks<
   TapInterface,
   TapInterfaceOuterHooks,
   TapInterfaceInnerHooks
@@ -45,7 +50,9 @@ export type TapExports = {
     handle: TapInterfaceHandle,
     frame: Pointer,
     length: number
-  ): void;
+  ): number;
+  enable_tap_interface(handle: TapInterfaceHandle): void;
+  disable_tap_interface(handle: TapInterfaceHandle): void;
 };
 
 export class TapBindings extends Bindings<TapImports, TapExports> {
@@ -56,9 +63,24 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
       const tapInterface = new TapInterface();
 
       tapInterfaceHooks.setOuter(tapInterface, {
+        handle,
         sendFrame: (frame) => {
           const framePtr = this.copyToMemory(frame);
-          this.exports.send_tap_interface(handle, framePtr, frame.length);
+          const result = this.exports.send_tap_interface(
+            handle,
+            framePtr,
+            frame.length
+          );
+
+          if (result !== LwipError.ERR_OK) {
+            throw new Error(`failed to send frame: ${result}`);
+          }
+        },
+        enable: () => {
+          this.exports.enable_tap_interface(handle);
+        },
+        disable: () => {
+          this.exports.disable_tap_interface(handle);
         },
       });
 
@@ -89,17 +111,22 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
   };
 
   async create(options: TapInterfaceOptions) {
-    const macAddress = serializeMacAddress(options.mac);
-    const { ipAddress, netmask } = serializeIPv4Cidr(options.ip);
+    const macAddress = options.mac
+      ? serializeMacAddress(options.mac)
+      : generateMacAddress();
+
+    const { ipAddress, netmask } = options.ip
+      ? serializeIPv4Cidr(options.ip)
+      : {};
 
     using macAddressPtr = this.copyToMemory(macAddress);
-    using ipAddressPtr = this.copyToMemory(ipAddress);
-    using netmaskPtr = this.copyToMemory(netmask);
+    using ipAddressPtr = ipAddress ? this.copyToMemory(ipAddress) : undefined;
+    using netmaskPtr = netmask ? this.copyToMemory(netmask) : undefined;
 
     const handle = this.exports.create_tap_interface(
       macAddressPtr,
-      ipAddressPtr,
-      netmaskPtr
+      ipAddressPtr ?? 0,
+      netmaskPtr ?? 0
     );
 
     const tapInterface = this.interfaces.get(handle);
@@ -123,8 +150,8 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
 }
 
 export type TapInterfaceOptions = {
-  mac: MacAddress;
-  ip: IPv4Cidr;
+  mac?: MacAddress;
+  ip?: IPv4Cidr;
 };
 
 export class TapInterface {
@@ -147,7 +174,7 @@ export class TapInterface {
           throw new Error('readable stream not initialized');
         }
 
-        this.#readableController?.enqueue(frame);
+        this.#readableController.enqueue(frame);
       },
     });
 
@@ -164,9 +191,21 @@ export class TapInterface {
 
     this.writable = new WritableStream({
       write: (packet) => {
-        tapInterfaceHooks.getOuter(this).sendFrame(packet);
+        try {
+          tapInterfaceHooks.getOuter(this).sendFrame(packet);
+        } catch (err) {
+          console.log('tap interface send failed', err);
+        }
       },
     });
+  }
+
+  enable() {
+    tapInterfaceHooks.getOuter(this).enable();
+  }
+
+  disable() {
+    tapInterfaceHooks.getOuter(this).disable();
   }
 
   listen() {

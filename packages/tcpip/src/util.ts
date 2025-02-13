@@ -215,3 +215,23 @@ export class ExtendedReadableStream<R> extends ReadableStream<R> {
 export async function nextMicrotask() {
   return await new Promise<void>((resolve) => queueMicrotask(resolve));
 }
+
+/**
+ * Generates a random MAC address.
+ *
+ * The generated address is locally administered (so won't conflict
+ * with real devices) and unicast (so it can be used as a source address).
+ */
+export function generateMacAddress() {
+  const mac = new Uint8Array(6);
+  crypto.getRandomValues(mac);
+
+  // Control bits only apply to the first byte
+  mac[0] =
+    // Clear the 2 least significant bits
+    (mac[0]! & 0b11111100) |
+    // Set locally administered bit (bit 1) to 1 and unicast bit (bit 0) to 0
+    0b00000010;
+
+  return mac;
+}
