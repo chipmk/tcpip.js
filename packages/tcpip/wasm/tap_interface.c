@@ -90,13 +90,3 @@ err_t send_tap_interface(struct netif *netif, const uint8_t *frame, uint16_t len
 
   return err;
 }
-
-EXPORT("enable_tap_interface")
-void enable_tap_interface(struct netif *netif) {
-  netif_set_up(netif);
-}
-
-EXPORT("disable_tap_interface")
-void disable_tap_interface(struct netif *netif) {
-  netif_set_down(netif);
-}

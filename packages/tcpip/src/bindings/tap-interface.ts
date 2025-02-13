@@ -16,8 +16,6 @@ type TapInterfaceHandle = Pointer;
 type TapInterfaceOuterHooks = {
   handle: TapInterfaceHandle;
   sendFrame(frame: Uint8Array): void;
-  enable(): void;
-  disable(): void;
 };
 
 type TapInterfaceInnerHooks = {
@@ -75,12 +73,6 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
           if (result !== LwipError.ERR_OK) {
             throw new Error(`failed to send frame: ${result}`);
           }
-        },
-        enable: () => {
-          this.exports.enable_tap_interface(handle);
-        },
-        disable: () => {
-          this.exports.disable_tap_interface(handle);
         },
       });
 
@@ -198,14 +190,6 @@ export class TapInterface {
         }
       },
     });
-  }
-
-  enable() {
-    tapInterfaceHooks.getOuter(this).enable();
-  }
-
-  disable() {
-    tapInterfaceHooks.getOuter(this).disable();
   }
 
   listen() {
