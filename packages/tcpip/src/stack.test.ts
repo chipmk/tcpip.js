@@ -313,6 +313,56 @@ describe('createBridgeInterface', () => {
       break;
     }
   });
+
+  test('bridge interface itself can send and receive frames', async () => {
+    // Create a network of two devices connected to a router
+    const device = await createStack();
+    const router = await createStack();
+
+    const deviceTap = await device.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const port = await router.createTapInterface();
+
+    // Create bridge
+    await router.createBridgeInterface({
+      ports: [port],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device to port
+    deviceTap.readable.pipeTo(port.writable);
+    port.readable.pipeTo(deviceTap.writable);
+
+    // Listen on router
+    const listener = await router.listenTcp({
+      port: 8080,
+    });
+
+    // Attempt to connect from device to bridge via port
+    const connection = await device.connectTcp({
+      host: '192.168.1.1',
+      port: 8080,
+    });
+
+    // Write data to confirm communication
+    const outboundWriter = connection.writable.getWriter();
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    outboundWriter.write(data);
+
+    for await (const inbound of listener) {
+      const reader = inbound.readable.getReader();
+      const received = await reader.read();
+
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value).toStrictEqual(data);
+      break;
+    }
+  });
 });
 
 describe('tcp', () => {

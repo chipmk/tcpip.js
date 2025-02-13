@@ -2,12 +2,13 @@
 #define LWIPOPTS_H
 
 // System and threading options
-#define NO_SYS 1                      // We are bare-metal/single-threaded
-#define SYS_LIGHTWEIGHT_PROT 0        // Disable thread protection (assumes NO_SYS=0)
-#define LWIP_SOCKET 0                 // Disable socket API (assumes NO_SYS=0)
-#define LWIP_NETCONN 0                // Disable Netconn API (assumes NO_SYS=0)
-#define LWIP_NETIF_API 0              // Disable network interface API (assumes NO_SYS=0)
-#define LWIP_NUM_NETIF_CLIENT_DATA 1  // Number of client data entries in struct netif (required for bridgeif)
+#define NO_SYS 1                                                  // We are bare-metal/single-threaded
+#define SYS_LIGHTWEIGHT_PROT 0                                    // Disable thread protection (assumes NO_SYS=0)
+#define LWIP_SOCKET 0                                             // Disable socket API (assumes NO_SYS=0)
+#define LWIP_NETCONN 0                                            // Disable Netconn API (assumes NO_SYS=0)
+#define LWIP_NETIF_API 0                                          // Disable network interface API (assumes NO_SYS=0)
+#define LWIP_NUM_NETIF_CLIENT_DATA 1                              // Number of client data entries in struct netif (required for bridgeif)
+#define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)  // Number of simultaneously active timeouts (default + 1 for bridgeif)
 
 // Constants used for calculations
 #define TCP_HEADER_LEN 20  // Minimum length of a TCP header (in bytes)
