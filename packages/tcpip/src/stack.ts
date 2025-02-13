@@ -1,5 +1,9 @@
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
 import {
+  BridgeBindings,
+  type BridgeInterfaceOptions,
+} from './bindings/bridge-interface.js';
+import {
   LoopbackBindings,
   LoopbackInterface,
   type LoopbackInterfaceOptions,
@@ -40,6 +44,7 @@ export class NetworkStack {
   #loopbackBindings = new LoopbackBindings();
   #tunBindings = new TunBindings();
   #tapBindings = new TapBindings();
+  #bridgeBindings = new BridgeBindings();
   #tcpBindings = new TcpBindings();
   #udpBindings = new UdpBindings();
 
@@ -92,6 +97,7 @@ export class NetworkStack {
         ...this.#loopbackBindings.imports,
         ...this.#tunBindings.imports,
         ...this.#tapBindings.imports,
+        ...this.#bridgeBindings.imports,
         ...this.#tcpBindings.imports,
         ...this.#udpBindings.imports,
       },
@@ -102,6 +108,7 @@ export class NetworkStack {
     this.#loopbackBindings.register(wasmInstance.exports);
     this.#tunBindings.register(wasmInstance.exports);
     this.#tapBindings.register(wasmInstance.exports);
+    this.#bridgeBindings.register(wasmInstance.exports);
     this.#tcpBindings.register(wasmInstance.exports);
     this.#udpBindings.register(wasmInstance.exports);
 
@@ -142,10 +149,15 @@ export class NetworkStack {
   }
 
   async createTapInterface(
-    options: TapInterfaceOptions
+    options: TapInterfaceOptions = {}
   ): Promise<TapInterface> {
     await this.ready;
     return this.#tapBindings.create(options);
+  }
+
+  async createBridgeInterface(options: BridgeInterfaceOptions) {
+    await this.ready;
+    return this.#bridgeBindings.create(options);
   }
 
   async removeInterface(

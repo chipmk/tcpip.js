@@ -17,6 +17,11 @@ export {
 } from './bindings/tap-interface.js';
 
 export {
+  BridgeInterface,
+  type BridgeInterfaceOptions,
+} from './bindings/bridge-interface.js';
+
+export {
   TcpConnection,
   TcpListener,
   type TcpConnectionOptions,
