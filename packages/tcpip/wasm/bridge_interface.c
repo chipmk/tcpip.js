@@ -13,12 +13,12 @@ struct netif *create_bridge_interface(const uint8_t mac_address[6], const uint8_
     return NULL;
   }
 
-  ip4_addr_t *ipaddr = NULL;
+  ip4_addr_t *ip4_addr = NULL;
   ip4_addr_t *netmask_addr = NULL;
 
   if (ip4) {
-    ipaddr = malloc(sizeof(ip4_addr_t));
-    IP4_ADDR(ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
+    ip4_addr = malloc(sizeof(ip4_addr_t));
+    IP4_ADDR(ip4_addr, ip4[0], ip4[1], ip4[2], ip4[3]);
   }
 
   if (netmask) {
@@ -38,7 +38,7 @@ struct netif *create_bridge_interface(const uint8_t mac_address[6], const uint8_
       mac_address[5]);
 
   netif_add(netif,
-            ipaddr,
+            ip4_addr,
             netmask_addr,
             NULL,
             &bridge_init,

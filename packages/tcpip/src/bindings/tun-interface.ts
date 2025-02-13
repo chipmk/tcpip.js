@@ -87,12 +87,17 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
   };
 
   async create(options: TunInterfaceOptions) {
-    const { ipAddress, netmask } = serializeIPv4Cidr(options.ip);
+    const { ipAddress, netmask } = options.ip
+      ? serializeIPv4Cidr(options.ip)
+      : {};
 
-    using ipAddressPtr = this.copyToMemory(ipAddress);
-    using netmaskPtr = this.copyToMemory(netmask);
+    using ipAddressPtr = ipAddress ? this.copyToMemory(ipAddress) : undefined;
+    using netmaskPtr = netmask ? this.copyToMemory(netmask) : undefined;
 
-    const handle = this.exports.create_tun_interface(ipAddressPtr, netmaskPtr);
+    const handle = this.exports.create_tun_interface(
+      ipAddressPtr ?? 0,
+      netmaskPtr ?? 0
+    );
 
     const tunInterface = this.interfaces.get(handle);
 
@@ -115,7 +120,7 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
 }
 
 export type TunInterfaceOptions = {
-  ip: IPv4Cidr;
+  ip?: IPv4Cidr;
 };
 
 export class TunInterface {
