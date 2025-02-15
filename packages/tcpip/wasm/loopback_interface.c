@@ -4,11 +4,7 @@
 #include "lwip/netif.h"
 #include "macros.h"
 
-typedef struct loopback_interface {
-  struct netif netif;
-} loopback_interface;
-
-extern void register_loopback_interface(loopback_interface *interface);
+extern void register_loopback_interface(struct netif *interface);
 
 static err_t netif_loop_output_ipv4(struct netif *netif, struct pbuf *p, const ip4_addr_t *addr) {
   LWIP_UNUSED_ARG(addr);
@@ -24,29 +20,38 @@ static err_t netif_loopif_init(struct netif *netif) {
 }
 
 EXPORT("create_loopback_interface")
-loopback_interface *create_loopback_interface(const uint8_t *ip4, const uint8_t *netmask) {
-  loopback_interface *interface = (loopback_interface *)malloc(sizeof(loopback_interface));
+struct netif *create_loopback_interface(const uint8_t ip4[4], const uint8_t netmask[4]) {
+  struct netif *netif = (struct netif *)malloc(sizeof(struct netif));
 
-  if (!interface) {
+  if (!netif) {
     return NULL;
   }
 
-  ip4_addr_t ipaddr, netmask_addr;
-  IP4_ADDR(&ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
-  IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
+  ip4_addr_t *ip4_addr = NULL;
+  ip4_addr_t *netmask_addr = NULL;
 
-  register_loopback_interface(interface);
+  if (ip4) {
+    ip4_addr = malloc(sizeof(ip4_addr_t));
+    IP4_ADDR(ip4_addr, ip4[0], ip4[1], ip4[2], ip4[3]);
+  }
 
-  netif_add(&interface->netif, &ipaddr, &netmask_addr, NULL, interface, netif_loopif_init, ip_input);
+  if (netmask) {
+    netmask_addr = malloc(sizeof(ip4_addr_t));
+    IP4_ADDR(netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
+  }
 
-  netif_set_link_up(&interface->netif);
-  netif_set_up(&interface->netif);
+  register_loopback_interface(netif);
 
-  return interface;
+  netif_add(netif, ip4_addr, netmask_addr, NULL, NULL, netif_loopif_init, ip_input);
+
+  netif_set_link_up(netif);
+  netif_set_up(netif);
+
+  return netif;
 }
 
 EXPORT("remove_loopback_interface")
-void remove_loopback_interface(loopback_interface *interface) {
-  netif_remove(&interface->netif);
-  free(interface);
+void remove_loopback_interface(struct netif *netif) {
+  netif_remove(netif);
+  free(netif);
 }

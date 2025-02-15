@@ -5,6 +5,7 @@ import {
   SEND_BUFFER_SIZE,
 } from './bindings/tcp.js';
 import {
+  BridgeInterface,
   createStack,
   LoopbackInterface,
   TapInterface,
@@ -227,6 +228,140 @@ describe('createTapInterface', () => {
     expect(parsedFrame.payload.senderIP).toBe('192.168.1.1');
     expect(parsedFrame.payload.targetMac).toBe('00:1a:2b:3c:4d:5f');
     expect(parsedFrame.payload.targetIP).toBe('192.168.1.2');
+  });
+});
+
+describe('createBridgeInterface', () => {
+  test('should create a BridgeInterface with the given options', async () => {
+    const stack = await createStack();
+
+    const port1 = await stack.createTapInterface({
+      mac: '02:00:00:00:00:01',
+      ip: '192.168.1.2/24',
+    });
+
+    const port2 = await stack.createTapInterface({
+      mac: '02:00:00:00:00:02',
+      ip: '192.168.1.3/24',
+    });
+
+    const bridgeInterface = await stack.createBridgeInterface({
+      ports: [port1, port2],
+      mac: '02:00:00:00:00:00',
+      ip: '192.168.1.1/24',
+    });
+
+    expect(bridgeInterface).toBeInstanceOf(BridgeInterface);
+  });
+
+  test('frames are forwarded between ports', async () => {
+    // Create a network of two devices connected to a router
+    const device1 = await createStack();
+    const device2 = await createStack();
+    const router = await createStack();
+
+    const device1Tap = await device1.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const device2Tap = await device2.createTapInterface({
+      ip: '192.168.1.3/24',
+    });
+
+    const port1 = await router.createTapInterface();
+    const port2 = await router.createTapInterface();
+
+    // Bridge the two router ports
+    await router.createBridgeInterface({
+      ports: [port1, port2],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device 1 to port 1
+    device1Tap.readable.pipeTo(port1.writable);
+    port1.readable.pipeTo(device1Tap.writable);
+
+    // Connect device 2 to port 2
+    device2Tap.readable.pipeTo(port2.writable);
+    port2.readable.pipeTo(device2Tap.writable);
+
+    // Listen on device 2
+    const listener = await device2.listenTcp({
+      port: 8080,
+    });
+
+    // Attempt to connect from device 1 to device 2 via bridge
+    const connection = await device1.connectTcp({
+      host: '192.168.1.3',
+      port: 8080,
+    });
+
+    // Write data to confirm communication
+    const outboundWriter = connection.writable.getWriter();
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    outboundWriter.write(data);
+
+    for await (const inbound of listener) {
+      const reader = inbound.readable.getReader();
+      const received = await reader.read();
+
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value).toStrictEqual(data);
+      break;
+    }
+  });
+
+  test('bridge interface itself can send and receive frames', async () => {
+    // Create a network of two devices connected to a router
+    const device = await createStack();
+    const router = await createStack();
+
+    const deviceTap = await device.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const port = await router.createTapInterface();
+
+    // Create bridge
+    await router.createBridgeInterface({
+      ports: [port],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device to port
+    deviceTap.readable.pipeTo(port.writable);
+    port.readable.pipeTo(deviceTap.writable);
+
+    // Listen on router
+    const listener = await router.listenTcp({
+      port: 8080,
+    });
+
+    // Attempt to connect from device to bridge via port
+    const connection = await device.connectTcp({
+      host: '192.168.1.1',
+      port: 8080,
+    });
+
+    // Write data to confirm communication
+    const outboundWriter = connection.writable.getWriter();
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    outboundWriter.write(data);
+
+    for await (const inbound of listener) {
+      const reader = inbound.readable.getReader();
+      const received = await reader.read();
+
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value).toStrictEqual(data);
+      break;
+    }
   });
 });
 

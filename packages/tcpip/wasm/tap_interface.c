@@ -5,30 +5,15 @@
 #include "macros.h"
 #include "netif/etharp.h"
 
-typedef struct tap_interface {
-  struct netif netif;
-  uint8_t mac_address[6];
-  u16_t mtu;
-} tap_interface;
-
-extern void register_tap_interface(tap_interface *interface);
-extern void receive_frame(tap_interface *interface, const uint8_t *frame, uint16_t length);
+extern void register_tap_interface(struct netif *netif);
+extern void receive_frame(struct netif *netif, const uint8_t *frame, uint16_t length);
 
 err_t tap_interface_output(struct netif *netif, struct pbuf *p) {
-  receive_frame(netif->state, (uint8_t *)p->payload, p->tot_len);
+  receive_frame(netif, (uint8_t *)p->payload, p->tot_len);
   return 0;
 }
 
 static err_t tap_interface_init(struct netif *netif) {
-  tap_interface *interface = (tap_interface *)netif->state;
-
-  // Set MAC address
-  memcpy(netif->hwaddr, interface->mac_address, sizeof(interface->mac_address));
-  netif->hwaddr_len = sizeof(interface->mac_address);
-
-  // Set MTU
-  netif->mtu = interface->mtu;
-
   // Set interface flags
   netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET;
 
@@ -42,47 +27,66 @@ static err_t tap_interface_init(struct netif *netif) {
 }
 
 EXPORT("create_tap_interface")
-tap_interface *create_tap_interface(const uint8_t mac_address[6], const uint8_t *ip4, const uint8_t *netmask) {
-  tap_interface *interface = (tap_interface *)malloc(sizeof(tap_interface));
+struct netif *create_tap_interface(const uint8_t mac_address[6], const uint8_t ip4[4], const uint8_t netmask[4]) {
+  struct netif *netif = (struct netif *)malloc(sizeof(struct netif));
 
-  if (!interface) {
+  if (!netif) {
     return NULL;
   }
 
-  // TODO: make MTU configurable
-  interface->mtu = 1500;
+  // Set MAC address
+  memcpy(netif->hwaddr, mac_address, 6);
+  netif->hwaddr_len = 6;
 
-  memcpy(interface->mac_address, mac_address, 6);
+  // Set MTU
+  // TODO: Make this configurable
+  netif->mtu = 1500;
 
-  ip4_addr_t ipaddr, netmask_addr;
-  IP4_ADDR(&ipaddr, ip4[0], ip4[1], ip4[2], ip4[3]);
-  IP4_ADDR(&netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
+  ip4_addr_t *ip4_addr = NULL;
+  ip4_addr_t *netmask_addr = NULL;
 
-  register_tap_interface(interface);
+  if (ip4) {
+    ip4_addr = malloc(sizeof(ip4_addr_t));
+    IP4_ADDR(ip4_addr, ip4[0], ip4[1], ip4[2], ip4[3]);
+  }
 
-  netif_add(&interface->netif, &ipaddr, &netmask_addr, NULL, interface, tap_interface_init, netif_input);
-  netif_set_link_up(&interface->netif);
-  netif_set_up(&interface->netif);
+  if (netmask) {
+    netmask_addr = malloc(sizeof(ip4_addr_t));
+    IP4_ADDR(netmask_addr, netmask[0], netmask[1], netmask[2], netmask[3]);
+  }
 
-  return interface;
+  register_tap_interface(netif);
+
+  netif_add(netif, ip4_addr, netmask_addr, NULL, NULL, tap_interface_init, netif_input);
+  netif_set_link_up(netif);
+  netif_set_up(netif);
+
+  return netif;
 }
 
 EXPORT("remove_tap_interface")
-void remove_tap_interface(tap_interface *interface) {
-  netif_remove(&interface->netif);
-  free(interface);
+void remove_tap_interface(struct netif *netif) {
+  netif_remove(netif);
+  free(netif);
 }
 
 EXPORT("send_tap_interface")
-void send_tap_interface(tap_interface *interface, const uint8_t *frame, uint16_t length) {
+err_t send_tap_interface(struct netif *netif, const uint8_t *frame, uint16_t length) {
   // Allocate a pbuf with PBUF_REF, pointing to frame buffer data
   struct pbuf *p = pbuf_alloc(PBUF_RAW, length, PBUF_REF);
-  if (p != NULL) {
-    p->payload = (void *)frame;
 
-    // Pass the pbuf to lwIP for processing
-    if (interface->netif.input(p, &interface->netif) != ERR_OK) {
-      pbuf_free(p);
-    }
+  if (p == NULL) {
+    return ERR_MEM;
   }
+
+  p->payload = (void *)frame;
+
+  err_t err = netif->input(p, netif);
+
+  // Pass the pbuf to lwIP for processing
+  if (err != ERR_OK) {
+    pbuf_free(p);
+  }
+
+  return err;
 }

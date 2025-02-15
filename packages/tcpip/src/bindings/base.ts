@@ -20,8 +20,9 @@ export abstract class Bindings<Imports, Exports> {
     return new UniquePointer(this.exports.malloc(size), this.exports.free);
   }
 
-  copyToMemory(data: Uint8Array) {
-    const length = data.length;
+  copyToMemory(data: ArrayBuffer) {
+    const bytes = new Uint8Array(data);
+    const length = bytes.length;
     const pointer = this.smartMalloc(length);
 
     const memoryView = new Uint8Array(
@@ -30,7 +31,7 @@ export abstract class Bindings<Imports, Exports> {
       length
     );
 
-    memoryView.set(data);
+    memoryView.set(bytes);
 
     return pointer;
   }

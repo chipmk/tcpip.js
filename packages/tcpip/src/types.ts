@@ -1,3 +1,4 @@
+import type { BridgeExports } from './bindings/bridge-interface.js';
 import type {
   LoopbackExports,
   LoopbackInterface,
@@ -8,7 +9,7 @@ import type { TunExports, TunInterface } from './bindings/tun-interface.js';
 import type { UdpExports } from './bindings/udp.js';
 import type { UniquePointer } from './util.js';
 
-export type Pointer = UniquePointer;
+export type Pointer = UniquePointer | 0;
 
 export type WasiExports = {
   memory: WebAssembly.Memory;
@@ -31,6 +32,7 @@ export type WasmExports = WasiExports &
   LoopbackExports &
   TunExports &
   TapExports &
+  BridgeExports &
   TcpExports &
   UdpExports;
 

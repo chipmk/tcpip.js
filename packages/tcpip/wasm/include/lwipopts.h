@@ -2,11 +2,13 @@
 #define LWIPOPTS_H
 
 // System and threading options
-#define NO_SYS 1                // We are bare-metal/single-threaded
-#define SYS_LIGHTWEIGHT_PROT 0  // Disable thread protection (assumes NO_SYS=0)
-#define LWIP_SOCKET 0           // Disable socket API (assumes NO_SYS=0)
-#define LWIP_NETCONN 0          // Disable Netconn API (assumes NO_SYS=0)
-#define LWIP_NETIF_API 0        // Disable network interface API (assumes NO_SYS=0)
+#define NO_SYS 1                                                  // We are bare-metal/single-threaded
+#define SYS_LIGHTWEIGHT_PROT 0                                    // Disable thread protection (assumes NO_SYS=0)
+#define LWIP_SOCKET 0                                             // Disable socket API (assumes NO_SYS=0)
+#define LWIP_NETCONN 0                                            // Disable Netconn API (assumes NO_SYS=0)
+#define LWIP_NETIF_API 0                                          // Disable network interface API (assumes NO_SYS=0)
+#define LWIP_NUM_NETIF_CLIENT_DATA 1                              // Number of client data entries in struct netif (required for bridgeif)
+#define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)  // Number of simultaneously active timeouts (default + 1 for bridgeif)
 
 // Constants used for calculations
 #define TCP_HEADER_LEN 20  // Minimum length of a TCP header (in bytes)
@@ -30,6 +32,11 @@
 
 // Ethernet options
 #define LWIP_ARP 1  // Enable Address Resolution Protocol (ARP)
+
+// Bridging options
+// TODO: Change to 63 once this fix is merged:
+// https://github.com/lwip-tcpip/lwip/pull/56
+#define BRIDGEIF_MAX_PORTS 31  // Maximum number of ports in a bridge
 
 // IP options
 #define LWIP_IPV4 1   // Enable IPv4 support
@@ -60,15 +67,16 @@
 #define CHECKSUM_CHECK_ICMP 1  // Check checksums for incoming ICMP segments
 
 // Debugging options
-// #define LWIP_DEBUG 1                  // Enable debugging
-#define PBUF_DEBUG LWIP_DBG_ON        // Enable debugging for pbufs
-#define MEMP_DEBUG LWIP_DBG_ON        // Enable debugging for memory pools
-#define NETIF_DEBUG LWIP_DBG_ON       // Enable debugging for network interfaces
-#define ETHARP_DEBUG LWIP_DBG_ON      // Enable debugging for Ethernet ARP
-#define IP_DEBUG LWIP_DBG_ON          // Enable debugging for IP
-#define TCP_DEBUG LWIP_DBG_ON         // Enable debugging for TCP
-#define TCP_INPUT_DEBUG LWIP_DBG_ON   // Enable debugging for TCP input
-#define TCP_OUTPUT_DEBUG LWIP_DBG_ON  // Enable debugging for TCP input
-#define UDP_DEBUG LWIP_DBG_ON         // Enable debugging for UDP
+// #define LWIP_DEBUG 1                   // Enable debugging
+#define PBUF_DEBUG LWIP_DBG_ON         // Enable debugging for pbufs
+#define MEMP_DEBUG LWIP_DBG_ON         // Enable debugging for memory pools
+#define NETIF_DEBUG LWIP_DBG_ON        // Enable debugging for network interfaces
+#define BRIDGEIF_FW_DEBUG LWIP_DBG_ON  // Enable debugging for bridge forwarding
+#define ETHARP_DEBUG LWIP_DBG_ON       // Enable debugging for Ethernet ARP
+#define IP_DEBUG LWIP_DBG_ON           // Enable debugging for IP
+#define TCP_DEBUG LWIP_DBG_ON          // Enable debugging for TCP
+#define TCP_INPUT_DEBUG LWIP_DBG_ON    // Enable debugging for TCP input
+#define TCP_OUTPUT_DEBUG LWIP_DBG_ON   // Enable debugging for TCP input
+#define UDP_DEBUG LWIP_DBG_ON          // Enable debugging for UDP
 
 #endif /* LWIPOPTS_H */
