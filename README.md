@@ -4,8 +4,9 @@
 
 ## Features
 
-- **Portable:** User-space network stack implemented on top of [`lwIP` + WASM](#why-lwip)
+- **Portable:** User-space network stack built on [`lwIP` + WASM](#why-lwip)
 - **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun-interface) and [`TapInterface`](#tap-interface)
+- **Bridge:** Create a virtual switch/LAN by [`bridging`](#bridge-interface) multiple interfaces together
 - **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
 - **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#openudp)
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
@@ -152,19 +153,22 @@ for await (const connection of listener) {
 
 For more info, see [`TcpListener`](#tcplistener).
 
+The above example connects a single VM to the `NetworkStack`. If you wish to connect multiple VMs together on a shared LAN (ie. a virtual switch), you can create a [`BridgeInterface`](#bridge-interface) to join multiple tap interfaces together.
+
 ## Network interfaces
 
-3 types of interfaces are available:
+4 types of interfaces are available:
 
 - [Loopback](#loopback-interface): Loop packets back onto itself (ie. `localhost`)
 - [Tun](#tun-interface): Hook into IP packets (L3)
 - [Tap](#tap-interface): Hook into ethernet frames (L2)
+- [Bridge](#bridge-interface): Bridge multiple tap interfaces together to create a virtual switch
 
-These interfaces are designed to resemble their counterparts in a traditional host network stack.
+These interfaces are designed to resemble their counterparts in a real network stack.
 
 ### Loopback interface
 
-A loopback interface simply forwards packets back on to itself. It's akin to 127.0.0.1 (`localhost`) on a traditional network stack.
+A loopback interface simply forwards packets back on to itself. It's akin to 127.0.0.1 (`localhost`) on a typical network stack.
 
 ```ts
 const loopbackInterface = await stack.createLoopbackInterface({
@@ -192,8 +196,6 @@ const connection = await stack.connectTcp({
   port: 80,
 });
 ```
-
-You can create as many loopback interfaces as you wish.
 
 ### Tun interface
 
@@ -255,15 +257,12 @@ const connection = await stack.connectTcp({
 ...
 ```
 
-You can create as many tun interfaces as you wish.
-
 ### Tap interface
 
 A tap interface hooks into inbound and outbound ethernet frames (L2).
 
 ```ts
 const tapInterface = await stack.createTapInterface({
-  mac: '01:23:45:67:89:ab',
   ip: '196.168.1.1/24',
 });
 ```
@@ -326,11 +325,71 @@ const connection = await stack.connectTcp({
 ...
 ```
 
-You can create as many tap interfaces as you wish.
+Note that `mac` and `ip` are optional parameters for `createTapInterface()`. If you don't provide a MAC address, a random one will be generated. If you don't provide an IP address, the interface will not respond to ARP requests or send ARP requests for unknown IP addresses. Typically you would only omit the IP address if you are using the tap interface as part of a [bridge](#bridge-interface).
+
+### Bridge interface
+
+A bridge interface bridges two or more tap interfaces together into a single logical interface with its own MAC and IP address. It operates at the ethernet level (L2) and will automatically forward frames between the interfaces based on the destination MAC address.
+
+```ts
+const port1 = await stack.createTapInterface();
+const port2 = await stack.createTapInterface();
+
+const bridge = await stack.createBridgeInterface({
+  ports: [port1, port2],
+  ip: '192.168.1.1/24',
+});
+```
+
+A bridge is what you would use to connect multiple VMs together into a virtual LAN.
+
+```ts
+import { createV86NetworkStream } from '@tcpip/v86';
+
+// ...
+
+const vm1 = new V86();
+const vm2 = new V86();
+const vm1Nic = createV86NetworkStream(vm1);
+const vm2Nic = createV86NetworkStream(vm2);
+
+const port1 = await stack.createTapInterface();
+const port2 = await stack.createTapInterface();
+
+// Connect port1 to vm1
+port1.readable.pipeTo(vm1Nic.writable);
+vm1Nic.readable.pipeTo(port1.writable);
+
+// Connect port2 to vm2
+port2.readable.pipeTo(vm2Nic.writable);
+vm2Nic.readable.pipeTo(port2.writable);
+
+// Bridge the two ports together
+const bridge = await stack.createBridgeInterface({
+  ports: [port1, port2],
+  ip: '192.168.1.1/24',
+});
+```
+
+In the above example, `vm1` and `vm2` are attached together via a shared LAN. We treat the tcpip.js stack as the virtual router/switch where each VM connects to their own [tap interface](#tap-interface) (`port1` and `port2`) which are then bridged together. The bridge interface has its own MAC and IP address (`192.168.1.1`), representing the address of the virtual router. This follows the exact same bridging pattern that a physical router would in a real network.
+
+Notice that we intentionally don't set IP addresses on the tap interfaces - they are only used to forward ethernet frames to/from the bridge. The bridge interface itself is where we set the IP address that the VMs can communicate with.
+
+This allows you to, for example, host a TCP server on the router itself in order to communicate with the VMs from JavaScript. You would simply create a TCP server on the stack like so:
+
+```ts
+const listener = await stack.listenTcp({
+  port: 80,
+});
+```
+
+The server would be accessible to any VM connected to the bridge via `192.168.1.1:80`. For more information on TCP, see the [TCP API](#tcp-api).
+
+Note that `BridgeInterface` does not expose its own `readable` or `writable` stream - instead you would send and receive frames through each `TapInterface` port that is part of the bridge.
 
 ### Other interfaces
 
-Looking for another type of interface? See [Future plans](#future-plans).
+Looking for another type of network interface? See [Future plans](#future-plans).
 
 ### Removing interfaces
 
@@ -591,7 +650,6 @@ _Background:_ Vite optimizes dependencies during development to improve build ti
 - [ ] DNS API
 - [ ] mDNS API
 - [ ] Hosts file
-- [ ] Bridge interface
 - [ ] Experimental Wireguard interface
 - [ ] Node.js net polyfill
 - [ ] Deno net polyfill
