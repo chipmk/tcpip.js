@@ -186,7 +186,7 @@ export class TapInterface {
         try {
           tapInterfaceHooks.getOuter(this).sendFrame(packet);
         } catch (err) {
-          console.log('tap interface send failed', err);
+          console.error('tap interface send failed', err);
         }
       },
     });
