@@ -66,7 +66,7 @@ export function parseUdpDatagram(
  * (required for UDP checksum calculation).
  * If no IP pseudo-header is provided, the checksum field will be set to 0.
  */
-export function createUdpDatagram(
+export function serializeUdpDatagram(
   datagram: UdpDatagram,
   pseudoHeader?: IPv4PseudoHeader
 ): Uint8Array {

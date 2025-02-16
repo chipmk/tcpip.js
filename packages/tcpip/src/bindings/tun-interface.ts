@@ -1,5 +1,4 @@
-import { Bindings } from './base.js';
-import { serializeIPv4Cidr, type IPv4Cidr } from '../protocols/ipv4.js';
+import { serializeIPv4Cidr, type IPv4Cidr } from '@tcpip/wire';
 import type { Pointer } from '../types.js';
 import {
   ExtendedReadableStream,
@@ -7,6 +6,7 @@ import {
   Hooks,
   nextMicrotask,
 } from '../util.js';
+import { Bindings } from './base.js';
 
 type TunInterfaceHandle = Pointer;
 

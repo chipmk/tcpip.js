@@ -1,3 +1,4 @@
+import { serializeIPv4Address, serializeIPv6Address } from '@tcpip/wire';
 import { ClassCode, OpCode, RCode, TypeCode } from './constants.js';
 import type {
   DnsClass,
@@ -275,40 +276,4 @@ export function serializeDnsMessage(message: DnsMessage): Uint8Array {
   }
 
   return buffer;
-}
-
-/**
- * Parses an IPv4 address Uint8Array into a string.
- */
-export function parseIPv4Address(data: Uint8Array) {
-  return data.join('.');
-}
-
-/**
- * Serialize an IPv4 address string into a Uint8Array.
- */
-export function serializeIPv4Address(ip: string) {
-  return new Uint8Array(ip.split('.').map((byte) => parseInt(byte, 10)));
-}
-
-/**
- * Parses an IPv6 address Uint8Array into a string.
- */
-export function parseIPv6Address(data: Uint8Array) {
-  return data
-    .reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '')
-    .match(/.{1,4}/g)!
-    .join(':');
-}
-
-/**
- * Serialize an IPv6 address string into a Uint8Array.
- */
-export function serializeIPv6Address(ip: string) {
-  return new Uint8Array(
-    ip.split(':').flatMap((n) => {
-      const num = parseInt(n, 16);
-      return [num >> 8, num & 0xff];
-    })
-  );
 }

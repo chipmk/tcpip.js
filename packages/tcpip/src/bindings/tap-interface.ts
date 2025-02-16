@@ -1,6 +1,10 @@
+import {
+  serializeIPv4Cidr,
+  serializeMacAddress,
+  type IPv4Cidr,
+  type MacAddress,
+} from '@tcpip/wire';
 import { LwipError } from '../lwip/errors.js';
-import { serializeMacAddress, type MacAddress } from '../protocols/ethernet.js';
-import { serializeIPv4Cidr, type IPv4Cidr } from '../protocols/ipv4.js';
 import type { Pointer } from '../types.js';
 import {
   ExtendedReadableStream,
