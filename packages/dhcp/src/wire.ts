@@ -106,6 +106,8 @@ export function serializeDHCPMessage(
   const message = new Uint8Array(baseSize + optionsSize);
   const view = new DataView(message.buffer);
 
+  const textEncoder = new TextEncoder();
+
   // Set message header fields
   view.setUint8(0, params.op);
   view.setUint8(1, 1);
@@ -168,6 +170,52 @@ export function serializeDHCPMessage(
       const dnsIP = serializeIPv4Address(dnsServer);
       message.set(dnsIP, offset);
       offset += 4;
+    }
+  }
+
+  // Hostname (if configured)
+  if (options.hostname) {
+    const hostnameBytes = textEncoder.encode(options.hostname);
+    message[offset++] = DHCPOptions.HOSTNAME;
+    message[offset++] = hostnameBytes.length;
+    message.set(hostnameBytes, offset);
+    offset += hostnameBytes.length;
+  }
+
+  // Domain Name (if configured)
+  if (options.domainName) {
+    const domainBytes = textEncoder.encode(options.domainName);
+    message[offset++] = DHCPOptions.DOMAIN_NAME;
+    message[offset++] = domainBytes.length;
+    message.set(domainBytes, offset);
+    offset += domainBytes.length;
+  }
+
+  // Domain Search (if configured)
+  if (options.searchDomains?.length) {
+    // Calculate total length including length bytes for each domain
+    const encodedDomains = options.searchDomains.map((domain) => {
+      const labels = domain.split('.');
+      const bytes: number[] = [];
+      for (const label of labels) {
+        bytes.push(label.length);
+        bytes.push(...textEncoder.encode(label));
+      }
+      bytes.push(0); // Root label
+      return bytes;
+    });
+
+    const totalLength = encodedDomains.reduce(
+      (sum, domain) => sum + domain.length,
+      0
+    );
+
+    message[offset++] = DHCPOptions.DOMAIN_SEARCH;
+    message[offset++] = totalLength;
+
+    for (const domainBytes of encodedDomains) {
+      message.set(domainBytes, offset);
+      offset += domainBytes.length;
     }
   }
 
