@@ -38,7 +38,7 @@ export function parseIcmpMessage(data: Uint8Array): IcmpMessage {
 /**
  * Serializes an ICMP message from an `ICMPMessage` object.
  */
-export function createIcmpMessage(message: IcmpMessage): Uint8Array {
+export function serializeIcmpMessage(message: IcmpMessage): Uint8Array {
   const data = new Uint8Array(8 + message.payload.length);
   const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 

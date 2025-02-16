@@ -1,5 +1,13 @@
-import { createArpMessage, parseArpMessage, type ArpMessage } from './arp.js';
-import { createIPv4Packet, parseIPv4Packet, type IPv4Packet } from './ipv4.js';
+import {
+  serializeArpMessage,
+  parseArpMessage,
+  type ArpMessage,
+} from './arp.js';
+import {
+  serializeIPv4Packet,
+  parseIPv4Packet,
+  type IPv4Packet,
+} from './ipv4.js';
 
 export type MacAddress =
   `${string}:${string}:${string}:${string}:${string}:${string}`;
@@ -58,16 +66,16 @@ export function parseEthernetFrame(frame: Uint8Array): EthernetFrame {
 /**
  * Serializes an Ethernet frame from a Frame object.
  */
-export function createEthernetFrame(frame: EthernetFrame): Uint8Array {
+export function serializeEthernetFrame(frame: EthernetFrame): Uint8Array {
   let payload: Uint8Array;
 
   switch (frame.type) {
     case 'ipv4':
-      payload = createIPv4Packet(frame.payload);
+      payload = serializeIPv4Packet(frame.payload);
       break;
       break;
     case 'arp':
-      payload = createArpMessage(frame.payload);
+      payload = serializeArpMessage(frame.payload);
       break;
     default:
       throw new Error('unknown ethernet type');
@@ -77,7 +85,7 @@ export function createEthernetFrame(frame: EthernetFrame): Uint8Array {
 
   data.set(serializeMacAddress(frame.destinationMac), 0);
   data.set(serializeMacAddress(frame.sourceMac), 6);
-  data.set(createEthernetType(frame.type), 12);
+  data.set(serializeEthernetType(frame.type), 12);
   data.set(payload, 14);
 
   return data;
@@ -144,7 +152,7 @@ export function parseEthernetType(etherType: Uint8Array) {
 /**
  * Serializes an Ethernet type from a string.
  */
-export function createEthernetType(type: 'ipv4' | 'ipv6' | 'arp') {
+export function serializeEthernetType(type: 'ipv4' | 'ipv6' | 'arp') {
   const data = new Uint8Array(2);
   const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 

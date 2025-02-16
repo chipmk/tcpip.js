@@ -1,11 +1,11 @@
 import { expect, test } from 'vitest';
 import {
-  createIPv4Packet,
   generateNetmask,
   parseIPv4Address,
   parseIPv4Packet,
   serializeIPv4Address,
   serializeIPv4Cidr,
+  serializeIPv4Packet,
   type IPv4Packet,
 } from './ipv4.js';
 
@@ -128,7 +128,7 @@ test('serializes an IPv4 packet containing a UDP datagram', () => {
     },
   };
 
-  const result = createIPv4Packet(packet);
+  const result = serializeIPv4Packet(packet);
 
   expect(result).toEqual(
     new Uint8Array([

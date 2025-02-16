@@ -20,7 +20,9 @@
       "default": "./dist/index.cjs"
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "@tcpip/wire": "^0.1.0"
+  },
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
     "tcpip": "0.2",

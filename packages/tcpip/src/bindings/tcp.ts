@@ -1,8 +1,8 @@
-import { Bindings } from './base.js';
+import { serializeIPv4Address, type IPv4Address } from '@tcpip/wire';
 import { LwipError } from '../lwip/errors.js';
-import { serializeIPv4Address, type IPv4Address } from '../protocols/ipv4.js';
 import type { Pointer } from '../types.js';
 import { EventMap, fromReadable, Hooks, nextMicrotask } from '../util.js';
+import { Bindings } from './base.js';
 
 type TcpListenerHandle = Pointer;
 type TcpConnectionHandle = Pointer;

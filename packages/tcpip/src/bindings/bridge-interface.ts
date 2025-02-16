@@ -1,5 +1,9 @@
-import { serializeMacAddress, type MacAddress } from '../protocols/ethernet.js';
-import { serializeIPv4Cidr, type IPv4Cidr } from '../protocols/ipv4.js';
+import {
+  serializeIPv4Cidr,
+  serializeMacAddress,
+  type IPv4Cidr,
+  type MacAddress,
+} from '@tcpip/wire';
 import type { Pointer } from '../types.js';
 import { generateMacAddress } from '../util.js';
 import { Bindings } from './base.js';

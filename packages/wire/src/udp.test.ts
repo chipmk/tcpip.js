@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { serializeIPv4PseudoHeader } from './ipv4.js';
-import { createUdpDatagram, parseUdpDatagram, type UdpDatagram } from './udp';
+import {
+  parseUdpDatagram,
+  serializeUdpDatagram,
+  type UdpDatagram,
+} from './udp';
 
 describe('parseUdpDatagram', () => {
   it('should parse a valid UDP datagram', () => {
@@ -116,15 +120,15 @@ describe('parseUdpDatagram', () => {
   });
 });
 
-describe('createUdpDatagram', () => {
-  it('should create a valid UDP datagram', () => {
+describe('serializeUdpDatagram', () => {
+  it('should serialize a valid UDP datagram', () => {
     const datagram: UdpDatagram = {
       sourcePort: 80,
       destinationPort: 443,
       payload: new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
     };
 
-    const result = createUdpDatagram(datagram, {
+    const result = serializeUdpDatagram(datagram, {
       sourceIP: '192.168.1.1',
       destinationIP: '192.168.1.2',
       protocol: 'udp',
@@ -156,7 +160,7 @@ describe('createUdpDatagram', () => {
       payload: new Uint8Array([]),
     };
 
-    const result = createUdpDatagram(datagram, {
+    const result = serializeUdpDatagram(datagram, {
       sourceIP: '192.168.1.1',
       destinationIP: '192.168.1.2',
       protocol: 'udp',

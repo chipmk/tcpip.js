@@ -1,3 +1,10 @@
+import {
+  parseEthernetFrame,
+  parseIPv4Packet,
+  serializeEthernetFrame,
+  serializeIPv4Packet,
+  type IPv4Packet,
+} from '@tcpip/wire';
 import { describe, expect, test } from 'vitest';
 import {
   MAX_WINDOW_SIZE,
@@ -11,15 +18,6 @@ import {
   TapInterface,
   TunInterface,
 } from './index.js';
-import {
-  createEthernetFrame,
-  parseEthernetFrame,
-} from './protocols/ethernet.js';
-import {
-  createIPv4Packet,
-  parseIPv4Packet,
-  type IPv4Packet,
-} from './protocols/ipv4.js';
 
 describe('general', () => {
   test('loopback interface is created by default', async () => {
@@ -117,7 +115,7 @@ describe('createTunInterface', () => {
 
     const payload = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
 
-    const packet = createIPv4Packet({
+    const packet = serializeIPv4Packet({
       version: 4,
       dscp: 0,
       ecn: 0,
@@ -190,7 +188,7 @@ describe('createTapInterface', () => {
 
     // ARP broadcast from 192.168.1.2 asking who has 192.168.1.1
     await writer.write(
-      createEthernetFrame({
+      serializeEthernetFrame({
         destinationMac: 'ff:ff:ff:ff:ff:ff',
         sourceMac: '00:1a:2b:3c:4d:5f',
         type: 'arp',
@@ -677,7 +675,7 @@ describe('udp', () => {
       },
     };
 
-    const packet = createIPv4Packet(ipv4Packet);
+    const packet = serializeIPv4Packet(ipv4Packet);
     await writer.write(packet);
 
     const received = await reader.read();
@@ -757,7 +755,7 @@ describe('udp', () => {
       },
     };
 
-    const packet = createIPv4Packet(ipv4Packet);
+    const packet = serializeIPv4Packet(ipv4Packet);
     await writer.write(packet);
 
     const received = await reader.read();

@@ -31,7 +31,8 @@
     }
   },
   "dependencies": {
-    "@bjorn3/browser_wasi_shim": "^0.3.0"
+    "@bjorn3/browser_wasi_shim": "^0.3.0",
+    "@tcpip/wire": "^0.1.0"
   },
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",

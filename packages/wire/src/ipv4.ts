@@ -1,10 +1,10 @@
 import {
-  createIcmpMessage,
+  serializeIcmpMessage,
   parseIcmpMessage,
   type IcmpMessage,
 } from './icmp.js';
 import {
-  createUdpDatagram,
+  serializeUdpDatagram,
   parseUdpDatagram,
   UDP_HEADER_LENGTH,
   type UdpDatagram,
@@ -148,18 +148,18 @@ export function parseIPv4Packet(data: Uint8Array): IPv4Packet {
 /**
  * Serializes an IPv4 packet from an `IPv4Packet` object.
  */
-export function createIPv4Packet(packet: IPv4Packet): Uint8Array {
+export function serializeIPv4Packet(packet: IPv4Packet): Uint8Array {
   let payload: Uint8Array;
 
   switch (packet.protocol) {
     case 'icmp':
-      payload = createIcmpMessage(packet.payload);
+      payload = serializeIcmpMessage(packet.payload);
       break;
     case 'tcp':
       payload = packet.payload;
       break;
     case 'udp':
-      payload = createUdpDatagram(packet.payload, {
+      payload = serializeUdpDatagram(packet.payload, {
         sourceIP: packet.sourceIP,
         destinationIP: packet.destinationIP,
         protocol: packet.protocol,
@@ -277,7 +277,7 @@ export function generateNetmask(maskSize: number) {
 }
 
 /**
- * Creates a pseudo header for use in calculating transport layer checksums.
+ * Serializes a pseudo header for use in calculating transport layer checksums.
  */
 export function serializeIPv4PseudoHeader(pseudoHeader: IPv4PseudoHeader) {
   const buffer = new Uint8Array(12);

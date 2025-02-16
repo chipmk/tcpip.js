@@ -1,3 +1,4 @@
+import { parseIPv4Address, serializeIPv4Address } from '@tcpip/wire';
 import { DHCPMessageTypes, DHCPOptionCodes, DHCPOptions } from './constants.js';
 import type {
   DHCPMessage,
@@ -6,7 +7,6 @@ import type {
   DHCPOption,
   DHCPServerOptions,
 } from './types.js';
-import { ipv4ToNumber, numberToIPv4 } from './util.js';
 
 export function parseDHCPMessageType(type: number) {
   const [key] =
@@ -73,8 +73,8 @@ export function parseDHCPMessage(data: Uint8Array): DHCPMessage {
         type = parseDHCPMessageType(data[i + 2]!);
         break;
       case DHCPOptionCodes.REQUESTED_IP: {
-        const ip = view.getUint32(i + 2);
-        requestedIp = numberToIPv4(ip);
+        const ip = data.subarray(i + 2, i + 2 + 4);
+        requestedIp = parseIPv4Address(ip);
         break;
       }
       case DHCPOptionCodes.SERVER_ID:
@@ -113,8 +113,8 @@ export function serializeDHCPMessage(
   view.setUint32(4, params.xid);
 
   // Set yiaddr (your IP) field
-  const ip = ipv4ToNumber(params.yiaddr);
-  view.setUint32(16, ip);
+  const ip = serializeIPv4Address(params.yiaddr);
+  message.set(ip, 16);
 
   // Set client MAC address
   const macBytes = params.mac.split(':').map((x: string) => parseInt(x, 16));
@@ -136,8 +136,8 @@ export function serializeDHCPMessage(
   message[offset++] = DHCPOptions.SERVER_IDENTIFIER;
   message[offset++] = 4;
 
-  const serverIP = ipv4ToNumber(options.serverIdentifier);
-  view.setUint32(offset, serverIP);
+  const serverIP = serializeIPv4Address(options.serverIdentifier);
+  message.set(serverIP, offset);
   offset += 4;
 
   // Lease time
@@ -149,15 +149,15 @@ export function serializeDHCPMessage(
   // Subnet mask
   message[offset++] = DHCPOptions.SUBNET_MASK;
   message[offset++] = 4;
-  const mask = ipv4ToNumber(options.subnetMask);
-  view.setUint32(offset, mask);
+  const mask = serializeIPv4Address(options.subnetMask);
+  message.set(mask, offset);
   offset += 4;
 
   // Router
   message[offset++] = DHCPOptions.ROUTER;
   message[offset++] = 4;
-  const router = ipv4ToNumber(options.router);
-  view.setUint32(offset, router);
+  const router = serializeIPv4Address(options.router);
+  message.set(router, offset);
   offset += 4;
 
   // DNS Servers (if configured)
@@ -165,8 +165,8 @@ export function serializeDHCPMessage(
     message[offset++] = DHCPOptions.DNS_SERVERS;
     message[offset++] = 4 * options.dnsServers.length;
     for (const dnsServer of options.dnsServers) {
-      const dnsIP = ipv4ToNumber(dnsServer);
-      view.setUint32(offset, dnsIP);
+      const dnsIP = serializeIPv4Address(dnsServer);
+      message.set(dnsIP, offset);
       offset += 4;
     }
   }
