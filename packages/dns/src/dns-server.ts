@@ -16,31 +16,22 @@ export type DnsServerOptions = {
   port?: number;
 
   /**
-   * `tcpip` network stack to use.
-   */
-  stack: NetworkStack;
-
-  /**
    * Callback function to handle DNS queries.
    */
   request: RequestFn;
 };
 
-export async function createDnsServer(options: DnsServerOptions) {
-  const server = new DnsServer(options);
-  await server.listen();
-  return server;
-}
-
 export class DnsServer {
+  #stack: NetworkStack;
   #options: DnsServerOptions;
 
-  constructor(options: DnsServerOptions) {
+  constructor(stack: NetworkStack, options: DnsServerOptions) {
+    this.#stack = stack;
     this.#options = options;
   }
 
   async listen() {
-    const socket = await this.#options.stack.openUdp({
+    const socket = await this.#stack.openUdp({
       port: this.#options.port ?? 53,
     });
     this.#processDnsMessages(socket);

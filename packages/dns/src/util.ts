@@ -1,15 +1,4 @@
-import { compressIPv6 } from '@tcpip/wire';
-
-/**
- * Chunk a string into parts of a given size.
- */
-export function chunk(value: string, size: number) {
-  const parts = [];
-  for (let i = 0; i < value.length; i += size) {
-    parts.push(value.slice(i, i + size));
-  }
-  return parts;
-}
+import { compressIPv6, expandIPv6, serializeIPv6Address } from '@tcpip/wire';
 
 export type PtrIPv4 = {
   type: 'ipv4';
@@ -22,6 +11,35 @@ export type PtrIPv6 = {
 };
 
 export type PtrIP = PtrIPv4 | PtrIPv6;
+
+/**
+ * Converts an IPv4 or IPv6 address to a reversed PTR name.
+ *
+ * @example
+ * // Convert IPv4 address to PTR name
+ * ipToPtrName('10.0.0.1');
+ * // '1.0.0.10.in-addr.arpa'
+ *
+ * @example
+ * // Convert IPv6 address to PTR name
+ * ipToPtrName('2001:db8::567:89ab');
+ * // 'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa'
+ */
+export function ipToPtrName(ip: string): string {
+  const parts = ip.split('.');
+  if (parts.length === 4) {
+    return `${parts.reverse().join('.')}.in-addr.arpa`;
+  }
+
+  const ipv6 = expandIPv6(ip);
+  const ipv6Bytes = serializeIPv6Address(ipv6);
+
+  const partsV6 = Array.from(ipv6Bytes).flatMap((byte) =>
+    [byte >> 4, byte & 0xf].map((n) => n.toString(16))
+  );
+
+  return `${partsV6.reverse().join('.')}.ip6.arpa`;
+}
 
 /**
  * Converts a reversed PTR name to an IPv4 or IPv6 address.
