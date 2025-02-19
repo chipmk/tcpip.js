@@ -96,7 +96,7 @@ export type DnsQuery = {
 export type DnsMessage = {
   header: DnsHeader;
   questions: DnsQuestion[];
-  answers: DnsRecord[];
-  authorities: DnsRecord[];
-  additionals: DnsRecord[];
+  answers?: DnsRecord[];
+  authorities?: DnsRecord[];
+  additionals?: DnsRecord[];
 };

@@ -1,5 +1,26 @@
 import { describe, expect, test } from 'vitest';
-import { ptrNameToIP } from './util';
+import { ipToPtrName, ptrNameToIP } from './util';
+
+describe('ipToPtrName', () => {
+  test('should convert an IPv4 address to a PTR name', () => {
+    const ptr = ipToPtrName('10.0.0.1');
+    expect(ptr).toBe('1.0.0.10.in-addr.arpa');
+  });
+
+  test('should convert an IPv6 address to a PTR name', () => {
+    const ptr = ipToPtrName('2001:db8::567:89ab');
+    expect(ptr).toBe(
+      'b.a.9.8.7.6.5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa'
+    );
+  });
+
+  test('should handle compressed IPv6 addresses', () => {
+    const ptr = ipToPtrName('::1');
+    expect(ptr).toBe(
+      '1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa'
+    );
+  });
+});
 
 describe('ptrNameToIP', () => {
   test('should convert PTR name to an IPv4 address', () => {

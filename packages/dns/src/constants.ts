@@ -17,10 +17,17 @@ export const ClassCode = {
 
 export const OpCode = {
   QUERY: 0, // Standard query
+  IQUERY: 1, // Inverse query
+  STATUS: 2, // Server status request
+  NOTIFY: 4, // Notify
+  UPDATE: 5, // Update
 } as const;
 
 export const RCode = {
   NOERROR: 0, // No error
+  FORMERR: 1, // Format error
   SERVFAIL: 2, // Server failure
   NXDOMAIN: 3, // Non-existent domain
+  NOTIMP: 4, // Not implemented
+  REFUSED: 5, // Query refused
 } as const;
