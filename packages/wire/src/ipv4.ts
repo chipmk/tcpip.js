@@ -1,15 +1,15 @@
 import {
-  serializeIcmpMessage,
   parseIcmpMessage,
+  serializeIcmpMessage,
   type IcmpMessage,
 } from './icmp.js';
 import {
-  serializeUdpDatagram,
   parseUdpDatagram,
+  serializeUdpDatagram,
   UDP_HEADER_LENGTH,
   type UdpDatagram,
 } from './udp.js';
-import { calculateChecksum } from './util.js';
+import { calculateChecksum, parseUint } from './util.js';
 
 export type IPv4Address = `${number}.${number}.${number}.${number}`;
 export type IPv4Cidr = `${IPv4Address}/${number}`;
@@ -201,14 +201,44 @@ export function serializeIPv4Packet(packet: IPv4Packet): Uint8Array {
  * Parses an IPv4 address Uint8Array into a string.
  */
 export function parseIPv4Address(data: Uint8Array) {
+  if (data.length !== 4) {
+    throw new Error('invalid ipv4 address');
+  }
+
   return data.join('.') as IPv4Address;
 }
 
 /**
  * Serialize an IPv4 address string into a Uint8Array.
  */
-export function serializeIPv4Address(ip: string) {
-  return new Uint8Array(ip.split('.').map((byte) => parseInt(byte, 10)));
+export function serializeIPv4Address(ip: string): Uint8Array {
+  const parts = ip.split('.');
+  const bytes = new Uint8Array(4);
+
+  if (parts.length !== 4) {
+    throw new Error('invalid ipv4 address');
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const part = parts[i]!;
+
+    // Length validation
+    if (part.length === 0) {
+      throw new Error(`invalid ipv4 address: empty octet at position ${i}`);
+    }
+    if (part.length > 3) {
+      throw new Error(`invalid ipv4 address: octet too long at position ${i}`);
+    }
+
+    // Parse and range check
+    const value = parseUint(part);
+    if (value > 0xff) {
+      throw new Error(`invalid ipv4 address: octet too large at position ${i}`);
+    }
+    bytes[i] = value;
+  }
+
+  return bytes;
 }
 
 export function parseIPv4Protocol(protocol: number) {

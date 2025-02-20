@@ -1,3 +1,4 @@
+import { createDns } from '@tcpip/dns';
 import {
   parseEthernetFrame,
   parseIPv4Packet,
@@ -11,13 +12,7 @@ import {
   READABLE_HIGH_WATER_MARK,
   SEND_BUFFER_SIZE,
 } from './bindings/tcp.js';
-import {
-  BridgeInterface,
-  createStack,
-  LoopbackInterface,
-  TapInterface,
-  TunInterface,
-} from './index.js';
+import { createStack, TapInterface } from './index.js';
 
 describe('general', () => {
   test('loopback interface is created by default', async () => {
@@ -88,7 +83,7 @@ describe('createLoopbackInterface', () => {
       ip: '127.0.0.1/8',
     });
 
-    expect(loopbackInterface).toBeInstanceOf(LoopbackInterface);
+    expect(loopbackInterface.type).toBe('loopback');
   });
 });
 
@@ -100,7 +95,7 @@ describe('createTunInterface', () => {
       ip: '192.168.1.1/24',
     });
 
-    expect(tunInterface).toBeInstanceOf(TunInterface);
+    expect(tunInterface.type).toBe('tun');
   });
 
   test('can send and receive packets', async () => {
@@ -249,7 +244,7 @@ describe('createBridgeInterface', () => {
       ip: '192.168.1.1/24',
     });
 
-    expect(bridgeInterface).toBeInstanceOf(BridgeInterface);
+    expect(bridgeInterface.type).toBe('bridge');
   });
 
   test('frames are forwarded between ports', async () => {
@@ -809,6 +804,83 @@ describe('udp', () => {
     expect(parsedPacket.payload.sourcePort).toBe(8080);
     expect(parsedPacket.payload.destinationPort).toBe(8080);
     expect(parsedPacket.payload.payload).toStrictEqual(data);
+  });
+});
+
+describe('dns', () => {
+  test('can resolve a hostname via udp', async () => {
+    const stack = await createStack();
+    const { serve } = await createDns(stack);
+
+    await serve({
+      request: async ({ name, type }) => {
+        if (name === 'example.com' && type === 'A') {
+          return {
+            type,
+            ip: '127.0.0.1',
+            ttl: 300,
+          };
+        }
+      },
+    });
+
+    const socket1 = await stack.openUdp({ port: 8080 });
+    const socket2 = await stack.openUdp({ port: 8081 });
+
+    const reader = socket1.readable.getReader();
+    const writer = socket2.writable.getWriter();
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+    await writer.write({ host: 'example.com', port: 8080, data: data });
+    const received = await reader.read();
+
+    if (received.done) {
+      throw new Error('expected value');
+    }
+
+    expect(received.value.host).toBe('127.0.0.1');
+    expect(received.value.port).toBe(8081);
+    expect(received.value.data).toStrictEqual(data);
+  });
+
+  test('can resolve a hostname via tcp', async () => {
+    const stack = await createStack();
+    const { serve } = await createDns(stack);
+
+    await serve({
+      request: async ({ name, type }) => {
+        if (name === 'example.com' && type === 'A') {
+          return {
+            type,
+            ip: '127.0.0.1',
+            ttl: 300,
+          };
+        }
+      },
+    });
+
+    const listener = await stack.listenTcp({
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: 'example.com',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+    const inboundReader = inbound.readable.getReader();
+    const outboundWriter = outbound.writable.getWriter();
+
+    await outboundWriter.write(data);
+    const received = await inboundReader.read();
+
+    expect(received.value).toStrictEqual(data);
   });
 });
 

@@ -62,7 +62,7 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
 
   imports = {
     register_tap_interface: (handle: TapInterfaceHandle) => {
-      const tapInterface = new TapInterface();
+      const tapInterface = new VirtualTapInterface();
 
       tapInterfaceHooks.setOuter(tapInterface, {
         handle,
@@ -150,10 +150,19 @@ export type TapInterfaceOptions = {
   ip?: IPv4Cidr;
 };
 
-export class TapInterface {
+export type TapInterface = {
+  readonly type: 'tap';
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
+  listen(): AsyncIterableIterator<Uint8Array>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array>;
+};
+
+export class VirtualTapInterface implements TapInterface {
   #readableController?: ReadableStreamController<Uint8Array>;
   #isListening = false;
 
+  readonly type = 'tap' as const;
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
 
