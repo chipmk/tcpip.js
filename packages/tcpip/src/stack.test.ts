@@ -808,7 +808,7 @@ describe('udp', () => {
 });
 
 describe('dns', () => {
-  test('can resolve a hostname via udp', async () => {
+  test('can resolve a hostname during udp bind and send', async () => {
     const stack = await createStack();
     const { serve } = await createDns(stack);
 
@@ -824,7 +824,7 @@ describe('dns', () => {
       },
     });
 
-    const socket1 = await stack.openUdp({ port: 8080 });
+    const socket1 = await stack.openUdp({ host: 'example.com', port: 8080 });
     const socket2 = await stack.openUdp({ port: 8081 });
 
     const reader = socket1.readable.getReader();
@@ -844,7 +844,7 @@ describe('dns', () => {
     expect(received.value.data).toStrictEqual(data);
   });
 
-  test('can resolve a hostname via tcp', async () => {
+  test('can resolve a hostname during tcp bind and connection', async () => {
     const stack = await createStack();
     const { serve } = await createDns(stack);
 
@@ -861,6 +861,7 @@ describe('dns', () => {
     });
 
     const listener = await stack.listenTcp({
+      host: 'example.com',
       port: 8080,
     });
 

@@ -225,7 +225,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 
   async listen(options: TcpListenerOptions) {
     using hostPtr = options.host
-      ? this.copyToMemory(serializeIPv4Address(options.host))
+      ? this.copyToMemory(await this.#resolveHost(options.host))
       : null;
 
     const handle = this.exports.create_tcp_listener(hostPtr, options.port);
@@ -255,7 +255,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 }
 
 export type TcpListenerOptions = {
-  host?: IPv4Address;
+  host?: string;
   port: number;
 };
 

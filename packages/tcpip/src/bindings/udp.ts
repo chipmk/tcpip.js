@@ -107,6 +107,10 @@ export class UdpBindings extends Bindings<UdpImports, UdpExports> {
 
     const handle = this.exports.open_udp_socket(hostPtr, options.port ?? 0);
 
+    if (Number(handle) === 0) {
+      throw new Error('failed to open udp socket');
+    }
+
     const udpSocket = new VirtualUdpSocket();
 
     udpSocketHooks.setOuter(udpSocket, {
@@ -146,7 +150,7 @@ export type UdpSocketOptions = {
    *
    * If not provided, the socket will bind to all available interfaces.
    */
-  host?: IPv4Address;
+  host?: string;
 
   /**
    * The local port to bind to.
