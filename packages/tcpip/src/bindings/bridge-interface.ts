@@ -57,7 +57,7 @@ export class BridgeBindings extends Bindings<BridgeImports, BridgeExports> {
       options.ports.length
     );
 
-    const bridgeInterface = new BridgeInterface();
+    const bridgeInterface = new VirtualBridgeInterface();
     this.interfaces.set(handle, bridgeInterface);
 
     return bridgeInterface;
@@ -80,4 +80,10 @@ export type BridgeInterfaceOptions = {
   ip?: IPv4Cidr;
 };
 
-export class BridgeInterface {}
+export type BridgeInterface = {
+  readonly type: 'bridge';
+};
+
+export class VirtualBridgeInterface implements BridgeInterface {
+  readonly type = 'bridge';
+}

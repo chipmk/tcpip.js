@@ -24,7 +24,7 @@ export class LoopbackBindings extends Bindings<
 
   imports = {
     register_loopback_interface: (handle: LoopbackInterfaceHandle) => {
-      const loopbackInterface = new LoopbackInterface();
+      const loopbackInterface = new VirtualLoopbackInterface();
       this.interfaces.set(handle, loopbackInterface);
     },
   };
@@ -65,4 +65,11 @@ export class LoopbackBindings extends Bindings<
 export type LoopbackInterfaceOptions = {
   ip?: IPv4Cidr;
 };
-export class LoopbackInterface {}
+
+export type LoopbackInterface = {
+  readonly type: 'loopback';
+};
+
+export class VirtualLoopbackInterface implements LoopbackInterface {
+  readonly type = 'loopback';
+}

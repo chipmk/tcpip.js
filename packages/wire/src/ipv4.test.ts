@@ -24,6 +24,13 @@ test('parses an IPv4 address string into a Uint8Array', () => {
   );
 });
 
+test('throws an error for invalid IPv4 address strings', () => {
+  expect(() => serializeIPv4Address('192.168.1')).toThrow();
+  expect(() => serializeIPv4Address('192.168.1.')).toThrow();
+  expect(() => serializeIPv4Address('192.168.1.256')).toThrow();
+  expect(() => serializeIPv4Address('hello')).toThrow();
+});
+
 test('parses a cidr notation string', () => {
   expect(serializeIPv4Cidr('192.168.1.1/24')).toEqual({
     ipAddress: Uint8Array.from([192, 168, 1, 1]),
@@ -41,7 +48,7 @@ test('throws an error for invalid mask sizes', () => {
   expect(() => generateNetmask(33)).toThrow();
 });
 
-test('formats a Uint8Array into an IPv4 address string', () => {
+test('parses a Uint8Array into an IPv4 address string', () => {
   expect(parseIPv4Address(Uint8Array.from([192, 168, 1, 1]))).toBe(
     '192.168.1.1'
   );
@@ -50,6 +57,13 @@ test('formats a Uint8Array into an IPv4 address string', () => {
     '255.255.255.255'
   );
   expect(parseIPv4Address(Uint8Array.from([0, 0, 0, 0]))).toBe('0.0.0.0');
+});
+
+test('throws an error for invalid IPv4 address Uint8Arrays', () => {
+  expect(() => parseIPv4Address(Uint8Array.from([192, 168, 1]))).toThrow();
+  expect(
+    () => parseIPv4Address(Uint8Array.from([104, 101, 108, 108, 111])) // 'hello'
+  ).toThrow();
 });
 
 test('parses an IPv4 packet containing a UDP datagram', () => {

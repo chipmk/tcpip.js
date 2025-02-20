@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
+    "@tcpip/dns": "^0.1.0",
     "@tcpip/wire": "^0.1.0"
   },
   "devDependencies": {

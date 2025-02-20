@@ -1,4 +1,7 @@
-import type { BridgeExports } from './bindings/bridge-interface.js';
+import type {
+  BridgeExports,
+  BridgeInterface,
+} from './bindings/bridge-interface.js';
 import type {
   LoopbackExports,
   LoopbackInterface,
@@ -40,4 +43,8 @@ export type WasmInstance = {
   exports: WasmExports;
 };
 
-export type NetworkInterface = LoopbackInterface | TunInterface | TapInterface;
+export type NetworkInterface =
+  | LoopbackInterface
+  | TunInterface
+  | TapInterface
+  | BridgeInterface;

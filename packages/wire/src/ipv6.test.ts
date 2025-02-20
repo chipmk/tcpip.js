@@ -52,6 +52,29 @@ describe('serializeIPv6Address', () => {
     const serialized = serializeIPv6Address(ip);
     expect(serialized).toEqual(new Uint8Array(16).fill(255));
   });
+
+  test('serializes a compressed IPv6 address', () => {
+    const ip = '2001:db8::1';
+    const serialized = serializeIPv6Address(ip);
+    expect(serialized).toEqual(
+      new Uint8Array([
+        0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x01,
+      ])
+    );
+  });
+
+  test('throws an error for invalid IPv6 address strings', () => {
+    expect(() =>
+      serializeIPv6Address('2001:0db8:0000:0000:0000:0000:0000')
+    ).toThrow();
+    expect(() =>
+      serializeIPv6Address('2001:0db8:0000:0000:0000:0000:0000:0001:0001')
+    ).toThrow();
+    expect(() =>
+      serializeIPv6Address('2001:0db8:0000:0000:0000:0000:0000:000g')
+    ).toThrow();
+  });
 });
 
 describe('compressIPv6', () => {

@@ -1,3 +1,4 @@
+import type { DnsClient } from '@tcpip/dns';
 import { serializeIPv4Address, type IPv4Address } from '@tcpip/wire';
 import { LwipError } from '../lwip/errors.js';
 import type { Pointer } from '../types.js';
@@ -72,6 +73,21 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
   #tcpListeners = new Map<TcpListenerHandle, TcpListener>();
   #tcpConnections = new EventMap<TcpConnectionHandle, TcpConnection>();
   #tcpAcks = new Map<TcpConnectionHandle, (length: number) => void>();
+  #dnsClient: DnsClient;
+
+  async #resolveHost(host: string) {
+    try {
+      return serializeIPv4Address(host);
+    } catch (e) {
+      const ip = await this.#dnsClient.lookup(host);
+      return serializeIPv4Address(ip);
+    }
+  }
+
+  constructor(dnsClient: DnsClient) {
+    super();
+    this.#dnsClient = dnsClient;
+  }
 
   imports = {
     accept_tcp_connection: async (
@@ -88,7 +104,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
       // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
       await nextMicrotask();
 
-      const connection = new TcpConnection();
+      const connection = new VirtualTcpConnection();
 
       tcpConnectionHooks.setOuter(connection, {
         send: async (data) => {
@@ -135,7 +151,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
       // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
       await nextMicrotask();
 
-      const connection = new TcpConnection();
+      const connection = new VirtualTcpConnection();
 
       tcpConnectionHooks.setOuter(connection, {
         send: async (data) => {
@@ -209,12 +225,12 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 
   async listen(options: TcpListenerOptions) {
     using hostPtr = options.host
-      ? this.copyToMemory(serializeIPv4Address(options.host))
+      ? this.copyToMemory(await this.#resolveHost(options.host))
       : null;
 
     const handle = this.exports.create_tcp_listener(hostPtr, options.port);
 
-    const tcpListener = new TcpListener();
+    const tcpListener = new VirtualTcpListener();
 
     tcpListenerHooks.setOuter(tcpListener, {});
 
@@ -224,7 +240,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
   }
 
   async connect(options: TcpConnectionOptions) {
-    using hostPtr = this.copyToMemory(serializeIPv4Address(options.host));
+    using hostPtr = this.copyToMemory(await this.#resolveHost(options.host));
 
     const handle = this.exports.create_tcp_connection(hostPtr, options.port);
 
@@ -239,11 +255,17 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 }
 
 export type TcpListenerOptions = {
-  host?: IPv4Address;
+  host?: string;
   port: number;
 };
 
-export class TcpListener implements AsyncIterable<TcpConnection> {
+export type TcpListener = {
+  [Symbol.asyncIterator](): AsyncIterableIterator<TcpConnection>;
+};
+
+export class VirtualTcpListener
+  implements TcpListener, AsyncIterable<TcpConnection>
+{
   #connections: TcpConnection[] = [];
   #notifyConnection?: () => void;
 
@@ -269,11 +291,20 @@ export class TcpListener implements AsyncIterable<TcpConnection> {
 }
 
 export type TcpConnectionOptions = {
-  host: IPv4Address;
+  host: string;
   port: number;
 };
 
-export class TcpConnection implements AsyncIterable<Uint8Array> {
+export type TcpConnection = {
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
+  close(): Promise<void>;
+  [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
+};
+
+export class VirtualTcpConnection
+  implements TcpConnection, AsyncIterable<Uint8Array>
+{
   #receiveBuffer: Uint8Array[] = [];
   #readableController?: ReadableStreamDefaultController<Uint8Array>;
   #writableController?: WritableStreamDefaultController;

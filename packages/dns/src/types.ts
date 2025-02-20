@@ -1,5 +1,17 @@
 import type { ClassCode, TypeCode, OpCode, RCode } from './constants.js';
 
+export type NameServer = {
+  /**
+   * Name server IP address.
+   */
+  ip: string;
+
+  /**
+   * Name server port.
+   */
+  port: number;
+};
+
 export type DnsType = keyof typeof TypeCode;
 export type DnsClass = keyof typeof ClassCode;
 export type DnsOpCode = keyof typeof OpCode;

@@ -51,10 +51,13 @@
 #define TCP_WND (4 * TCP_MSS)                         // TCP window size
 #define TCP_SND_BUF (4 * TCP_MSS)                     // TCP send buffer size
 #define TCP_SND_QUEUELEN (2 * TCP_SND_BUF / TCP_MSS)  // TCP send queue length
+#define MEMP_NUM_TCP_PCB 256                          // Number of simultaneously active TCP PCBs
+#define MEMP_NUM_TCP_PCB_LISTEN 256                   // Number of simultaneously active listening TCP PCBs
 
 // UDP options
 #define LWIP_UDP 1                             // Enable UDP functionality
 #define LWIP_IP_ACCEPT_UDP_PORT(dst_port) (1)  // Allow broadcast IP packets on all UDP ports
+#define MEMP_NUM_UDP_PCB 256                   // Number of simultaneously active UDP PCBs
 
 // Checksum options (packet integrity)
 #define CHECKSUM_GEN_IP 1      // Generate checksums for IP packets

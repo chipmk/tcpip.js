@@ -2,9 +2,11 @@ import type { NetworkStack } from 'tcpip';
 import { DnsClient, type DnsClientOptions } from './dns-client.js';
 import { DnsServer, type DnsServerOptions } from './dns-server.js';
 
+export * from './dns-client.js';
 export * from './dns-server.js';
-export type { DnsResponse, DnsType } from './types.js';
-export { ptrNameToIP } from './util.js';
+
+export type { DnsResponse, DnsType, NameServer } from './types.js';
+export { ipToPtrName, ptrNameToIP } from './util.js';
 
 export type CreateDnsOptions = {
   /**

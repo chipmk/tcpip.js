@@ -1,35 +1,24 @@
-import type { IPv4Address } from '@tcpip/wire';
 import type { NetworkStack } from 'tcpip';
-import type { DnsMessage, DnsQuery, DnsRecord } from './types.js';
+import type { DnsMessage, DnsQuery, DnsRecord, NameServer } from './types.js';
 import { ipToPtrName } from './util.js';
 import { parseDnsMessage, serializeDnsMessage } from './wire.js';
 
 export type DnsClientOptions = {
   /**
-   * DNS server address to query.
-   * @default 127.0.0.1
+   * Name server address to query.
+   * @default { ip: '127.0.0.1', port: 53 }
    */
-  server?: IPv4Address;
-
-  /**
-   * DNS server port.
-   * @default 53
-   */
-  port?: number;
+  nameServer?: NameServer;
 };
 
 export class DnsClient {
   #stack: NetworkStack;
-  #options: Required<DnsClientOptions>;
+  #nameServer: NameServer;
   #messageId = 0;
 
   constructor(stack: NetworkStack, options: DnsClientOptions = {}) {
     this.#stack = stack;
-    this.#options = {
-      port: 53,
-      server: '127.0.0.1',
-      ...options,
-    };
+    this.#nameServer = options.nameServer ?? { ip: '127.0.0.1', port: 53 };
   }
 
   /**
@@ -68,8 +57,8 @@ export class DnsClient {
     const writer = socket.writable.getWriter();
 
     await writer.write({
-      host: this.#options.server,
-      port: this.#options.port,
+      host: this.#nameServer.ip,
+      port: this.#nameServer.port,
       data,
     });
 
