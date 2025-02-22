@@ -1,6 +1,9 @@
 import {
+  parseIPv4Address,
+  parseMacAddress,
   serializeIPv4Cidr,
   serializeMacAddress,
+  type IPv4Address,
   type IPv4Cidr,
   type MacAddress,
 } from '@tcpip/wire';
@@ -20,6 +23,9 @@ type TapInterfaceHandle = Pointer;
 type TapInterfaceOuterHooks = {
   handle: TapInterfaceHandle;
   sendFrame(frame: Uint8Array): void;
+  getMacAddress(): MacAddress;
+  getIPv4Address(): IPv4Address | undefined;
+  getIPv4Netmask(): IPv4Address | undefined;
 };
 
 type TapInterfaceInnerHooks = {
@@ -77,6 +83,32 @@ export class TapBindings extends Bindings<TapImports, TapExports> {
           if (result !== LwipError.ERR_OK) {
             throw new Error(`failed to send frame: ${result}`);
           }
+        },
+        getMacAddress: () => {
+          const macPtr = this.exports.get_interface_mac_address(handle);
+
+          const macBytes = this.viewFromMemory(macPtr, 6);
+          return parseMacAddress(macBytes);
+        },
+        getIPv4Address: () => {
+          const ipPtr = this.exports.get_interface_ip4_address(handle);
+
+          if (ipPtr === 0) {
+            return;
+          }
+
+          const ipBytes = this.viewFromMemory(ipPtr, 4);
+          return parseIPv4Address(ipBytes);
+        },
+        getIPv4Netmask: () => {
+          const netmaskPtr = this.exports.get_interface_ip4_netmask(handle);
+
+          if (netmaskPtr === 0) {
+            return;
+          }
+
+          const netmaskBytes = this.viewFromMemory(netmaskPtr, 4);
+          return parseIPv4Address(netmaskBytes);
         },
       });
 
@@ -152,6 +184,9 @@ export type TapInterfaceOptions = {
 
 export type TapInterface = {
   readonly type: 'tap';
+  readonly mac: MacAddress;
+  readonly ip?: IPv4Address;
+  readonly netmask?: IPv4Address;
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
   listen(): AsyncIterableIterator<Uint8Array>;
@@ -163,6 +198,15 @@ export class VirtualTapInterface implements TapInterface {
   #isListening = false;
 
   readonly type = 'tap' as const;
+  get mac(): MacAddress {
+    return tapInterfaceHooks.getOuter(this).getMacAddress();
+  }
+  get ip(): IPv4Address | undefined {
+    return tapInterfaceHooks.getOuter(this).getIPv4Address();
+  }
+  get netmask(): IPv4Address | undefined {
+    return tapInterfaceHooks.getOuter(this).getIPv4Netmask();
+  }
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
 

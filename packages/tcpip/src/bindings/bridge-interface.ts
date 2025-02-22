@@ -1,15 +1,33 @@
 import {
+  parseIPv4Address,
+  parseMacAddress,
   serializeIPv4Cidr,
   serializeMacAddress,
+  type IPv4Address,
   type IPv4Cidr,
   type MacAddress,
 } from '@tcpip/wire';
 import type { Pointer } from '../types.js';
-import { generateMacAddress } from '../util.js';
+import { generateMacAddress, Hooks } from '../util.js';
 import { Bindings } from './base.js';
 import { tapInterfaceHooks, type TapInterface } from './tap-interface.js';
 
 type BridgeInterfaceHandle = Pointer;
+
+type BridgeInterfaceOuterHooks = {
+  handle: BridgeInterfaceHandle;
+  getMacAddress(): MacAddress;
+  getIPv4Address(): IPv4Address | undefined;
+  getIPv4Netmask(): IPv4Address | undefined;
+};
+
+type BridgeInterfaceInnerHooks = {};
+
+export const bridgeInterfaceHooks = new Hooks<
+  BridgeInterface,
+  BridgeInterfaceOuterHooks,
+  BridgeInterfaceInnerHooks
+>();
 
 export type BridgeImports = {};
 
@@ -58,6 +76,37 @@ export class BridgeBindings extends Bindings<BridgeImports, BridgeExports> {
     );
 
     const bridgeInterface = new VirtualBridgeInterface();
+
+    bridgeInterfaceHooks.setOuter(bridgeInterface, {
+      handle,
+      getMacAddress: () => {
+        const macPtr = this.exports.get_interface_mac_address(handle);
+
+        const macBytes = this.viewFromMemory(macPtr, 6);
+        return parseMacAddress(macBytes);
+      },
+      getIPv4Address: () => {
+        const ipPtr = this.exports.get_interface_ip4_address(handle);
+
+        if (ipPtr === 0) {
+          return;
+        }
+
+        const ipBytes = this.viewFromMemory(ipPtr, 4);
+        return parseIPv4Address(ipBytes);
+      },
+      getIPv4Netmask: () => {
+        const netmaskPtr = this.exports.get_interface_ip4_netmask(handle);
+
+        if (netmaskPtr === 0) {
+          return;
+        }
+
+        const netmaskBytes = this.viewFromMemory(netmaskPtr, 4);
+        return parseIPv4Address(netmaskBytes);
+      },
+    });
+
     this.interfaces.set(handle, bridgeInterface);
 
     return bridgeInterface;
@@ -82,8 +131,20 @@ export type BridgeInterfaceOptions = {
 
 export type BridgeInterface = {
   readonly type: 'bridge';
+  readonly mac: MacAddress;
+  readonly ip?: IPv4Address;
+  readonly netmask?: IPv4Address;
 };
 
 export class VirtualBridgeInterface implements BridgeInterface {
   readonly type = 'bridge';
+  get mac(): MacAddress {
+    return bridgeInterfaceHooks.getOuter(this).getMacAddress();
+  }
+  get ip(): IPv4Address | undefined {
+    return bridgeInterfaceHooks.getOuter(this).getIPv4Address();
+  }
+  get netmask(): IPv4Address | undefined {
+    return bridgeInterfaceHooks.getOuter(this).getIPv4Netmask();
+  }
 }

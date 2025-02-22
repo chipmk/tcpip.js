@@ -12,7 +12,7 @@ import {
   READABLE_HIGH_WATER_MARK,
   SEND_BUFFER_SIZE,
 } from './bindings/tcp.js';
-import { createStack, TapInterface } from './index.js';
+import { createStack } from './index.js';
 
 describe('general', () => {
   test('loopback interface is created by default', async () => {
@@ -75,7 +75,7 @@ describe('general', () => {
   });
 });
 
-describe('createLoopbackInterface', () => {
+describe('loopback interface', () => {
   test('should create a LoopbackInterface with the given options', async () => {
     const stack = await createStack({ initializeLoopback: false });
 
@@ -85,9 +85,20 @@ describe('createLoopbackInterface', () => {
 
     expect(loopbackInterface.type).toBe('loopback');
   });
+
+  test('can get ip and netmask', async () => {
+    const stack = await createStack({ initializeLoopback: false });
+
+    const loopbackInterface = await stack.createLoopbackInterface({
+      ip: '127.0.0.1/8',
+    });
+
+    expect(loopbackInterface.ip).toBe('127.0.0.1');
+    expect(loopbackInterface.netmask).toBe('255.0.0.0');
+  });
 });
 
-describe('createTunInterface', () => {
+describe('tun interface', () => {
   test('should create a TunInterface with the given options', async () => {
     const stack = await createStack();
 
@@ -155,9 +166,20 @@ describe('createTunInterface', () => {
     expect(parsedPacket.payload.sequenceNumber).toBe(0);
     expect(parsedPacket.payload.payload).toStrictEqual(payload);
   });
+
+  test('can get ip and netmask', async () => {
+    const stack = await createStack();
+
+    const tunInterface = await stack.createTunInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    expect(tunInterface.ip).toBe('192.168.1.1');
+    expect(tunInterface.netmask).toBe('255.255.255.0');
+  });
 });
 
-describe('createTapInterface', () => {
+describe('tap interface', () => {
   test('should create a TapInterface with the given options', async () => {
     const stack = await createStack();
 
@@ -166,7 +188,7 @@ describe('createTapInterface', () => {
       ip: '192.168.1.1/24',
     });
 
-    expect(tapInterface).toBeInstanceOf(TapInterface);
+    expect(tapInterface.type).toBe('tap');
   });
 
   test('can send and receive frames', async () => {
@@ -222,9 +244,22 @@ describe('createTapInterface', () => {
     expect(parsedFrame.payload.targetMac).toBe('00:1a:2b:3c:4d:5f');
     expect(parsedFrame.payload.targetIP).toBe('192.168.1.2');
   });
+
+  test('can get mac, ip, and netmask', async () => {
+    const stack = await createStack();
+
+    const tapInterface = await stack.createTapInterface({
+      mac: '00:1a:2b:3c:4d:5e',
+      ip: '192.168.1.1/24',
+    });
+
+    expect(tapInterface.mac).toBe('00:1a:2b:3c:4d:5e');
+    expect(tapInterface.ip).toBe('192.168.1.1');
+    expect(tapInterface.netmask).toBe('255.255.255.0');
+  });
 });
 
-describe('createBridgeInterface', () => {
+describe('bridge interface', () => {
   test('should create a BridgeInterface with the given options', async () => {
     const stack = await createStack();
 
@@ -355,6 +390,20 @@ describe('createBridgeInterface', () => {
       expect(received.value).toStrictEqual(data);
       break;
     }
+  });
+
+  test('can get mac, ip, and netmask', async () => {
+    const stack = await createStack();
+
+    const bridgeInterface = await stack.createBridgeInterface({
+      ports: [],
+      mac: '00:1a:2b:3c:4d:5e',
+      ip: '192.168.1.1/24',
+    });
+
+    expect(bridgeInterface.mac).toBe('00:1a:2b:3c:4d:5e');
+    expect(bridgeInterface.ip).toBe('192.168.1.1');
+    expect(bridgeInterface.netmask).toBe('255.255.255.0');
   });
 });
 

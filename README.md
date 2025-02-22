@@ -197,6 +197,17 @@ const connection = await stack.connectTcp({
 });
 ```
 
+The interface's IP address and subnet mask can be retrieved using the `ip` and `netmask` properties:
+
+```ts
+const loopbackInterface = await stack.createLoopbackInterface({
+  ip: '127.0.0.1/8',
+});
+
+console.log(loopbackInterface.ip); // 127.0.0.1
+console.log(loopbackInterface.netmask); // 255.0.0.0
+```
+
 ### Tun interface
 
 A tun interface hooks into inbound and outbound IP packets (L3).
@@ -255,6 +266,17 @@ const connection = await stack.connectTcp({
 });
 
 ...
+```
+
+The interface's IP address and subnet mask can be retrieved using the `ip` and `netmask` properties:
+
+```ts
+const tunInterface = await stack.createTunInterface({
+  ip: '192.168.1.1/24',
+});
+
+console.log(tunInterface.ip); // 192.168.1.1
+console.log(tunInterface.netmask); // 255.255.255.0
 ```
 
 ### Tap interface
@@ -327,6 +349,21 @@ const connection = await stack.connectTcp({
 
 Note that `mac` and `ip` are optional parameters for `createTapInterface()`. If you don't provide a MAC address, a random one will be generated. If you don't provide an IP address, the interface will not respond to ARP requests or send ARP requests for unknown IP addresses. Typically you would only omit the IP address if you are using the tap interface as part of a [bridge](#bridge-interface).
 
+The interface's MAC address, IP address, and subnet mask can be retrieved using the `mac`, `ip` and `netmask` properties:
+
+```ts
+const tapInterface = await stack.createTapInterface({
+  mac: '02:00:00:00:00:01',
+  ip: '196.168.1.1/24',
+});
+
+console.log(tapInterface.mac); // 02:00:00:00:00:01
+console.log(tapInterface.ip); // 192.168.1.1
+console.log(tapInterface.netmask); // 255.255.255.0
+```
+
+This is particularly useful when you let the tap interface generate its own random MAC address but need to determine what it is.
+
 ### Bridge interface
 
 A bridge interface bridges two or more tap interfaces together into a single logical interface with its own MAC and IP address. It operates at the ethernet level (L2) and will automatically forward frames between the interfaces based on the destination MAC address.
@@ -384,6 +421,24 @@ const listener = await stack.listenTcp({
 ```
 
 The server would be accessible to any VM connected to the bridge via `192.168.1.1:80`. For more information on TCP, see the [TCP API](#tcp-api).
+
+Just like a `TapInterface`, specifying `mac` and `ip` addresses are optional for a `BridgeInterface`. If you don't provide a MAC address, a random one will be generated. If you don't provide an IP address, the bridge itself will not respond to ARP requests or send ARP requests for unknown IP addresses. Typically you would only omit the IP address if you are using the bridge as a pure switch and don't need to communicate with virtual devices from JavaScript.
+
+The interface's MAC address, IP address, and subnet mask can be retrieved using the `mac`, `ip` and `netmask` properties:
+
+```ts
+const bridgeInterface = await stack.createBridgeInterface({
+  ports: [port1, port2],
+  mac: '02:00:00:00:00:01',
+  ip: '192.168.1.1/24',
+});
+
+console.log(bridgeInterface.mac); // 02:00:00:00:00:01
+console.log(bridgeInterface.ip); // 192.168.1.1
+console.log(bridgeInterface.netmask); // 255.255.255.0
+```
+
+This is particularly useful when you let the bridge generate its own random MAC address but need to determine what it is.
 
 Note that `BridgeInterface` does not expose its own `readable` or `writable` stream - instead you would send and receive frames through each `TapInterface` port that is part of the bridge.
 
