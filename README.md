@@ -422,9 +422,9 @@ const connection = await stack.connectTcp({
 });
 ```
 
-`connectTcp()` returns a `Promise<TcpConnection>` that resolves once the connection is established. See [`TcpConnection`](#tcpconnection).
+`connectTcp()` accepts a `host` and `port` and returns a `Promise<TcpConnection>` that resolves once the connection is established. See [`TcpConnection`](#tcpconnection).
 
-Note that DNS resolution is not yet supported, so you must provide the IP address of the host you wish to connect to. See [Future plans](#future-plans).
+The `host` property can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve it to an IP address using the [embedded DNS resolver](#embedded-resolver).
 
 ### `listenTcp()`
 
@@ -617,9 +617,133 @@ await writer.write({
 });
 ```
 
-Outbound datagrams follow the same format as inbound datagrams: an object with `host`, `port`, and `data` properties indicating the destination host, port, and data.
+Outbound datagrams follow the same format as inbound datagrams: an object with `host`, `port`, and `data` properties indicating the destination host, port, and data. The `host` property can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve it to an IP address using the [embedded DNS resolver](#embedded-resolver).
 
 Unlike Tun and Tap interfaces which are also connectionless, UDP sockets do not require you to lock the stream before receiving data - simply calling `stack.openUdp()` will begin listening for datagrams.
+
+## DNS
+
+DNS is supported in two ways:
+
+1. [Embedded resolver](#embedded-resolver)
+2. [DNS APIs](#dns-apis)
+
+Note that since tcpip.js isn't connected to the rest of the internet (by default), DNS resolution is primarily used for internal hostnames within your virtual LAN. This can be useful for service discovery between VMs.
+
+If you wish to resolve external hostnames, you will need a way to route packets to the rest of the internet (eg. via WebSocket VPN or DNS-over-HTTPS proxy).
+
+### Embedded resolver
+
+Each `NetworkStack` has an embedded DNS resolver that can lookup an IP address by hostname when using the TCP and UDP APIs. For example:
+
+```ts
+const connection = await stack.connectTcp({
+  host: 'mydomain.internal',
+  port: 80,
+});
+```
+
+or (for UDP):
+
+```ts
+const udpSocket = await stack.openUdp();
+const writer = udpSocket.writable.getWriter();
+await writer.write({
+  host: 'mydomain.internal',
+  port: 1234,
+  data: new TextEncoder().encode('Hello, world!'),
+});
+```
+
+In the above examples, the stack will perform a DNS lookup for `mydomain.internal` using the embedded resolver in order to determine the IP address to connect to.
+
+Just like a real network stack, a DNS server is required to lookup hostnames. By default the name server is set to the local loopback address `127.0.0.1` on port `53`. This allows you to run your own DNS server on the stack just like a router would on a real LAN. Note that this DNS server is not created by default - you will need to create using the [DNS APIs](#dns-apis).
+
+If instead you wish to point to a different name server, pass the `nameServer` option to `createStack()`:
+
+```ts
+const stack = await createStack({
+  nameServer: {
+    ip: '10.0.0.1',
+    port: 5353,
+  },
+});
+```
+
+The above assumes you have a DNS server running on `10.0.0.1:5353` somewhere on your virtual network (eg. on a VM). Note that pointing this to a real DNS server on the internet (like `1.1.1.1`) will not work unless you have a way to route packets to the rest of the internet (eg. via WebSocket VPN).
+
+If you leave the name server as the default (`127.0.0.1:53`) and don't run your own local DNS server, the embedded resolver will not be able to resolve hostnames and you will need to provide IP addresses directly.
+
+### DNS APIs
+
+DNS APIs are available via a standalone package `@tcpip/dns`. This package provides both `serve()` and `lookup()` functions that you can use to serve DNS records or resolve hostnames. It's built on top of the tcpip.js UDP API.
+
+Start by calling `createDns()` to create `lookup()` and `serve()` functions for your stack:
+
+```ts
+import { createStack } from 'tcpip';
+import { createDns } from '@tcpip/dns';
+
+const stack = await createStack();
+const { lookup, serve } = await createDns(stack);
+```
+
+#### `lookup()`
+
+The `lookup()` function will resolve A records over the virtual network stack:
+
+```ts
+const ip = await lookup('mydomain.internal');
+```
+
+By default its name server is set to the local loopback address `127.0.0.1` on port `53` (ie. the stack itself, assuming you will run your own DNS server on it). If you wish to point to a different name server, pass the `nameServer` option to `createDns()`:
+
+```ts
+const { lookup } = await createDns(stack, {
+  client: {
+    nameServer: {
+      ip: '10.0.0.1',
+      port: 5353,
+    },
+  },
+});
+```
+
+#### `serve()`
+
+The `serve()` function allows you serve DNS records on the virtual network stack:
+
+```ts
+await serve({
+  request: async ({ name, type }) => {
+    if (name === 'mydomain.internal' && type === 'A') {
+      return {
+        type,
+        ip: '192.168.1.2',
+        ttl: 300,
+      };
+    }
+  },
+});
+```
+
+`serve()` takes a `request` function that is called for each DNS query. It provides the `name` and `type` of the query and expects a response object in return containing the `type`, `ip`, and `ttl` properties. If the function returns `undefined`, the server will return a `NXDOMAIN` response (ie. "not found").
+
+This allows you to assign DNS hostnames to IP addresses in your virtual network. For example, in a network with multiple VMs, you could assign dedicated hostnames to each VM (eg. `vm1.internal`, `vm2.internal`) which they could then use to communicate with each other.
+
+Note that in order for this to work, each VM must point their own name servers to this stack's IP address since it is hosting the DNS server (just like how real devices on a LAN might point to a DNS server running on the router).
+
+By default `serve()` will listen on port `53` on all interfaces. If you wish to bind to a specific IP address or port, pass the `host` and/or `port` options:
+
+```ts
+await serve({
+  host: '10.0.0.1',
+  port: 5353,
+  request: async ({ name, type }) => {
+    // ...
+  },
+});
+```
 
 ## Frameworks/bundlers
 
@@ -647,7 +771,6 @@ _Background:_ Vite optimizes dependencies during development to improve build ti
 - [ ] HTTP API
 - [ ] ICMP (ping) API
 - [ ] DHCP API
-- [ ] DNS API
 - [ ] mDNS API
 - [ ] Hosts file
 - [ ] Experimental Wireguard interface
