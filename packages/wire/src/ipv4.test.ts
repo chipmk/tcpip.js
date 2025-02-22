@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   generateNetmask,
+  getPrefixLength,
   parseIPv4Address,
   parseIPv4Packet,
   serializeIPv4Address,
@@ -31,7 +32,7 @@ test('throws an error for invalid IPv4 address strings', () => {
   expect(() => serializeIPv4Address('hello')).toThrow();
 });
 
-test('parses a cidr notation string', () => {
+test('serializes a cidr notation string', () => {
   expect(serializeIPv4Cidr('192.168.1.1/24')).toEqual({
     ipAddress: Uint8Array.from([192, 168, 1, 1]),
     netmask: Uint8Array.from([255, 255, 255, 0]),
@@ -179,5 +180,34 @@ test('serializes an IPv4 packet containing a UDP datagram', () => {
       0x03,
       0x04, // payload
     ])
+  );
+});
+
+test('gets standard prefix lengths from netmask', () => {
+  expect(getPrefixLength(Uint8Array.from([0, 0, 0, 0]))).toBe(0);
+  expect(getPrefixLength(Uint8Array.from([255, 0, 0, 0]))).toBe(8);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 0, 0]))).toBe(16);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 255, 0]))).toBe(24);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 255, 255]))).toBe(32);
+});
+
+test('gets non-standard prefix length from netmask', () => {
+  expect(getPrefixLength(Uint8Array.from([128, 0, 0, 0]))).toBe(1);
+  expect(getPrefixLength(Uint8Array.from([254, 0, 0, 0]))).toBe(7);
+  expect(getPrefixLength(Uint8Array.from([255, 248, 0, 0]))).toBe(13);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 224, 0]))).toBe(19);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 255, 128]))).toBe(25);
+  expect(getPrefixLength(Uint8Array.from([255, 255, 255, 252]))).toBe(30);
+});
+
+test('throws error for invalid netmask with non-contiguous bits', () => {
+  expect(() => getPrefixLength(Uint8Array.from([255, 0, 255, 0]))).toThrow(
+    'invalid netmask: non-contiguous bits'
+  );
+  expect(() => getPrefixLength(Uint8Array.from([255, 254, 0, 1]))).toThrow(
+    'invalid netmask: non-contiguous bits'
+  );
+  expect(() => getPrefixLength(Uint8Array.from([255, 255, 254, 255]))).toThrow(
+    'invalid netmask: non-contiguous bits'
   );
 });

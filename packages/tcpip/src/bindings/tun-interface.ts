@@ -1,4 +1,9 @@
-import { serializeIPv4Cidr, type IPv4Cidr } from '@tcpip/wire';
+import {
+  parseIPv4Address,
+  serializeIPv4Cidr,
+  type IPv4Address,
+  type IPv4Cidr,
+} from '@tcpip/wire';
 import type { Pointer } from '../types.js';
 import {
   ExtendedReadableStream,
@@ -11,7 +16,10 @@ import { Bindings } from './base.js';
 type TunInterfaceHandle = Pointer;
 
 type TunInterfaceOuterHooks = {
+  handle: TunInterfaceHandle;
   sendPacket(packet: Uint8Array): void;
+  getIPv4Address(): IPv4Address | undefined;
+  getIPv4Netmask(): IPv4Address | undefined;
 };
 
 type TunInterfaceInnerHooks = {
@@ -54,9 +62,30 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
       const tunInterface = new VirtualTunInterface();
 
       tunInterfaceHooks.setOuter(tunInterface, {
+        handle,
         sendPacket: (packet) => {
           const packetPtr = this.copyToMemory(packet);
           this.exports.send_tun_interface(handle, packetPtr, packet.length);
+        },
+        getIPv4Address: () => {
+          const ipPtr = this.exports.get_interface_ip4_address(handle);
+
+          if (ipPtr === 0) {
+            return;
+          }
+
+          const ipBytes = this.viewFromMemory(ipPtr, 4);
+          return parseIPv4Address(ipBytes);
+        },
+        getIPv4Netmask: () => {
+          const netmaskPtr = this.exports.get_interface_ip4_netmask(handle);
+
+          if (netmaskPtr === 0) {
+            return;
+          }
+
+          const netmaskBytes = this.viewFromMemory(netmaskPtr, 4);
+          return parseIPv4Address(netmaskBytes);
         },
       });
 
@@ -125,6 +154,8 @@ export type TunInterfaceOptions = {
 
 export type TunInterface = {
   readonly type: 'tun';
+  readonly ip?: IPv4Address;
+  readonly netmask?: IPv4Address;
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
   listen(): AsyncIterableIterator<Uint8Array>;
@@ -136,6 +167,12 @@ export class VirtualTunInterface implements TunInterface {
   #isListening = false;
 
   readonly type = 'tun' as const;
+  get ip(): IPv4Address | undefined {
+    return tunInterfaceHooks.getOuter(this).getIPv4Address();
+  }
+  get netmask(): IPv4Address | undefined {
+    return tunInterfaceHooks.getOuter(this).getIPv4Netmask();
+  }
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
 

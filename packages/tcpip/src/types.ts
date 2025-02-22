@@ -1,3 +1,4 @@
+import type { CommonExports } from './bindings/base.js';
 import type {
   BridgeExports,
   BridgeInterface,
@@ -32,6 +33,7 @@ export type StackExports = {
 export type WasmExports = WasiExports &
   SysExports &
   StackExports &
+  CommonExports &
   LoopbackExports &
   TunExports &
   TapExports &

@@ -1,4 +1,5 @@
 SRC_FILES= \
+	$(SRC_DIR)/common.c \
 	$(SRC_DIR)/stack.c \
 	$(SRC_DIR)/loopback_interface.c \
 	$(SRC_DIR)/tun_interface.c \

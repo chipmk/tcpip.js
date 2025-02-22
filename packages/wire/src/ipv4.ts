@@ -271,7 +271,7 @@ export function serializeIPv4Protocol(protocol: IPv4Protocol) {
  * Serialize a CIDR notation string into an object with a
  * Uint8Array IP address and netmask.
  */
-export function serializeIPv4Cidr(cidr: IPv4Cidr) {
+export function serializeIPv4Cidr(cidr: string) {
   const [ipString, maskSizeString] = cidr.split('/');
 
   if (!ipString || !maskSizeString) {
@@ -328,4 +328,39 @@ export function serializeIPv4PseudoHeader(pseudoHeader: IPv4PseudoHeader) {
   dataView.setUint16(10, pseudoHeader.length);
 
   return buffer;
+}
+
+/**
+ * Determines the CIDR prefix length from a netmask Uint8Array.
+ */
+export function getPrefixLength(netmask: Uint8Array): number {
+  // Convert to a single 32-bit integer first
+  const value =
+    (netmask[0]! << 24) |
+    (netmask[1]! << 16) |
+    (netmask[2]! << 8) |
+    netmask[3]!;
+
+  // Fast paths for common netmask patterns
+  if (value === 0) return 0;
+  if (value === 0xffffffff) return 32;
+  if (value === 0xffffff00) return 24;
+  if (value === 0xffff0000) return 16;
+  if (value === 0xff000000) return 8;
+
+  // Count 1 bits from the left for other cases
+  let count = 0;
+  let testBit = 0x80000000;
+
+  while (testBit & value) {
+    count++;
+    testBit >>>= 1;
+  }
+
+  // Validate contiguous bits
+  if ((value & ~(0xffffffff << (32 - count))) !== 0) {
+    throw new Error('invalid netmask: non-contiguous bits');
+  }
+
+  return count;
 }
