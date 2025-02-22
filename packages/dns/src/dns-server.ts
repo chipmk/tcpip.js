@@ -9,6 +9,13 @@ export type RequestFn = (query: {
 
 export type DnsServerOptions = {
   /**
+   * Host to listen on.
+   *
+   * @default '0.0.0.0'
+   */
+  host?: string;
+
+  /**
    * Port to listen on.
    *
    * @default 53
@@ -32,6 +39,7 @@ export class DnsServer {
 
   async listen() {
     const socket = await this.#stack.openUdp({
+      host: this.#options.host,
       port: this.#options.port ?? 53,
     });
     this.#processDnsMessages(socket);

@@ -1,7 +1,13 @@
+import { parseHex } from './util.js';
+
 /**
  * Parses an IPv6 address Uint8Array into a string.
  */
 export function parseIPv6Address(data: Uint8Array) {
+  if (data.length !== 16) {
+    throw new Error('invalid ipv6 address');
+  }
+
   return data
     .reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '')
     .match(/.{1,4}/g)!
@@ -11,13 +17,37 @@ export function parseIPv6Address(data: Uint8Array) {
 /**
  * Serialize an IPv6 address string into a Uint8Array.
  */
-export function serializeIPv6Address(ip: string) {
-  return new Uint8Array(
-    ip.split(':').flatMap((n) => {
-      const num = parseInt(n, 16);
-      return [num >> 8, num & 0xff];
-    })
-  );
+export function serializeIPv6Address(ip: string): Uint8Array {
+  const expanded = expandIPv6(ip);
+  const parts = expanded.split(':');
+  const bytes = new Uint8Array(16);
+
+  if (parts.length !== 8) {
+    throw new Error('invalid ipv6 address');
+  }
+
+  for (let i = 0; i < 8; i++) {
+    const part = parts[i]!;
+
+    // Length validation
+    if (part.length === 0) {
+      throw new Error(`invalid ipv6 address: empty group at position ${i}`);
+    }
+    if (part.length > 4) {
+      throw new Error(`invalid ipv6 address: group too long at position ${i}`);
+    }
+
+    const value = parseHex(part);
+    if (value > 0xffff) {
+      throw new Error(
+        `invalid ipv6 address: group value too large at position ${i}`
+      );
+    }
+    bytes[i * 2] = value >> 8;
+    bytes[i * 2 + 1] = value & 0xff;
+  }
+
+  return bytes;
 }
 
 /**

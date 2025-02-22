@@ -1,35 +1,31 @@
-export { createStack, NetworkStack } from './stack.js';
+export { createStack, type NetworkStack } from './stack.js';
 export type { NetworkInterface } from './types.js';
 
-export {
+export type {
   LoopbackInterface,
-  type LoopbackInterfaceOptions,
+  LoopbackInterfaceOptions,
 } from './bindings/loopback-interface.js';
 
-export {
+export type {
   TunInterface,
-  type TunInterfaceOptions,
+  TunInterfaceOptions,
 } from './bindings/tun-interface.js';
 
-export {
+export type {
   TapInterface,
-  type TapInterfaceOptions,
+  TapInterfaceOptions,
 } from './bindings/tap-interface.js';
 
-export {
+export type {
   BridgeInterface,
-  type BridgeInterfaceOptions,
+  BridgeInterfaceOptions,
 } from './bindings/bridge-interface.js';
 
-export {
-  TcpConnection,
-  TcpListener,
-  type TcpConnectionOptions,
-  type TcpListenerOptions,
+export type {
+  TcpConnectionOptions,
+  TcpListenerOptions,
 } from './bindings/tcp.js';
+export type { TcpConnection, TcpListener } from './bindings/tcp.js';
 
-export {
-  UdpSocket,
-  type UdpDatagram,
-  type UdpSocketOptions,
-} from './bindings/udp.js';
+export type { UdpDatagram, UdpSocketOptions } from './bindings/udp.js';
+export type { UdpSocket } from './bindings/udp.js';

@@ -5,8 +5,8 @@ import {
   DHCPMessageTypes,
 } from './constants.js';
 import type { DHCPLease, DHCPMessage, DHCPServerOptions } from './types.js';
-import { ipv4ToNumber, numberToIPv4 } from './util.js';
 import { parseDHCPMessage, serializeDHCPMessage } from './wire.js';
+import { ipv4ToNumber, numberToIPv4 } from './util.js';
 
 export async function createDHCPServer(options: DHCPServerOptions) {
   const server = new DHCPServer(options);

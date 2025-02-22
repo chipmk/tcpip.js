@@ -51,7 +51,7 @@ export class TunBindings extends Bindings<TunImports, TunExports> {
 
   imports = {
     register_tun_interface: (handle: TunInterfaceHandle) => {
-      const tunInterface = new TunInterface();
+      const tunInterface = new VirtualTunInterface();
 
       tunInterfaceHooks.setOuter(tunInterface, {
         sendPacket: (packet) => {
@@ -123,10 +123,19 @@ export type TunInterfaceOptions = {
   ip?: IPv4Cidr;
 };
 
-export class TunInterface {
+export type TunInterface = {
+  readonly type: 'tun';
+  readable: ReadableStream<Uint8Array>;
+  writable: WritableStream<Uint8Array>;
+  listen(): AsyncIterableIterator<Uint8Array>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<Uint8Array>;
+};
+
+export class VirtualTunInterface implements TunInterface {
   #readableController?: ReadableStreamController<Uint8Array>;
   #isListening = false;
 
+  readonly type = 'tun' as const;
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
 

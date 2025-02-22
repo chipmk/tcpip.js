@@ -1,52 +1,107 @@
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
+import { DnsClient, type NameServer } from '@tcpip/dns';
 import {
   BridgeBindings,
+  type BridgeInterface,
   type BridgeInterfaceOptions,
 } from './bindings/bridge-interface.js';
 import {
   LoopbackBindings,
-  LoopbackInterface,
+  type LoopbackInterface,
   type LoopbackInterfaceOptions,
 } from './bindings/loopback-interface.js';
 import {
   TapBindings,
-  TapInterface,
+  type TapInterface,
   type TapInterfaceOptions,
 } from './bindings/tap-interface.js';
 import {
   TcpBindings,
+  type TcpConnection,
   type TcpConnectionOptions,
+  type TcpListener,
   type TcpListenerOptions,
 } from './bindings/tcp.js';
 import {
   TunBindings,
-  TunInterface,
+  type TunInterface,
   type TunInterfaceOptions,
 } from './bindings/tun-interface.js';
-import { UdpBindings, type UdpSocketOptions } from './bindings/udp.js';
+import {
+  UdpBindings,
+  type UdpSocket,
+  type UdpSocketOptions,
+} from './bindings/udp.js';
 import { fetchFile } from './fetch-file.js';
 import type { NetworkInterface, WasmInstance } from './types.js';
 
-export async function createStack(options?: NetworkStackOptions) {
-  const stack = new NetworkStack(options);
+export async function createStack(
+  options?: NetworkStackOptions
+): Promise<NetworkStack> {
+  const stack = new VirtualNetworkStack(options);
   await stack.ready;
   return stack;
 }
 
 export type NetworkStackOptions = {
+  /**
+   * Whether to initialize a loopback interface on startup.
+   *
+   * @default true
+   */
   initializeLoopback?: boolean;
+
+  /**
+   * Name server used for DNS resolution.
+   *
+   * @default { ip: '127.0.0.1', port: 53 }
+   */
+  nameServer?: NameServer;
 };
 
-export class NetworkStack {
+export type NetworkStack = {
+  readonly ready: Promise<void>;
+  readonly interfaces: Iterable<NetworkInterface>;
+
+  createLoopbackInterface(
+    options: LoopbackInterfaceOptions
+  ): Promise<LoopbackInterface>;
+  createTunInterface(options: TunInterfaceOptions): Promise<TunInterface>;
+  createTapInterface(options?: TapInterfaceOptions): Promise<TapInterface>;
+  createBridgeInterface(
+    options: BridgeInterfaceOptions
+  ): Promise<BridgeInterface>;
+  removeInterface(
+    netInterface: LoopbackInterface | TunInterface | TapInterface
+  ): Promise<void>;
+  /**
+   * Listens for incoming TCP connections on the specified host/port.
+   */
+  listenTcp(options: TcpListenerOptions): Promise<TcpListener>;
+  /**
+   * Establishes an outbound TCP connection to a remote host/port.
+   */
+  connectTcp(options: TcpConnectionOptions): Promise<TcpConnection>;
+  /**
+   * Opens a UDP socket for sending and receiving datagrams.
+   *
+   * If no local host is provided, the socket will bind to all available interfaces.
+   * If no local port is provided, the socket will bind to a random port.
+   */
+  openUdp(options?: UdpSocketOptions): Promise<UdpSocket>;
+};
+
+export class VirtualNetworkStack implements NetworkStack {
   #options: NetworkStackOptions;
   #loopIntervalId?: number;
+  #dnsClient: DnsClient;
 
-  #loopbackBindings = new LoopbackBindings();
-  #tunBindings = new TunBindings();
-  #tapBindings = new TapBindings();
-  #bridgeBindings = new BridgeBindings();
-  #tcpBindings = new TcpBindings();
-  #udpBindings = new UdpBindings();
+  #loopbackBindings: LoopbackBindings;
+  #tunBindings: TunBindings;
+  #tapBindings: TapBindings;
+  #bridgeBindings: BridgeBindings;
+  #tcpBindings: TcpBindings;
+  #udpBindings: UdpBindings;
 
   ready: Promise<void>;
   get interfaces() {
@@ -58,6 +113,20 @@ export class NetworkStack {
       ...options,
       initializeLoopback: options.initializeLoopback ?? true,
     };
+
+    this.#dnsClient = new DnsClient(this, {
+      nameServer: options.nameServer ?? { ip: '127.0.0.1', port: 53 },
+    });
+
+    // Initialize bindings
+    this.#loopbackBindings = new LoopbackBindings();
+    this.#tunBindings = new TunBindings();
+    this.#tapBindings = new TapBindings();
+    this.#bridgeBindings = new BridgeBindings();
+    this.#tcpBindings = new TcpBindings(this.#dnsClient);
+    this.#udpBindings = new UdpBindings(this.#dnsClient);
+
+    // Initialize the stack
     this.ready = this.#init();
 
     // Post-init setup
@@ -132,6 +201,7 @@ export class NetworkStack {
     yield* this.#loopbackBindings.interfaces.values();
     yield* this.#tunBindings.interfaces.values();
     yield* this.#tapBindings.interfaces.values();
+    yield* this.#bridgeBindings.interfaces.values();
   }
 
   async createLoopbackInterface(
@@ -160,24 +230,21 @@ export class NetworkStack {
     return this.#bridgeBindings.create(options);
   }
 
-  async removeInterface(
-    netInterface: LoopbackInterface | TunInterface | TapInterface
-  ) {
+  async removeInterface(netInterface: NetworkInterface) {
     await this.ready;
 
-    if (netInterface instanceof LoopbackInterface) {
-      return this.#loopbackBindings.remove(netInterface);
+    switch (netInterface.type) {
+      case 'loopback':
+        return this.#loopbackBindings.remove(netInterface);
+      case 'tun':
+        return this.#tunBindings.remove(netInterface);
+      case 'tap':
+        return this.#tapBindings.remove(netInterface);
+      case 'bridge':
+        return this.#bridgeBindings.remove(netInterface);
+      default:
+        throw new Error('unknown interface type');
     }
-
-    if (netInterface instanceof TunInterface) {
-      return this.#tunBindings.remove(netInterface);
-    }
-
-    if (netInterface instanceof TapInterface) {
-      return this.#tapBindings.remove(netInterface);
-    }
-
-    throw new Error('unknown interface type');
   }
 
   /**
