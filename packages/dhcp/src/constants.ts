@@ -2,7 +2,7 @@ export const DHCP_SERVER_PORT = 67;
 export const DHCP_CLIENT_PORT = 68;
 
 // DHCP message types as per RFC 2132
-export const DHCPMessageTypes = {
+export const DhcpMessageTypes = {
   DISCOVER: 1,
   OFFER: 2,
   REQUEST: 3,
@@ -14,7 +14,7 @@ export const DHCPMessageTypes = {
 } as const;
 
 // DHCP options codes as per RFC 2132
-export const DHCPOptions = {
+export const DhcpOptions = {
   SUBNET_MASK: 1,
   ROUTER: 3,
   DNS_SERVERS: 6,
@@ -27,7 +27,7 @@ export const DHCPOptions = {
   END: 255,
 } as const;
 
-export const DHCPOptionCodes = {
+export const DhcpOptionCodes = {
   REQUESTED_IP: 50,
   CLIENT_ID: 61,
   SERVER_ID: 54,

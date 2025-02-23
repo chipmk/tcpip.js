@@ -1,25 +1,71 @@
-import type { UdpDatagram, UdpSocket } from 'tcpip';
+import type { NetworkStack, UdpDatagram, UdpSocket } from 'tcpip';
 import {
   DHCP_CLIENT_PORT,
   DHCP_SERVER_PORT,
-  DHCPMessageTypes,
+  DhcpMessageTypes,
 } from './constants.js';
-import type { DHCPLease, DHCPMessage, DHCPServerOptions } from './types.js';
-import { parseDHCPMessage, serializeDHCPMessage } from './wire.js';
+import type { DhcpLease, DhcpMessage } from './types.js';
 import { ipv4ToNumber, numberToIPv4 } from './util.js';
+import { parseDhcpMessage, serializeDhcpMessage } from './wire.js';
 
-export async function createDHCPServer(options: DHCPServerOptions) {
-  const server = new DHCPServer(options);
-  await server.listen();
-  return server;
-}
+export type DhcpServerOptions = {
+  /**
+   * Range of IP addresses to lease.
+   */
+  leaseRange: {
+    start: string;
+    end: string;
+  };
 
-export class DHCPServer {
-  leases = new Map<string, DHCPLease>();
+  /**
+   * Duration of a lease in seconds.
+   */
+  leaseDuration?: number;
 
-  #options: DHCPServerOptions;
+  /**
+   * IP address of the DHCP server.
+   */
+  serverIdentifier: string;
 
-  constructor(options: DHCPServerOptions) {
+  /**
+   * Subnet mask to assign to clients.
+   */
+  netmask: string;
+
+  /**
+   * IP address of the router to assign to clients.
+   */
+  router: string;
+
+  /**
+   * Hostname to assign to clients
+   */
+  hostname?: string;
+
+  /**
+   * Domain name to assign to clients (e.g. `"example.com"`)
+   */
+  domainName?: string;
+
+  /**
+   * List of DNS search domains (e.g. `["eng.example.com", "example.com"]`)
+   */
+  searchDomains?: string[];
+
+  /**
+   * IP addresses of DNS servers to assign to clients.
+   */
+  dnsServers?: string[];
+};
+
+export class DhcpServer {
+  #stack: NetworkStack;
+  #options: DhcpServerOptions;
+
+  leases = new Map<string, DhcpLease>();
+
+  constructor(stack: NetworkStack, options: DhcpServerOptions) {
+    this.#stack = stack;
     this.#options = {
       leaseDuration: 86400,
       ...options,
@@ -27,37 +73,37 @@ export class DHCPServer {
   }
 
   async listen() {
-    const socket = await this.#options.stack.openUdp({
+    const socket = await this.#stack.openUdp({
       port: DHCP_SERVER_PORT,
     });
-    this.#processDHCPMessages(socket);
+    this.#processDhcpMessages(socket);
   }
 
-  async #processDHCPMessages(socket: UdpSocket) {
+  async #processDhcpMessages(socket: UdpSocket) {
     const writer = socket.writable.getWriter();
 
     for await (const datagram of socket) {
       // Process each message without blocking
-      this.#processDHCPMessage(datagram, writer);
+      this.#processDhcpMessage(datagram, writer);
     }
   }
 
-  async #processDHCPMessage(
+  async #processDhcpMessage(
     datagram: UdpDatagram,
     writer: WritableStreamDefaultWriter<UdpDatagram>
   ) {
     try {
-      const reply = this.#handleDHCPMessage(datagram.data);
+      const reply = this.#handleDhcpMessage(datagram.data);
       if (reply) {
         await writer.write(reply);
       }
     } catch (err) {
-      console.error('error processing DHCP message:', err);
+      console.error('error processing dhcp message:', err);
     }
   }
 
-  #handleDHCPMessage(data: Uint8Array) {
-    const message = parseDHCPMessage(data);
+  #handleDhcpMessage(data: Uint8Array) {
+    const message = parseDhcpMessage(data);
 
     switch (message.type) {
       case 'DISCOVER':
@@ -68,7 +114,7 @@ export class DHCPServer {
         return this.#handleRelease(message);
       default:
         throw new Error(
-          `received unsupported DHCP client message type: ${message.type}`
+          `received unsupported dhcp client message type: ${message.type}`
         );
     }
   }
@@ -94,19 +140,19 @@ export class DHCPServer {
     }
   }
 
-  #handleDiscover(message: DHCPMessage): UdpDatagram {
+  #handleDiscover(message: DhcpMessage): UdpDatagram {
     const ip = this.#findAvailableIP(message.mac);
     if (!ip) {
       return this.#createNak(message);
     }
 
-    const offer = serializeDHCPMessage(
+    const offer = serializeDhcpMessage(
       {
         op: 2,
         xid: message.xid,
         yiaddr: ip,
         mac: message.mac,
-        type: DHCPMessageTypes.OFFER,
+        type: DhcpMessageTypes.OFFER,
       },
       this.#options
     );
@@ -118,27 +164,27 @@ export class DHCPServer {
     };
   }
 
-  #handleRequest(message: DHCPMessage): UdpDatagram | undefined {
+  #handleRequest(message: DhcpMessage): UdpDatagram | undefined {
     // Determine if this is a response to our offer or a direct request
     const isResponseToOffer =
       message.serverIdentifier === this.#options.serverIdentifier;
 
-    let assignedIp: string | undefined = undefined;
+    let assignedIP: string | undefined = undefined;
 
     if (isResponseToOffer) {
       // Client is accepting our offer
-      assignedIp = this.#findAvailableIP(message.mac);
-      if (!assignedIp) {
+      assignedIP = this.#findAvailableIP(message.mac);
+      if (!assignedIP) {
         return this.#createNak(message);
       }
-    } else if (message.requestedIp) {
+    } else if (message.requestedIP) {
       // Client is requesting a specific IP
       const canUseRequestedIp = this.#canUseRequestedIP(
-        message.requestedIp,
+        message.requestedIP,
         message.mac
       );
       if (canUseRequestedIp) {
-        assignedIp = message.requestedIp;
+        assignedIP = message.requestedIP;
       } else {
         return this.#createNak(message);
       }
@@ -149,18 +195,18 @@ export class DHCPServer {
 
     // If we got here, we have a valid IP to assign
     this.leases.set(message.mac, {
-      ip: assignedIp,
+      ip: assignedIP,
       mac: message.mac,
       expiresAt: Date.now() + this.#options.leaseDuration! * 1000,
     });
 
-    const ack = serializeDHCPMessage(
+    const ack = serializeDhcpMessage(
       {
         op: 2,
         xid: message.xid,
-        yiaddr: assignedIp,
+        yiaddr: assignedIP,
         mac: message.mac,
-        type: DHCPMessageTypes.ACK,
+        type: DhcpMessageTypes.ACK,
       },
       this.#options
     );
@@ -172,18 +218,18 @@ export class DHCPServer {
     };
   }
 
-  #handleRelease(message: DHCPMessage) {
+  #handleRelease(message: DhcpMessage) {
     this.leases.delete(message.mac);
   }
 
-  #createNak(message: DHCPMessage): UdpDatagram {
-    const nak = serializeDHCPMessage(
+  #createNak(message: DhcpMessage): UdpDatagram {
+    const nak = serializeDhcpMessage(
       {
         op: 2,
         xid: message.xid,
         yiaddr: '0.0.0.0', // No IP assigned in NAK
         mac: message.mac,
-        type: DHCPMessageTypes.NAK,
+        type: DhcpMessageTypes.NAK,
       },
       this.#options
     );
@@ -195,9 +241,9 @@ export class DHCPServer {
     };
   }
 
-  #canUseRequestedIP(requestedIp: string, clientMac: string): boolean {
+  #canUseRequestedIP(requestedIP: string, clientMac: string): boolean {
     // Check if IP is in our range
-    const ipNum = ipv4ToNumber(requestedIp);
+    const ipNum = ipv4ToNumber(requestedIP);
     const rangeStart = ipv4ToNumber(this.#options.leaseRange.start);
     const rangeEnd = ipv4ToNumber(this.#options.leaseRange.end);
 
@@ -207,7 +253,7 @@ export class DHCPServer {
 
     // Check if IP is in use by another client
     for (const [mac, lease] of this.leases.entries()) {
-      if (lease.ip === requestedIp) {
+      if (lease.ip === requestedIP) {
         // IP is in use, but check if it's by this same client
         return mac === clientMac && lease.expiresAt > Date.now();
       }
