@@ -1,44 +1,48 @@
-import { parseIPv4Address, serializeIPv4Address } from '@tcpip/wire';
-import { DHCPMessageTypes, DHCPOptionCodes, DHCPOptions } from './constants.js';
+import {
+  parseIPv4Address,
+  serializeIPv4Address,
+  serializeMacAddress,
+} from '@tcpip/wire';
+import { DhcpMessageTypes, DhcpOptionCodes, DhcpOptions } from './constants.js';
+import type { DhcpServerOptions } from './dhcp-server.js';
 import type {
-  DHCPMessage,
-  DHCPMessageParams,
-  DHCPMessageType,
-  DHCPOption,
-  DHCPServerOptions,
+  DhcpMessage,
+  DhcpMessageParams,
+  DhcpMessageType,
+  DhcpOption,
 } from './types.js';
 
-export function parseDHCPMessageType(type: number) {
+export function parseDhcpMessageType(type: number) {
   const [key] =
-    Object.entries(DHCPMessageTypes).find(([, value]) => value === type) ?? [];
+    Object.entries(DhcpMessageTypes).find(([, value]) => value === type) ?? [];
 
   if (!key) {
     throw new Error(`unknown dhcp message type: ${type}`);
   }
 
-  return key as DHCPMessageType;
+  return key as DhcpMessageType;
 }
 
-export function serializeDHCPMessageType(type: DHCPMessageType) {
-  return DHCPMessageTypes[type];
+export function serializeDhcpMessageType(type: DhcpMessageType) {
+  return DhcpMessageTypes[type];
 }
 
-export function parseDHCPOption(option: number) {
+export function parseDhcpOption(option: number) {
   const [key] =
-    Object.entries(DHCPOptions).find(([, value]) => value === option) ?? [];
+    Object.entries(DhcpOptions).find(([, value]) => value === option) ?? [];
 
   if (!key) {
     throw new Error(`unknown dhcp option: ${option}`);
   }
 
-  return key as DHCPOption;
+  return key as DhcpOption;
 }
 
-export function serializeDHCPOption(option: DHCPOption) {
-  return DHCPOptions[option];
+export function serializeDhcpOption(option: DhcpOption) {
+  return DhcpOptions[option];
 }
 
-export function parseDHCPMessage(data: Uint8Array): DHCPMessage {
+export function parseDhcpMessage(data: Uint8Array): DhcpMessage {
   if (data.length < 240) {
     throw new Error('dhcp message too short');
   }
@@ -57,27 +61,27 @@ export function parseDHCPMessage(data: Uint8Array): DHCPMessage {
     .join(':');
 
   // Parse DHCP options section
-  let type: DHCPMessageType | undefined;
+  let type: DhcpMessageType | undefined;
   let requestedIp: string | undefined;
   let serverIdentifier: string | undefined;
 
   let i = 240; // Start of options section
   while (i < data.length) {
     const option = data[i];
-    if (option === DHCPOptions.END) break;
+    if (option === DhcpOptions.END) break;
 
     const len = data[i + 1]!;
 
     switch (option) {
-      case DHCPOptions.MESSAGE_TYPE:
-        type = parseDHCPMessageType(data[i + 2]!);
+      case DhcpOptions.MESSAGE_TYPE:
+        type = parseDhcpMessageType(data[i + 2]!);
         break;
-      case DHCPOptionCodes.REQUESTED_IP: {
+      case DhcpOptionCodes.REQUESTED_IP: {
         const ip = data.subarray(i + 2, i + 2 + 4);
         requestedIp = parseIPv4Address(ip);
         break;
       }
-      case DHCPOptionCodes.SERVER_ID:
+      case DhcpOptionCodes.SERVER_ID:
         serverIdentifier = Array.from(data.slice(i + 2, i + 2 + 4)).join('.');
         break;
     }
@@ -92,14 +96,14 @@ export function parseDHCPMessage(data: Uint8Array): DHCPMessage {
     xid,
     mac,
     type,
-    requestedIp,
+    requestedIP: requestedIp,
     serverIdentifier,
   };
 }
 
-export function serializeDHCPMessage(
-  params: DHCPMessageParams,
-  options: DHCPServerOptions
+export function serializeDhcpMessage(
+  params: DhcpMessageParams,
+  options: DhcpServerOptions
 ): Uint8Array {
   const baseSize = 240;
   const optionsSize = 64 + (options.dnsServers?.length ?? 0) * 4;
@@ -110,8 +114,8 @@ export function serializeDHCPMessage(
 
   // Set message header fields
   view.setUint8(0, params.op);
-  view.setUint8(1, 1);
-  view.setUint8(2, 6);
+  view.setUint8(1, 1); // Hardware type (Ethernet)
+  view.setUint8(2, 6); // Hardware address length (MAC)
   view.setUint32(4, params.xid);
 
   // Set yiaddr (your IP) field
@@ -119,10 +123,8 @@ export function serializeDHCPMessage(
   message.set(ip, 16);
 
   // Set client MAC address
-  const macBytes = params.mac.split(':').map((x: string) => parseInt(x, 16));
-  for (let i = 0; i < 6; i++) {
-    view.setUint8(28 + i, macBytes[i]!);
-  }
+  const macBytes = serializeMacAddress(params.mac);
+  message.set(macBytes, 28);
 
   // Set DHCP magic cookie
   view.setUint32(236, 0x63825363);
@@ -130,12 +132,12 @@ export function serializeDHCPMessage(
   let offset = 240;
 
   // Message type option
-  message[offset++] = DHCPOptions.MESSAGE_TYPE;
+  message[offset++] = DhcpOptions.MESSAGE_TYPE;
   message[offset++] = 1;
   message[offset++] = params.type;
 
   // Server identifier
-  message[offset++] = DHCPOptions.SERVER_IDENTIFIER;
+  message[offset++] = DhcpOptions.SERVER_IDENTIFIER;
   message[offset++] = 4;
 
   const serverIP = serializeIPv4Address(options.serverIdentifier);
@@ -143,20 +145,20 @@ export function serializeDHCPMessage(
   offset += 4;
 
   // Lease time
-  message[offset++] = DHCPOptions.LEASE_TIME;
+  message[offset++] = DhcpOptions.LEASE_TIME;
   message[offset++] = 4;
   view.setUint32(offset, options.leaseDuration!);
   offset += 4;
 
   // Subnet mask
-  message[offset++] = DHCPOptions.SUBNET_MASK;
+  message[offset++] = DhcpOptions.SUBNET_MASK;
   message[offset++] = 4;
-  const mask = serializeIPv4Address(options.subnetMask);
+  const mask = serializeIPv4Address(options.netmask);
   message.set(mask, offset);
   offset += 4;
 
   // Router
-  message[offset++] = DHCPOptions.ROUTER;
+  message[offset++] = DhcpOptions.ROUTER;
   message[offset++] = 4;
   const router = serializeIPv4Address(options.router);
   message.set(router, offset);
@@ -164,7 +166,7 @@ export function serializeDHCPMessage(
 
   // DNS Servers (if configured)
   if (options.dnsServers?.length) {
-    message[offset++] = DHCPOptions.DNS_SERVERS;
+    message[offset++] = DhcpOptions.DNS_SERVERS;
     message[offset++] = 4 * options.dnsServers.length;
     for (const dnsServer of options.dnsServers) {
       const dnsIP = serializeIPv4Address(dnsServer);
@@ -176,7 +178,7 @@ export function serializeDHCPMessage(
   // Hostname (if configured)
   if (options.hostname) {
     const hostnameBytes = textEncoder.encode(options.hostname);
-    message[offset++] = DHCPOptions.HOSTNAME;
+    message[offset++] = DhcpOptions.HOSTNAME;
     message[offset++] = hostnameBytes.length;
     message.set(hostnameBytes, offset);
     offset += hostnameBytes.length;
@@ -185,7 +187,7 @@ export function serializeDHCPMessage(
   // Domain Name (if configured)
   if (options.domainName) {
     const domainBytes = textEncoder.encode(options.domainName);
-    message[offset++] = DHCPOptions.DOMAIN_NAME;
+    message[offset++] = DhcpOptions.DOMAIN_NAME;
     message[offset++] = domainBytes.length;
     message.set(domainBytes, offset);
     offset += domainBytes.length;
@@ -210,7 +212,7 @@ export function serializeDHCPMessage(
       0
     );
 
-    message[offset++] = DHCPOptions.DOMAIN_SEARCH;
+    message[offset++] = DhcpOptions.DOMAIN_SEARCH;
     message[offset++] = totalLength;
 
     for (const domainBytes of encodedDomains) {
@@ -220,7 +222,7 @@ export function serializeDHCPMessage(
   }
 
   // End option
-  message[offset++] = DHCPOptions.END;
+  message[offset++] = DhcpOptions.END;
 
   return message.slice(0, offset);
 }
