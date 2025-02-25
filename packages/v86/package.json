@@ -21,7 +21,6 @@
   "dependencies": {},
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
-    "tcpip": "^0.2.0-dev.1",
     "typescript": "^5.0.4"
   }
 }
