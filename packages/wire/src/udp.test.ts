@@ -4,7 +4,7 @@ import {
   parseUdpDatagram,
   serializeUdpDatagram,
   type UdpDatagram,
-} from './udp';
+} from './udp.js';
 
 describe('parseUdpDatagram', () => {
   it('should parse a valid UDP datagram', () => {
