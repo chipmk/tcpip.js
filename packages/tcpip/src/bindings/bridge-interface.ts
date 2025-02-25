@@ -1,4 +1,5 @@
 import {
+  generateMacAddress,
   parseIPv4Address,
   parseMacAddress,
   serializeIPv4Cidr,
@@ -8,7 +9,7 @@ import {
   type MacAddress,
 } from '@tcpip/wire';
 import type { Pointer } from '../types.js';
-import { generateMacAddress, Hooks } from '../util.js';
+import { Hooks } from '../util.js';
 import { Bindings } from './base.js';
 import { tapInterfaceHooks, type TapInterface } from './tap-interface.js';
 

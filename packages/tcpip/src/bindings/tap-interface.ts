@@ -1,4 +1,5 @@
 import {
+  generateMacAddress,
   parseIPv4Address,
   parseMacAddress,
   serializeIPv4Cidr,
@@ -12,7 +13,6 @@ import type { Pointer } from '../types.js';
 import {
   ExtendedReadableStream,
   fromReadable,
-  generateMacAddress,
   Hooks,
   nextMicrotask,
 } from '../util.js';
