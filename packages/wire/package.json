@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/wire",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Wire protocol utilities for tcpip.js",
   "main": "dist/index.cjs",
   "types": "dist/index.d.ts",
@@ -23,7 +23,6 @@
   "dependencies": {},
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
-    "tcpip": "0.2",
     "typescript": "^5.0.4",
     "vitest": "^3.0.1"
   }
