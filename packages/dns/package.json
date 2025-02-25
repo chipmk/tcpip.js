@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/dns",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DNS server built on tcpip.js",
   "main": "dist/index.cjs",
   "types": "dist/index.d.ts",
@@ -21,11 +21,11 @@
     }
   },
   "dependencies": {
-    "@tcpip/wire": "^0.1.0"
+    "@tcpip/wire": "0.1"
   },
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
-    "tcpip": "0.2",
+    "tcpip": "0.3",
     "typescript": "^5.0.4",
     "vitest": "^3.0.1"
   }
