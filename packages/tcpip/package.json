@@ -1,6 +1,6 @@
 {
   "name": "tcpip",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Virtual TCP/IP stack that can run anywhere",
   "license": "MIT",
   "type": "module",
@@ -32,8 +32,8 @@
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
-    "@tcpip/dns": "^0.1.0",
-    "@tcpip/wire": "^0.1.0"
+    "@tcpip/dns": "0.2",
+    "@tcpip/wire": "0.1"
   },
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
