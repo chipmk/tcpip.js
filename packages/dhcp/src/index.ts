@@ -9,10 +9,10 @@ export type { DhcpLease } from './types.js';
  *
  * @example
  * const stack = await createStack();
- * const { serve } = createDhcp(stack);
+ * const { serve } = await createDhcp(stack);
  * const dhcpServer = await serve({ ... });
  */
-export function createDhcp(stack: NetworkStack) {
+export async function createDhcp(stack: NetworkStack) {
   return {
     serve: async (options: DhcpServerOptions) => {
       const server = new DhcpServer(stack, options);
