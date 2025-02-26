@@ -342,7 +342,7 @@ describe('bridge interface', () => {
     }
   });
 
-  test('bridge interface itself can send and receive frames', async () => {
+  test('bridge interface can receive tcp packets', async () => {
     // Create a network of two devices connected to a router
     const device = await createStack();
     const router = await createStack();
@@ -389,6 +389,185 @@ describe('bridge interface', () => {
 
       expect(received.value).toStrictEqual(data);
       break;
+    }
+  });
+
+  test('bridge interface can send tcp packets', async () => {
+    const device = await createStack();
+    const router = await createStack();
+
+    const deviceTap = await device.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const port = await router.createTapInterface();
+
+    // Create bridge and connect device
+    await router.createBridgeInterface({
+      ports: [port],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device to router port
+    deviceTap.readable.pipeTo(port.writable);
+    port.readable.pipeTo(deviceTap.writable);
+
+    // Listen on device
+    const listener = await device.listenTcp({
+      port: 8080,
+    });
+
+    // Connect from router bridge to device
+    const connection = await router.connectTcp({
+      host: '192.168.1.2',
+      port: 8080,
+    });
+
+    // Write data to confirm communication
+    const outboundWriter = connection.writable.getWriter();
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    outboundWriter.write(data);
+
+    for await (const inbound of listener) {
+      const reader = inbound.readable.getReader();
+      const received = await reader.read();
+
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value).toStrictEqual(data);
+      break;
+    }
+  });
+
+  test('bridge interface can send and receive udp datagrams', async () => {
+    const device = await createStack();
+    const router = await createStack();
+
+    const deviceTap = await device.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const port = await router.createTapInterface();
+
+    // Create bridge
+    await router.createBridgeInterface({
+      ports: [port],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device to port
+    deviceTap.readable.pipeTo(port.writable);
+    port.readable.pipeTo(deviceTap.writable);
+
+    // Open UDP sockets
+    const deviceSocket = await device.openUdp({ port: 8080 });
+    const routerSocket = await router.openUdp({ port: 8080 });
+
+    // Test device to router
+    {
+      const reader = routerSocket.readable.getReader();
+      const writer = deviceSocket.writable.getWriter();
+
+      const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+      await writer.write({ host: '192.168.1.1', port: 8080, data });
+
+      const received = await reader.read();
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value.host).toBe('192.168.1.2');
+      expect(received.value.port).toBe(8080);
+      expect(received.value.data).toStrictEqual(data);
+    }
+
+    // Test router to device
+    {
+      const reader = deviceSocket.readable.getReader();
+      const writer = routerSocket.writable.getWriter();
+
+      const data = new Uint8Array([0x04, 0x03, 0x02, 0x01]);
+      await writer.write({ host: '192.168.1.2', port: 8080, data });
+
+      const received = await reader.read();
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value.host).toBe('192.168.1.1');
+      expect(received.value.port).toBe(8080);
+      expect(received.value.data).toStrictEqual(data);
+    }
+  });
+
+  test('bridge interface can send and receive broadcast udp datagrams', async () => {
+    const device = await createStack();
+    const router = await createStack();
+
+    const deviceTap = await device.createTapInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    const port = await router.createTapInterface();
+
+    // Create bridge
+    await router.createBridgeInterface({
+      ports: [port],
+      ip: '192.168.1.1/24',
+    });
+
+    // Connect device to port
+    deviceTap.readable.pipeTo(port.writable);
+    port.readable.pipeTo(deviceTap.writable);
+
+    // Open UDP sockets
+    const deviceSocket = await device.openUdp({ port: 8080 });
+    const routerSocket = await router.openUdp({ port: 8081 });
+
+    // Test router to device broadcast
+    {
+      const deviceReader = deviceSocket.readable.getReader();
+      const routerWriter = routerSocket.writable.getWriter();
+
+      const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+      await routerWriter.write({
+        host: '255.255.255.255',
+        port: 8080,
+        data,
+      });
+
+      const received = await deviceReader.read();
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value.host).toBe('192.168.1.1');
+      expect(received.value.port).toBe(8081);
+      expect(received.value.data).toStrictEqual(data);
+    }
+
+    // Test device to router broadcast
+    {
+      const routerReader = routerSocket.readable.getReader();
+      const deviceWriter = deviceSocket.writable.getWriter();
+
+      const data = new Uint8Array([0x04, 0x03, 0x02, 0x01]);
+      await deviceWriter.write({
+        host: '255.255.255.255',
+        port: 8081,
+        data,
+      });
+
+      const received = await routerReader.read();
+      if (received.done) {
+        throw new Error('expected value');
+      }
+
+      expect(received.value.host).toBe('192.168.1.2');
+      expect(received.value.port).toBe(8080);
+      expect(received.value.data).toStrictEqual(data);
     }
   });
 
@@ -853,6 +1032,78 @@ describe('udp', () => {
     expect(parsedPacket.payload.sourcePort).toBe(8080);
     expect(parsedPacket.payload.destinationPort).toBe(8080);
     expect(parsedPacket.payload.payload).toStrictEqual(data);
+  });
+
+  test('udp broadcast can be sent over multiple interfaces', async () => {
+    const stack = await createStack();
+
+    // Create two interfaces
+    const tap1 = await stack.createTapInterface({
+      ip: '192.168.1.1/24',
+      mac: '00:1a:2b:3c:4d:01',
+    });
+
+    const tap2 = await stack.createTapInterface({
+      ip: '192.168.2.1/24',
+      mac: '00:1a:2b:3c:4d:02',
+    });
+
+    // Listen on both interfaces
+    const tap1Listener = tap1.listen();
+    const tap2Listener = tap2.listen();
+
+    // Create a socket for broadcasting
+    const socket = await stack.openUdp({ port: 8080 });
+    const writer = socket.writable.getWriter();
+
+    // Send broadcast
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+    await writer.write({
+      host: '255.255.255.255',
+      port: 8080,
+      data,
+    });
+
+    // Check that both interfaces received the broadcast
+    const received1 = await waitFor(tap1Listener, (frame) => {
+      const parsedFrame = parseEthernetFrame(frame);
+      return parsedFrame.type === 'ipv4';
+    });
+
+    const received2 = await waitFor(tap2Listener, (frame) => {
+      const parsedFrame = parseEthernetFrame(frame);
+      return parsedFrame.type === 'ipv4';
+    });
+
+    // Verify the first frame
+    const parsedFrame1 = parseEthernetFrame(received1);
+    if (parsedFrame1.type !== 'ipv4') {
+      throw new Error('expected ipv4 packet');
+    }
+    const parsedPacket1 = parsedFrame1.payload;
+    if (parsedPacket1.protocol !== 'udp') {
+      throw new Error('expected udp packet');
+    }
+    expect(parsedPacket1.sourceIP).toBe('192.168.1.1');
+    expect(parsedPacket1.destinationIP).toBe('255.255.255.255');
+    expect(parsedPacket1.payload.sourcePort).toBe(8080);
+    expect(parsedPacket1.payload.destinationPort).toBe(8080);
+    expect(parsedPacket1.payload.payload).toStrictEqual(data);
+
+    // Verify the second frame
+    const parsedFrame2 = parseEthernetFrame(received2);
+    if (parsedFrame2.type !== 'ipv4') {
+      throw new Error('expected ipv4 packet');
+    }
+    const parsedPacket2 = parsedFrame2.payload;
+    if (parsedPacket2.protocol !== 'udp') {
+      throw new Error('expected udp packet');
+    }
+    expect(parsedPacket2.sourceIP).toBe('192.168.2.1');
+    expect(parsedPacket2.destinationIP).toBe('255.255.255.255');
+    expect(parsedPacket2.payload.sourcePort).toBe(8080);
+    expect(parsedPacket2.payload.destinationPort).toBe(8080);
+    expect(parsedPacket2.payload.payload).toStrictEqual(data);
   });
 });
 
