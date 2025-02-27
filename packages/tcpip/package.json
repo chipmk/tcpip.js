@@ -1,6 +1,6 @@
 {
   "name": "tcpip",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Virtual TCP/IP stack that can run anywhere",
   "license": "MIT",
   "type": "module",
