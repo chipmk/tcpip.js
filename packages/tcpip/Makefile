@@ -1,7 +1,7 @@
 CC ?= clang
 TARGET = wasm32-wasi
 CFLAGS = -Oz -Wall -std=c11
-LDFLAGS = -Wl,--gc-sections,--strip-all,--export=malloc,--export=free,--allow-undefined
+LDFLAGS = -Wl,--gc-sections,--strip-all,--export=malloc,--export=free,--allow-undefined -mexec-model=reactor
 
 SRC_DIR = wasm
 OUTPUT = tcpip.wasm

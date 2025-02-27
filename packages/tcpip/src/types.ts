@@ -17,7 +17,7 @@ export type Pointer = UniquePointer | 0;
 
 export type WasiExports = {
   memory: WebAssembly.Memory;
-  _start(): unknown;
+  _initialize(): unknown;
 };
 
 export type SysExports = {

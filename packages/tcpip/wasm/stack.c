@@ -19,6 +19,14 @@ void process_timeouts() {
   sys_check_timeouts();
 }
 
-int main() {
+// Initialize the lwIP stack
+//
+// We compile as a WASI reactor module (ie. a lib) which has no main() function
+// Instead we set up a constructor function which is called when the module is loaded
+//
+// Under the hood, reactor modules call _initialize() as the entry point which
+// wasi-libc implements, and in turn calls __wasm_call_ctors() to run constructors
+// See https://github.com/WebAssembly/wasi-libc/blob/main/libc-bottom-half/crt/crt1-reactor.c
+__attribute__((constructor)) void initialize() {
   lwip_init();
 }
