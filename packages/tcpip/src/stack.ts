@@ -181,11 +181,9 @@ export class VirtualNetworkStack implements NetworkStack {
     this.#tcpBindings.register(wasmInstance.exports);
     this.#udpBindings.register(wasmInstance.exports);
 
-    const result = wasi.start(wasmInstance);
-
-    if (result !== 0) {
-      throw new Error(`wasi start failed with code ${result}`);
-    }
+    // Our WASM binary is a WASI reactor module (ie. a lib),
+    // so we call `initialize()` instead of `start()`.
+    wasi.initialize(wasmInstance);
 
     // Call lwIP's main loop regularly (required in NO_SYS mode)
     // Used to process queued packets (eg. loopback) and expired timeouts
