@@ -8,7 +8,6 @@
   "types": "dist/index.d.ts",
   "sideEffects": false,
   "scripts": {
-    "dev": "tsx src/index.ts",
     "build": "npm run build:js && npm run build:wasm",
     "build:js": "tsup --clean",
     "build:wasm": "npm run make build",
