@@ -28,7 +28,7 @@ err_t send_udp_datagram(struct udp_pcb *socket, const uint8_t *addr, uint16_t po
           return ERR_MEM;
         }
         pbuf_take(p, datagram, length);
-        err_t err = udp_sendto_if(socket, p, IP_ADDR_BROADCAST, port, netif);
+        udp_sendto_if(socket, p, IP_ADDR_BROADCAST, port, netif);
         pbuf_free(p);
       }
     }
