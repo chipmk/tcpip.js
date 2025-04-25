@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "tsup --clean",
+    "clean": "rm -rf dist",
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
@@ -22,6 +23,9 @@
   },
   "dependencies": {
     "@tcpip/wire": "0.1"
+  },
+  "peerDependencies": {
+    "tcpip": "0.3"
   },
   "devDependencies": {
     "@total-typescript/tsconfig": "^1.0.4",
