@@ -31,6 +31,12 @@ uint16_t send_tcp_chunk(struct tcp_pcb *conn, uint8_t *chunk, uint16_t length) {
     return 0;
   }
 
+  // Force sending chunks immediately
+  err_t out_result = tcp_output(conn);
+  if (out_result != ERR_OK) {
+    return 0;
+  }
+
   return bytes_to_send;
 }
 
