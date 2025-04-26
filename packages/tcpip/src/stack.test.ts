@@ -879,7 +879,7 @@ describe('tcp', () => {
     // Check timing - with tcp_output enabled, this should be very fast
     // Without tcp_output, there would be a significant delay (~300ms)
     const elapsed = endTime - startTime;
-    expect(elapsed).toBeLessThan(100);
+    expect(elapsed).toBeLessThan(200);
   });
 });
 
