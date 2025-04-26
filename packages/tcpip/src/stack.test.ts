@@ -842,6 +842,45 @@ describe('tcp', () => {
 
     expect(received.value).toStrictEqual(data);
   });
+
+  test('tcp packets are sent immediately without delay', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+    const inboundReader = inbound.readable.getReader();
+    const outboundWriter = outbound.writable.getWriter();
+
+    // Record start time
+    const startTime = performance.now();
+    
+    // Write and read immediately
+    await outboundWriter.write(data);
+    const received = await inboundReader.read();
+
+    // Record end time
+    const endTime = performance.now();
+    
+    expect(received.value).toStrictEqual(data);
+    
+    // Check timing - with tcp_output enabled, this should be very fast
+    // Without tcp_output, there would be a significant delay (~300ms)
+    const elapsed = endTime - startTime;
+    expect(elapsed).toBeLessThan(100);
+  });
 });
 
 describe('udp', () => {
