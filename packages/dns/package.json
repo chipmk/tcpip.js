@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/dns",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DNS server built on tcpip.js",
   "main": "dist/index.cjs",
   "types": "dist/index.d.ts",
