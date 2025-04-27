@@ -842,6 +842,57 @@ describe('tcp', () => {
 
     expect(received.value).toStrictEqual(data);
   });
+
+  test('tcp packets are sent immediately without delay', async () => {
+    const stack1 = await createStack();
+    const stack2 = await createStack();
+
+    const tun1 = await stack1.createTunInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const tun2 = await stack2.createTunInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    // Connect the two interfaces
+    tun1.readable.pipeTo(tun2.writable);
+    tun2.readable.pipeTo(tun1.writable);
+
+    const listener = await stack2.listenTcp({
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack1.connectTcp({
+        host: '192.168.1.2',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const data = new Uint8Array([0x01, 0x02, 0x03, 0x04]);
+
+    const inboundReader = inbound.readable.getReader();
+    const outboundWriter = outbound.writable.getWriter();
+
+    // Record start time
+    const startTime = performance.now();
+
+    // Write and read immediately
+    await outboundWriter.write(data);
+    const received = await inboundReader.read();
+
+    // Record end time
+    const endTime = performance.now();
+
+    expect(received.value).toStrictEqual(data);
+
+    // Check timing - with tcp_output enabled, this should be very fast
+    // Without tcp_output, there would be a significant delay (~300ms)
+    const elapsed = endTime - startTime;
+    expect(elapsed).toBeCloseTo(0, -1);
+  });
 });
 
 describe('udp', () => {
