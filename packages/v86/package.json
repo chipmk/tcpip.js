@@ -27,6 +27,7 @@
     }
   },
   "devDependencies": {
+    "@tcpip/dhcp": "workspace:*",
     "@tcpip/wire": "workspace:*",
     "@total-typescript/tsconfig": "catalog:",
     "@types/node": "catalog:",

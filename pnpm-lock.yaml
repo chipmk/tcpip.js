@@ -125,6 +125,9 @@ importers:
 
   packages/v86:
     devDependencies:
+      '@tcpip/dhcp':
+        specifier: workspace:*
+        version: link:../dhcp
       '@tcpip/wire':
         specifier: workspace:*
         version: link:../wire
