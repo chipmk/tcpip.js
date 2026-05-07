@@ -1,9 +1,42 @@
+import { createDhcp } from '@tcpip/dhcp';
 import { type TcpSegment, parseEthernetFrame } from '@tcpip/wire';
 import { connectStreams, createStack } from 'tcpip';
 import { describe, expect, it } from 'vitest';
 import { createVm, nextValue } from '../test/util.js';
 
 describe('network adapter', () => {
+  it('should assign an IP address and DNS server to a VM with DHCP', async () => {
+    const networkStack = await createStack();
+    const tapInterface = await networkStack.createTapInterface({
+      ip: '192.168.1.1/24',
+    });
+    const dhcp = await createDhcp(networkStack);
+    const dhcpServer = await dhcp.serve({
+      leaseRange: { start: '192.168.1.100', end: '192.168.1.110' },
+      serverIdentifier: '192.168.1.1',
+      netmask: '255.255.255.0',
+      router: '192.168.1.1',
+      dnsServers: ['192.168.1.1'],
+      leaseDuration: 3600,
+    });
+
+    const { emulator, net, executeCommand } = await createVm();
+    connectStreams(tapInterface, net);
+
+    const dhcpOutput = await executeCommand('udhcpc -n -i eth0 -t 3 -T 2');
+    const addressOutput = await executeCommand('ip -4 addr show dev eth0');
+    const resolvConf = await executeCommand('cat /etc/resolv.conf');
+
+    expect(dhcpOutput).toContain('lease of 192.168.1.100 obtained');
+    expect(addressOutput).toContain('inet 192.168.1.100/24');
+    expect(resolvConf).toContain('nameserver 192.168.1.1');
+    expect([...dhcpServer.leases.values()]).toEqual([
+      expect.objectContaining({ ip: '192.168.1.100' }),
+    ]);
+
+    await emulator.destroy();
+  });
+
   it('should make tcp connection from VM to host', async () => {
     const networkStack = await createStack();
     const tapInterface = await networkStack.createTapInterface({

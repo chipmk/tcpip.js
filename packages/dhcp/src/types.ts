@@ -22,6 +22,8 @@ export type DhcpMessage = {
   htype: number;
   hlen: number;
   xid: number;
+  ciaddr: string;
+  yiaddr: string;
   mac: string;
   type?: DhcpMessageType;
   requestedIP?: string;

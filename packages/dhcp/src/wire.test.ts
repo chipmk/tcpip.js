@@ -60,9 +60,11 @@ describe('parseDhcpMessage', () => {
       htype: 2,
       hlen: 6,
       xid: 0x12345678,
+      ciaddr: '0.0.0.0',
+      yiaddr: '0.0.0.0',
       mac: '11:22:33:44:55:66',
       type: undefined,
-      requestedIp: undefined,
+      requestedIP: undefined,
       serverIdentifier: undefined,
     });
   });
@@ -100,11 +102,68 @@ describe('parseDhcpMessage', () => {
       htype: 1,
       hlen: 6,
       xid: 0x12345678,
+      ciaddr: '0.0.0.0',
+      yiaddr: '0.0.0.0',
       mac: '11:22:33:44:55:66',
       type: 'DISCOVER',
       requestedIP: '192.168.1.100',
       serverIdentifier: undefined,
     });
+  });
+
+  it('should parse DHCP options after pad bytes', () => {
+    const data = new Uint8Array(244);
+    const view = new DataView(data.buffer);
+
+    view.setUint8(0, 1);
+    view.setUint8(1, 1);
+    view.setUint8(2, 6);
+    view.setUint32(4, 0x12345678);
+    [0x11, 0x22, 0x33, 0x44, 0x55, 0x66].forEach((byte, i) =>
+      view.setUint8(28 + i, byte)
+    );
+
+    data[240] = 0; // PAD
+    data[241] = DhcpOptions.MESSAGE_TYPE;
+    data[242] = 1;
+    data[243] = DhcpMessageTypes.DISCOVER;
+
+    expect(parseDhcpMessage(data).type).toBe('DISCOVER');
+  });
+
+  it('should parse fields from a sliced buffer', () => {
+    const buffer = new Uint8Array(260);
+    const data = buffer.subarray(10, 254);
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+    view.setUint8(0, 1);
+    view.setUint8(1, 1);
+    view.setUint8(2, 6);
+    view.setUint32(4, 0x12345678);
+    data.set([192, 168, 1, 25], 12);
+    [0x11, 0x22, 0x33, 0x44, 0x55, 0x66].forEach((byte, i) =>
+      view.setUint8(28 + i, byte)
+    );
+    data[240] = DhcpOptions.MESSAGE_TYPE;
+    data[241] = 1;
+    data[242] = DhcpMessageTypes.REQUEST;
+    data[243] = DhcpOptions.END;
+
+    const message = parseDhcpMessage(data);
+
+    expect(message.xid).toBe(0x12345678);
+    expect(message.ciaddr).toBe('192.168.1.25');
+    expect(message.mac).toBe('11:22:33:44:55:66');
+    expect(message.type).toBe('REQUEST');
+  });
+
+  it('should throw on truncated DHCP options', () => {
+    const data = new Uint8Array(243);
+    data[240] = DhcpOptions.MESSAGE_TYPE;
+    data[241] = 4;
+    data[242] = DhcpMessageTypes.DISCOVER;
+
+    expect(() => parseDhcpMessage(data)).toThrow('truncated dhcp option');
   });
 });
 
@@ -222,5 +281,31 @@ describe('serializeDhcpMessage', () => {
 
     expect(result[offset]).toBe(DhcpOptions.DOMAIN_NAME);
     expect(result[offset + 1]).toBe(11); // length of 'example.com'
+  });
+
+  it('should size the options buffer for optional string fields', () => {
+    const params = {
+      op: 2,
+      type: DhcpMessageTypes.OFFER,
+      xid: 0x12345678,
+      yiaddr: '192.168.1.100',
+      mac: '11:22:33:44:55:66',
+    };
+
+    const options: DhcpServerOptions = {
+      serverIdentifier: '192.168.1.1',
+      leaseDuration: 3600,
+      netmask: '255.255.255.0',
+      router: '192.168.1.1',
+      hostname: 'test-host',
+      domainName: 'example.com',
+      searchDomains: ['eng.example.com', 'example.com'],
+      dnsServers: ['10.0.0.1', '10.0.0.2'],
+      leaseRange: { start: '192.168.1.100', end: '192.168.1.200' },
+    };
+
+    const result = serializeDhcpMessage(params, options);
+
+    expect(result.at(-1)).toBe(DhcpOptions.END);
   });
 });

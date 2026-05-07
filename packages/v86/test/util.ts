@@ -53,14 +53,14 @@ export async function downloadFile(url: string, path: string) {
 }
 
 export type CreateVmOptions = {
-  ip: string;
+  ip?: string;
   promptSequence?: string;
 };
 
 export async function createVm({
   ip,
   promptSequence = '~% ',
-}: CreateVmOptions) {
+}: CreateVmOptions = {}) {
   const emulator = new V86({
     wasm_path: `${dirname(require.resolve('v86'))}/v86.wasm`,
     bios: { url: join(import.meta.dirname, './images/seabios.bin') },
@@ -109,7 +109,9 @@ export async function createVm({
   }
 
   await waitForSequence(promptSequence);
-  await executeCommand(`ip addr add ${ip} dev eth0`);
+  if (ip) {
+    await executeCommand(`ip addr add ${ip} dev eth0`);
+  }
   await executeCommand('ip link set eth0 up');
 
   const net = createV86NetworkStream(emulator);

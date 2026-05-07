@@ -8,6 +8,8 @@ import type { DhcpLease, DhcpMessage } from './types.js';
 import { ipv4ToNumber, numberToIPv4 } from './util.js';
 import { parseDhcpMessage, serializeDhcpMessage } from './wire.js';
 
+const OFFER_DURATION_MS = 60_000;
+
 export type DhcpServerOptions = {
   /**
    * Range of IP addresses to lease.
@@ -63,6 +65,7 @@ export class DhcpServer {
   #options: DhcpServerOptions;
 
   leases = new Map<string, DhcpLease>();
+  #offers = new Map<string, DhcpLease>();
 
   constructor(stack: NetworkStack, options: DhcpServerOptions) {
     this.#stack = stack;
@@ -120,16 +123,25 @@ export class DhcpServer {
   }
 
   #findAvailableIP(mac: string) {
+    this.#deleteExpiredAllocations();
+
     const existingLease = this.leases.get(mac);
     if (existingLease && existingLease.expiresAt > Date.now()) {
       return existingLease.ip;
+    }
+
+    const existingOffer = this.#offers.get(mac);
+    if (existingOffer && existingOffer.expiresAt > Date.now()) {
+      return existingOffer.ip;
     }
 
     const start = ipv4ToNumber(this.#options.leaseRange.start);
     const end = ipv4ToNumber(this.#options.leaseRange.end);
 
     const usedIPs = new Set(
-      Array.from(this.leases.values()).map((lease) => lease.ip)
+      [...this.leases.values(), ...this.#offers.values()].map(
+        (lease) => lease.ip
+      )
     );
 
     for (let i = start; i <= end; i++) {
@@ -140,11 +152,17 @@ export class DhcpServer {
     }
   }
 
-  #handleDiscover(message: DhcpMessage): UdpDatagram {
+  #handleDiscover(message: DhcpMessage): UdpDatagram | undefined {
     const ip = this.#findAvailableIP(message.mac);
     if (!ip) {
-      return this.#createNak(message);
+      return;
     }
+
+    this.#offers.set(message.mac, {
+      ip,
+      mac: message.mac,
+      expiresAt: Date.now() + OFFER_DURATION_MS,
+    });
 
     const offer = serializeDhcpMessage(
       {
@@ -165,46 +183,41 @@ export class DhcpServer {
   }
 
   #handleRequest(message: DhcpMessage): UdpDatagram | undefined {
-    // Determine if this is a response to our offer or a direct request
-    const isResponseToOffer =
-      message.serverIdentifier === this.#options.serverIdentifier;
+    this.#deleteExpiredAllocations();
 
-    let assignedIP: string | undefined = undefined;
+    if (
+      message.serverIdentifier &&
+      message.serverIdentifier !== this.#options.serverIdentifier
+    ) {
+      return;
+    }
 
-    if (isResponseToOffer) {
-      // Client is accepting our offer
-      assignedIP = this.#findAvailableIP(message.mac);
-      if (!assignedIP) {
-        return this.#createNak(message);
-      }
-    } else if (message.requestedIP) {
-      // Client is requesting a specific IP
-      const canUseRequestedIp = this.#canUseRequestedIP(
-        message.requestedIP,
-        message.mac
-      );
-      if (canUseRequestedIp) {
-        assignedIP = message.requestedIP;
-      } else {
-        return this.#createNak(message);
-      }
-    } else {
-      // Malformed REQUEST - no way to know what IP to assign
+    const requestedIP =
+      message.requestedIP ??
+      (message.ciaddr !== '0.0.0.0' ? message.ciaddr : undefined);
+
+    if (!requestedIP) {
       return this.#createNak(message);
     }
 
-    // If we got here, we have a valid IP to assign
-    this.leases.set(message.mac, {
-      ip: assignedIP,
-      mac: message.mac,
-      expiresAt: Date.now() + this.#options.leaseDuration! * 1000,
-    });
+    const canUseRequestedIP = this.#canUseRequestedIP(requestedIP, message.mac);
+    if (canUseRequestedIP) {
+      this.leases.set(message.mac, {
+        ip: requestedIP,
+        mac: message.mac,
+        expiresAt: Date.now() + this.#options.leaseDuration! * 1000,
+      });
+      this.#offers.delete(message.mac);
+    } else {
+      this.#offers.delete(message.mac);
+      return this.#createNak(message);
+    }
 
     const ack = serializeDhcpMessage(
       {
         op: 2,
         xid: message.xid,
-        yiaddr: assignedIP,
+        yiaddr: requestedIP,
         mac: message.mac,
         type: DhcpMessageTypes.ACK,
       },
@@ -220,6 +233,7 @@ export class DhcpServer {
 
   #handleRelease(message: DhcpMessage) {
     this.leases.delete(message.mac);
+    this.#offers.delete(message.mac);
   }
 
   #createNak(message: DhcpMessage): UdpDatagram {
@@ -252,7 +266,10 @@ export class DhcpServer {
     }
 
     // Check if IP is in use by another client
-    for (const [mac, lease] of this.leases.entries()) {
+    for (const [mac, lease] of [
+      ...this.leases.entries(),
+      ...this.#offers.entries(),
+    ]) {
       if (lease.ip === requestedIP) {
         // IP is in use, but check if it's by this same client
         return mac === clientMac && lease.expiresAt > Date.now();
@@ -261,5 +278,19 @@ export class DhcpServer {
 
     // IP is in our range and not in use
     return true;
+  }
+
+  #deleteExpiredAllocations() {
+    const now = Date.now();
+    for (const [mac, lease] of this.leases.entries()) {
+      if (lease.expiresAt <= now) {
+        this.leases.delete(mac);
+      }
+    }
+    for (const [mac, offer] of this.#offers.entries()) {
+      if (offer.expiresAt <= now) {
+        this.#offers.delete(mac);
+      }
+    }
   }
 }
