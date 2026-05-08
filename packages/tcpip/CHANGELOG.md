@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.5](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.4...tcpip-v0.3.5) (2026-05-08)
+
+
+### Features
+
+* **tcpip:** support graceful tcp write shutdown ([c2ce56b](https://github.com/chipmk/tcpip.js/commit/c2ce56b74bf29d6b03fac162480f112f3be5a0e9))
+
+
+### Bug Fixes
+
+* **tcpip:** allow piping into tcp writable streams ([dcc41bc](https://github.com/chipmk/tcpip.js/commit/dcc41bc2ba5505f1d8a6b9456d3e2f3005e1e8d5))
+
 ## [0.3.4](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.3...tcpip-v0.3.4) (2026-05-06)
 
 

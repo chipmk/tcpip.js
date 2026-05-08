@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/dhcp",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "DHCP server built on tcpip.js",
   "repository": {
     "type": "git",
@@ -16,7 +16,9 @@
     "test": "vitest",
     "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

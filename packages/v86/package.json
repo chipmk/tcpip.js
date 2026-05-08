@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/v86",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Network adapter that connects tcpip.js with v86",
   "license": "MIT",
   "repository": {
@@ -19,7 +19,9 @@
     "vm:shell": "tsx test/vm-shell.ts",
     "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
