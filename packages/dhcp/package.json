@@ -16,9 +16,7 @@
     "test": "vitest",
     "prepublishOnly": "pnpm run build"
   },
-  "files": [
-    "dist/**/*"
-  ],
+  "files": ["dist/**/*"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
