@@ -695,6 +695,39 @@ describe('tcp', () => {
     await expect(outboundReader.read()).resolves.toMatchObject({ done: true });
   });
 
+  test('can pipe a readable stream to a TCP writable', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const data = new TextEncoder().encode('piped to tcp');
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(data);
+        controller.close();
+      },
+    });
+    const inboundReader = inbound.readable.getReader();
+
+    await source.pipeTo(outbound.writable, { preventClose: true });
+
+    await expect(inboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: data,
+    });
+  });
+
   test('closing a TCP writable after multiple writes delivers queued data before peer EOF', async () => {
     const stack = await createStack();
 

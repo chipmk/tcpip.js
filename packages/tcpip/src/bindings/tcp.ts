@@ -388,8 +388,9 @@ export class VirtualTcpConnection
         },
       },
       {
-        // Send buffer is managed by the TCP stack
-        highWaterMark: 0,
+        // Send buffer capacity is managed by the TCP stack. Allow one queued
+        // write so standard stream utilities like pipeTo() can start flowing.
+        highWaterMark: 1,
       }
     );
   }
