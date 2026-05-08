@@ -1,7 +1,7 @@
 {
   "packages/tcpip": "0.3.5",
   "packages/wire": "0.1.3",
-  "packages/http": "1.0.0",
+  "packages/http": "0.1.0",
   "packages/dns": "0.2.2",
   "packages/dhcp": "0.2.4",
   "packages/v86": "0.2.3"
