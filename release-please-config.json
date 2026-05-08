@@ -14,6 +14,9 @@
     "packages/wire": {
       "component": "@tcpip/wire"
     },
+    "packages/http": {
+      "component": "@tcpip/http"
+    },
     "packages/dns": {
       "component": "@tcpip/dns"
     },

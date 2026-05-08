@@ -16,6 +16,7 @@
     "build": "tsup --clean",
     "clean": "rm -rf dist",
     "test": "vitest",
+    "vm:shell": "tsx test/vm-shell.ts",
     "prepublishOnly": "pnpm run build"
   },
   "files": ["dist/**/*"],
@@ -28,11 +29,13 @@
   },
   "devDependencies": {
     "@tcpip/dhcp": "workspace:*",
+    "@tcpip/http": "workspace:*",
     "@tcpip/wire": "workspace:*",
     "@total-typescript/tsconfig": "catalog:",
     "@types/node": "catalog:",
     "tsup": "catalog:",
     "tcpip": "workspace:*",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "v86": "^0.5.44",
     "vitest": "catalog:"

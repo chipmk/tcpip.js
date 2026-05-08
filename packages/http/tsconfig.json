@@ -6,10 +6,9 @@
     "paths": {
       "tcpip": ["../tcpip/src/index.js"],
       "tcpip/types": ["../tcpip/src/types.js"],
-      "@tcpip/dhcp": ["../dhcp/src/index.js"],
       "@tcpip/dns": ["../dns/src/index.js"],
-      "@tcpip/http": ["../http/src/index.js"],
-      "@tcpip/wire": ["../wire/src/index.js"]
+      "@tcpip/wire": ["../wire/src/index.js"],
+      "@tcpip/http": ["./src/index.js"]
     }
   }
 }

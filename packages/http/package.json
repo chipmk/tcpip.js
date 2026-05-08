@@ -1,0 +1,41 @@
+{
+  "name": "@tcpip/http",
+  "version": "0.0.0",
+  "description": "HTTP client and server built on tcpip.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chipmk/tcpip.js.git",
+    "directory": "packages/http"
+  },
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm run build:js && pnpm run build:wasm",
+    "build:js": "tsup --clean",
+    "build:wasm": "pnpm run make build",
+    "clean": "rm -rf dist",
+    "make": "CC='docker compose -f ../tcpip/docker-compose.yml run --rm wasi-sdk /opt/wasi-sdk/bin/clang' AR='docker compose -f ../tcpip/docker-compose.yml run --rm wasi-sdk /opt/wasi-sdk/bin/ar' make",
+    "test": "vitest",
+    "prepublishOnly": "pnpm run build"
+  },
+  "files": ["dist/**/*", "http_parser.wasm"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
+    }
+  },
+  "devDependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.3.0",
+    "@playwright/test": "catalog:",
+    "@total-typescript/tsconfig": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/browser": "catalog:",
+    "tcpip": "workspace:*",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -634,6 +634,295 @@ describe('tcp', () => {
     await outbound.close();
   });
 
+  test('delivers queued TCP data before peer close is observed', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const inboundWriter = inbound.writable.getWriter();
+    const outboundReader = outbound.readable.getReader();
+    const data = new TextEncoder().encode('queued before close');
+
+    await inboundWriter.write(data);
+    inboundWriter.releaseLock();
+    await inbound.close();
+
+    await expect(outboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: data,
+    });
+    await expect(outboundReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('closing a TCP writable delivers queued data before peer EOF', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const inboundWriter = inbound.writable.getWriter();
+    const outboundReader = outbound.readable.getReader();
+    const data = new TextEncoder().encode('queued before writable close');
+
+    await inboundWriter.write(data);
+    await inboundWriter.close();
+
+    await expect(outboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: data,
+    });
+    await expect(outboundReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('can pipe a readable stream to a TCP writable', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const data = new TextEncoder().encode('piped to tcp');
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(data);
+        controller.close();
+      },
+    });
+    const inboundReader = inbound.readable.getReader();
+
+    await source.pipeTo(outbound.writable, { preventClose: true });
+
+    await expect(inboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: data,
+    });
+  });
+
+  test('closing a TCP writable after multiple writes delivers queued data before peer EOF', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const inboundWriter = inbound.writable.getWriter();
+    const outboundReader = outbound.readable.getReader();
+    const first = new TextEncoder().encode('first');
+    const second = new TextEncoder().encode('second');
+
+    await inboundWriter.write(first);
+    await inboundWriter.write(second);
+    await inboundWriter.close();
+
+    await expect(outboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: first,
+    });
+    await expect(outboundReader.read()).resolves.toMatchObject({
+      done: false,
+      value: second,
+    });
+    await expect(outboundReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('TCP peer EOF is observable after releasing a reader that consumed queued data', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [outbound, inbound] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const inboundWriter = inbound.writable.getWriter();
+    const firstReader = outbound.readable.getReader();
+    const data = new TextEncoder().encode('complete message');
+
+    await inboundWriter.write(data);
+    await inboundWriter.close();
+
+    await expect(firstReader.read()).resolves.toMatchObject({
+      done: false,
+      value: data,
+    });
+    firstReader.releaseLock();
+
+    const secondReader = outbound.readable.getReader();
+    await expect(secondReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('server can read a request then gracefully close its response stream', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [client, server] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const clientWriter = client.writable.getWriter();
+    const serverReader = server.readable.getReader();
+    const serverWriter = server.writable.getWriter();
+    const clientReader = client.readable.getReader();
+    const request = new TextEncoder().encode('request');
+    const response = new TextEncoder().encode('response');
+
+    await clientWriter.write(request);
+    await expect(serverReader.read()).resolves.toMatchObject({
+      done: false,
+      value: request,
+    });
+    serverReader.releaseLock();
+
+    await serverWriter.write(response);
+    await serverWriter.close();
+
+    await expect(clientReader.read()).resolves.toMatchObject({
+      done: false,
+      value: response,
+    });
+    await expect(clientReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('server can gracefully close its response stream while a request read is pending', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [client, server] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const clientWriter = client.writable.getWriter();
+    const serverReader = server.readable.getReader();
+    const serverWriter = server.writable.getWriter();
+    const clientReader = client.readable.getReader();
+    const request = new TextEncoder().encode('request');
+    const response = new TextEncoder().encode('response');
+
+    await clientWriter.write(request);
+    await expect(serverReader.read()).resolves.toMatchObject({
+      done: false,
+      value: request,
+    });
+    serverReader.read().catch(() => {});
+
+    await serverWriter.write(response);
+    await serverWriter.close();
+
+    await expect(clientReader.read()).resolves.toMatchObject({
+      done: false,
+      value: response,
+    });
+    await expect(clientReader.read()).resolves.toMatchObject({ done: true });
+  });
+
+  test('server can gracefully close after a multi-chunk response while a request read is pending', async () => {
+    const stack = await createStack();
+
+    const listener = await stack.listenTcp({
+      host: '127.0.0.1',
+      port: 8080,
+    });
+
+    const [client, server] = await Promise.all([
+      stack.connectTcp({
+        host: '127.0.0.1',
+        port: 8080,
+      }),
+      nextValue(listener),
+    ]);
+
+    const clientWriter = client.writable.getWriter();
+    const serverReader = server.readable.getReader();
+    const serverWriter = server.writable.getWriter();
+    const clientReader = client.readable.getReader();
+    const request = new TextEncoder().encode('request');
+    const responseHead = new Uint8Array(92).fill(1);
+    const responseTail = new Uint8Array(15).fill(2);
+
+    await clientWriter.write(request);
+    await expect(serverReader.read()).resolves.toMatchObject({
+      done: false,
+      value: request,
+    });
+    serverReader.read().catch(() => {});
+
+    await serverWriter.write(responseHead);
+    await serverWriter.write(responseTail);
+    await serverWriter.close();
+
+    await expect(clientReader.read()).resolves.toMatchObject({
+      done: false,
+      value: responseHead,
+    });
+    await expect(clientReader.read()).resolves.toMatchObject({
+      done: false,
+      value: responseTail,
+    });
+    await expect(clientReader.read()).resolves.toMatchObject({ done: true });
+  });
+
   test('can close a TCP connection when reader/writer are locked', async () => {
     const stack = await createStack();
 
