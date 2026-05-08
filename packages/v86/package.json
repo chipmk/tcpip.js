@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/v86",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Network adapter that connects tcpip.js with v86",
   "license": "MIT",
   "repository": {

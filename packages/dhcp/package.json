@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/dhcp",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "DHCP server built on tcpip.js",
   "repository": {
     "type": "git",

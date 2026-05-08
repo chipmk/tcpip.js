@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.3](https://github.com/chipmk/tcpip.js/compare/@tcpip/v86-v0.2.2...@tcpip/v86-v0.2.3) (2026-05-08)
+
+
+### Features
+
+* **dhcp:** harden lease handling + v86 integration tests ([f60bd2f](https://github.com/chipmk/tcpip.js/commit/f60bd2f609fe6fc4f337b8655145864b442d5c8b))
+* **dhcp:** harden lease handling + v86 integration tests ([b33b002](https://github.com/chipmk/tcpip.js/commit/b33b002d7ff59456eaa31e85469e280b0d47c527))
+
+
+### Bug Fixes
+
+* typecheck ([3acd38d](https://github.com/chipmk/tcpip.js/commit/3acd38d979c98dcfa59fe25c5f90de125e8adb3f))
+
 ## [0.2.2](https://github.com/chipmk/tcpip.js/compare/@tcpip/v86-v0.2.1...@tcpip/v86-v0.2.2) (2026-05-06)
 
 
