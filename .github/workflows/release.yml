@@ -144,6 +144,26 @@ jobs:
           rm -f "$NPM_VIEW_STDERR"
           pnpm publish --access public --no-git-checks --ignore-scripts --provenance
 
+      - name: Publish @tcpip/http
+        if: ${{ steps.release.outputs['packages/http--release_created'] == 'true' }}
+        working-directory: packages/http
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          NPM_VIEW_STDERR=$(mktemp)
+          EXISTING=$(npm view "@tcpip/http@$VERSION" version 2>"$NPM_VIEW_STDERR") || STATUS=$?
+          if [ -n "$EXISTING" ]; then
+            echo "@tcpip/http@$VERSION is already published, skipping."
+            rm -f "$NPM_VIEW_STDERR"
+            exit 0
+          elif [ "${STATUS:-0}" -ne 0 ] && ! grep -qiE 'E404|not found' "$NPM_VIEW_STDERR"; then
+            cat "$NPM_VIEW_STDERR"
+            rm -f "$NPM_VIEW_STDERR"
+            exit 1
+          fi
+          rm -f "$NPM_VIEW_STDERR"
+          pnpm publish --access public --no-git-checks --ignore-scripts --provenance
+
       - name: Publish @tcpip/dhcp
         if: ${{ steps.release.outputs['packages/dhcp--release_created'] == 'true' }}
         working-directory: packages/dhcp

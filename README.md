@@ -9,6 +9,7 @@
 - **Bridge:** Create a virtual switch/LAN by [`bridging`](#bridge-interface) multiple interfaces together
 - **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
 - **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#openudp)
+- **L4 APIs:** Higher level APIs are available ([`@tcpip/http`](packages/http), [`@tcpip/dns`](packages/dns), [`@tcpip/dhcp`](packages/dhcp))
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
 - **Fast:** Over 500Mbps between stacks
@@ -556,7 +557,7 @@ As with any web stream, you can pipe data through a transform stream:
 
 ```ts
 const decompressedStream = connection.readable.pipeThrough(
-  new DecompressionStream('gzip')
+  new DecompressionStream('gzip'),
 );
 ```
 
@@ -643,7 +644,7 @@ for await (const datagram of udpSocket) {
   console.log(
     datagram.host,
     datagram.port,
-    new TextDecoder().decode(datagram.data)
+    new TextDecoder().decode(datagram.data),
   );
 }
 ```
@@ -731,7 +732,7 @@ If you leave the name server as the default (`127.0.0.1:53`) and don't run your 
 
 ### DNS APIs
 
-DNS APIs are available via a standalone package `@tcpip/dns`. This package provides both `serve()` and `lookup()` functions that you can use to serve DNS records or resolve hostnames. It's built on top of the tcpip.js UDP API.
+DNS APIs are available via a standalone package `@tcpip/dns`. This package provides both `serve()` and `lookup()` functions that you can use to serve DNS records or resolve hostnames. It's built on top of the tcpip.js [UDP API](#udp-api).
 
 Start by calling `createDns()` to create `lookup()` and `serve()` functions for your stack:
 
@@ -800,6 +801,12 @@ await serve({
 });
 ```
 
+## HTTP API
+
+An HTTP API is available via a standalone package `@tcpip/http`. It adds HTTP/1.1 client and server support built on top of the tcpip.js [TCP API](#tcp-api). It exposes a Fetch-compatible API for virtual networks: a `fetch` function for outbound requests and a `serve` function for handling inbound requests. Both work with standard `Request`, `Response`, and `Headers` objects, and support streaming request and response bodies.
+
+For more details, see the [HTTP package README](packages/http/README.md).
+
 ## Frameworks/bundlers
 
 Some frameworks require additional configuration to correctly load WASM files (which `tcpip.js` depends on). Here are some common frameworks and how to configure them:
@@ -823,9 +830,7 @@ _Background:_ Vite optimizes dependencies during development to improve build ti
 
 ## Future plans
 
-- [ ] HTTP API
 - [ ] ICMP (ping) API
-- [ ] DHCP API
 - [ ] mDNS API
 - [ ] Hosts file
 - [ ] Experimental Wireguard interface

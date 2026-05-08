@@ -1,0 +1,12 @@
+{
+  "extends": "@total-typescript/tsconfig/tsc/dom/library",
+  "include": ["src/**/*.ts"],
+  "compilerOptions": {
+    "lib": ["es2022", "dom", "dom.iterable", "esnext.disposable"],
+    "paths": {
+      "tcpip": ["../tcpip/src/index.js"],
+      "tcpip/types": ["../tcpip/src/types.js"],
+      "@tcpip/http": ["./src/index.js"]
+    }
+  }
+}
