@@ -45,6 +45,11 @@ err_t close_tcp_connection(struct tcp_pcb *conn) {
   return tcp_close(conn);
 }
 
+EXPORT("shutdown_tcp_connection_write")
+err_t shutdown_tcp_connection_write(struct tcp_pcb *conn) {
+  return tcp_shutdown(conn, 0, 1);
+}
+
 // Callback for when data is received
 err_t recv_tcp_callback(void *arg, struct tcp_pcb *conn, struct pbuf *p, err_t err) {
   // TODO: review this logic (should we half-close?)

@@ -25,6 +25,7 @@ type TcpConnectionOuterHooks = {
   send(data: Uint8Array): Promise<void>;
   updateReceiveBuffer(length: number): void;
   close(): Promise<void>;
+  closeWrite(): Promise<void>;
 };
 
 type TcpConnectionInnerHooks = {
@@ -68,6 +69,7 @@ export type TcpExports = {
   create_tcp_listener(host: Pointer | null, port: number): TcpListenerHandle;
   create_tcp_connection(host: Pointer, port: number): TcpConnectionHandle;
   close_tcp_connection(handle: TcpConnectionHandle): number;
+  shutdown_tcp_connection_write(handle: TcpConnectionHandle): number;
   send_tcp_chunk(
     handle: TcpConnectionHandle,
     chunk: number,
@@ -80,6 +82,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
   #tcpListeners = new Map<TcpListenerHandle, TcpListener>();
   #tcpConnections = new EventMap<TcpConnectionHandle, TcpConnection>();
   #tcpAcks = new Map<TcpConnectionHandle, (length: number) => void>();
+  #tcpCloseAcks = new Map<TcpConnectionHandle, () => void>();
   #dnsClient: DnsClient;
 
   async #resolveHost(host: string) {
@@ -94,6 +97,42 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
   constructor(dnsClient: DnsClient) {
     super();
     this.#dnsClient = dnsClient;
+  }
+
+  async #closeConnection(handle: TcpConnectionHandle) {
+    while (true) {
+      const result = this.exports.close_tcp_connection(handle);
+
+      if (result === LwipError.ERR_OK) {
+        return;
+      }
+
+      if (result !== LwipError.ERR_MEM) {
+        throw new Error(`failed to close tcp connection: ${result}`);
+      }
+
+      await new Promise<void>((resolve) => {
+        this.#tcpCloseAcks.set(handle, resolve);
+      });
+    }
+  }
+
+  async #closeConnectionWrite(handle: TcpConnectionHandle) {
+    while (true) {
+      const result = this.exports.shutdown_tcp_connection_write(handle);
+
+      if (result === LwipError.ERR_OK) {
+        return;
+      }
+
+      if (result !== LwipError.ERR_MEM) {
+        throw new Error(`failed to shutdown tcp write side: ${result}`);
+      }
+
+      await new Promise<void>((resolve) => {
+        this.#tcpCloseAcks.set(handle, resolve);
+      });
+    }
   }
 
   imports = {
@@ -142,11 +181,10 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
           this.exports.update_tcp_receive_buffer(connectionHandle, length);
         },
         close: async () => {
-          const result = this.exports.close_tcp_connection(connectionHandle);
-
-          if (result !== LwipError.ERR_OK) {
-            throw new Error(`failed to close tcp connection: ${result}`);
-          }
+          await this.#closeConnection(connectionHandle);
+        },
+        closeWrite: async () => {
+          await this.#closeConnectionWrite(connectionHandle);
         },
       });
 
@@ -189,7 +227,10 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
           this.exports.update_tcp_receive_buffer(handle, length);
         },
         close: async () => {
-          this.exports.close_tcp_connection(handle);
+          await this.#closeConnection(handle);
+        },
+        closeWrite: async () => {
+          await this.#closeConnectionWrite(handle);
         },
       });
 
@@ -227,6 +268,10 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
       const notifyAck = this.#tcpAcks.get(handle);
       this.#tcpAcks.delete(handle);
       notifyAck?.(length);
+
+      const notifyCloseAck = this.#tcpCloseAcks.get(handle);
+      this.#tcpCloseAcks.delete(handle);
+      notifyCloseAck?.();
     },
   };
 
@@ -294,6 +339,8 @@ export class VirtualTcpConnection
   #receiveBuffer: Uint8Array[] = [];
   #readableController?: ReadableStreamDefaultController<Uint8Array>;
   #writableController?: WritableStreamDefaultController;
+  #remoteClosed = false;
+  #readableClosed = false;
 
   readable: ReadableStream<Uint8Array>;
   writable: WritableStream<Uint8Array>;
@@ -307,7 +354,9 @@ export class VirtualTcpConnection
         this.#enqueueBuffer();
       },
       close: async () => {
-        this.close();
+        await nextMicrotask();
+        this.#remoteClosed = true;
+        this.#enqueueBuffer();
       },
     });
 
@@ -334,6 +383,9 @@ export class VirtualTcpConnection
         write: async (chunk) => {
           await tcpConnectionHooks.getOuter(this).send(chunk);
         },
+        close: async () => {
+          await tcpConnectionHooks.getOuter(this).closeWrite();
+        },
       },
       {
         // Send buffer is managed by the TCP stack
@@ -342,7 +394,35 @@ export class VirtualTcpConnection
     );
   }
 
+  #closeReadable() {
+    if (this.#readableClosed) {
+      return;
+    }
+
+    this.#readableClosed = true;
+    try {
+      this.#readableController?.close();
+    } catch {}
+  }
+
+  #errorReadable(error: Error) {
+    if (this.#readableClosed) {
+      return;
+    }
+
+    this.#readableClosed = true;
+    try {
+      this.#readableController?.error(error);
+    } catch {}
+  }
+
   #enqueueBuffer() {
+    if (this.#remoteClosed && this.#receiveBuffer.length === 0) {
+      this.#closeReadable();
+      this.#writableController?.error(new Error('tcp connection closed'));
+      return;
+    }
+
     if (!(this.#readableController?.desiredSize! > 0)) {
       return;
     }
@@ -371,11 +451,16 @@ export class VirtualTcpConnection
     if (bytesEnqueued > 0) {
       tcpConnectionHooks.getOuter(this).updateReceiveBuffer(bytesEnqueued);
     }
+
+    if (this.#remoteClosed && this.#receiveBuffer.length === 0) {
+      this.#closeReadable();
+      this.#writableController?.error(new Error('tcp connection closed'));
+    }
   }
 
   async close() {
     await tcpConnectionHooks.getOuter(this).close();
-    this.#readableController?.error(new Error('tcp connection closed'));
+    this.#errorReadable(new Error('tcp connection closed'));
     this.#writableController?.error(new Error('tcp connection closed'));
   }
 
