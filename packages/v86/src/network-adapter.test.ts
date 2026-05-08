@@ -1,4 +1,5 @@
 import { createDhcp } from '@tcpip/dhcp';
+import { createHttp } from '@tcpip/http';
 import { type TcpSegment, parseEthernetFrame } from '@tcpip/wire';
 import { connectStreams, createStack } from 'tcpip';
 import { describe, expect, it } from 'vitest';
@@ -102,6 +103,30 @@ describe('network adapter', () => {
     expect(textDecoder.decode(message)).toBe('Hello');
 
     await connection.close();
+    await emulator.destroy();
+  });
+
+  it('should serve HTTP responses to a VM', async () => {
+    const networkStack = await createStack();
+    const tapInterface = await networkStack.createTapInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const { emulator, net, executeCommand } = await createVm({
+      ip: '192.168.1.2/24',
+    });
+
+    connectStreams(tapInterface, net);
+
+    const { serve } = await createHttp(networkStack);
+    await serve(() => {
+      return new Response('hello from tcpip.js');
+    });
+
+    const response = await executeCommand('wget -qO- http://192.168.1.1/hello');
+
+    expect(response).toBe('hello from tcpip.js');
+
     await emulator.destroy();
   });
 
