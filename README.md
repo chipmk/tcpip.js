@@ -9,18 +9,24 @@
 - **Bridge:** Create a virtual switch/LAN by [`bridging`](#bridge-interface) multiple interfaces together
 - **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
 - **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#openudp)
-- **L4 APIs:** Higher level APIs are available ([`@tcpip/http`](packages/http), [`@tcpip/dns`](packages/dns), [`@tcpip/dhcp`](packages/dhcp))
+- **Application APIs:** Higher level protocols are available on top of TCP/UDP ([`@tcpip/http`](packages/http), [`@tcpip/dns`](packages/dns), [`@tcpip/dhcp`](packages/dhcp))
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
 - **Fast:** Over 500Mbps between stacks
 
 ## Why?
 
-Originally built to communicate with in-browser VMs. Projects like [v86](https://github.com/copy/v86) allow you to run a full operating system (like Linux) directly in the browser, which also means you can run Node.js, Postgres, Nginx, or literally any other app in the browser. One of the biggest challenges though, is communicating with this guest OS from the JavaScript host.
+tcpip.js was originally built to communicate with in-browser VMs.
 
-### Why is communication hard?
+Projects like [v86](https://github.com/copy/v86) let you run a full operating system (i.e. Linux) directly in the browser. That means you can run real software inside the VM: Node.js, Postgres, Nginx, shell tools, or almost anything else you would normally run on a Linux machine.
 
-With desktop VMs like VMWare, you simply talk to the guest over a network bridge: ethernet frames are forwarded from the VM's virtual NIC to your host's network stack and vice versa. In the browser though, there is no "host network stack" to send frames to - you're stuck with just the ethernet frames. We need a way to communicate at the ethernet (L2) level.
+The awkward part is networking - with native VMs like VMware, QEMU, Hyper-V, etc, the host OS already has a network stack. The VM simply sends Ethernet frames to the host via its virtual NIC and the host's network stack takes care of the rest (ARP, IP routing, TCP/UDP, DNS, DHCP, etc).
+
+In the browser, the JavaScript host does not have a network stack to process raw Ethernet frames. v86 can give you frames from its virtual NIC, but those frames are not very useful on their own if what you want is a TCP connection, a UDP socket, or a higher level protocol like DNS, DHCP, or HTTP.
+
+![Diagram comparing native VM networking with browser VM networking](docs/visuals/rendered/browser-network-stack.png)
+
+tcpip.js fills this gap. It implements a TCP/IP stack in user space so your JavaScript host can talk to a browser VM using familiar networking APIs.
 
 ## How does tcpip.js work?
 

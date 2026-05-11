@@ -21,6 +21,9 @@ catalogs:
     '@vitest/browser':
       specifier: ^3.1.2
       version: 3.2.4
+    playwright:
+      specifier: ^1.52.0
+      version: 1.59.1
     tsup:
       specifier: ^8.3.5
       version: 8.5.1
@@ -41,6 +44,15 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 1.9.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.17
+      playwright:
+        specifier: 'catalog:'
+        version: 1.59.1
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
 
   packages/dhcp:
     dependencies:
