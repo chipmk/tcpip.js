@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browser VM networking visual</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        --ink: #172033;
+        --muted: #637087;
+        --panel: #ffffff;
+        --rule: #d9e0ea;
+        --host: #235f93;
+        --guest: #8a5a1f;
+        --tcpip: #1f7a5a;
+        --gap: #b14242;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: transparent;
+      }
+
+      .visual {
+        width: 1280px;
+        padding: 0;
+        color: var(--ink);
+        background: transparent;
+      }
+
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      text {
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        letter-spacing: 0;
+      }
+
+      .section-title {
+        fill: var(--ink);
+        font-size: 25px;
+        font-weight: 800;
+      }
+
+      .stack-title {
+        fill: var(--muted);
+        font-size: 15px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .layer-label {
+        fill: var(--ink);
+        font-size: 17px;
+        font-weight: 800;
+      }
+
+      .small-label {
+        fill: var(--muted);
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .panel {
+        fill: var(--panel);
+        stroke: var(--rule);
+        stroke-width: 1.4;
+      }
+
+      .host {
+        fill: #edf5fb;
+        stroke: #9fbdd7;
+      }
+
+      .guest {
+        fill: #fbf3e8;
+        stroke: #c7ad8a;
+      }
+
+      .tcpip {
+        fill: #eaf7f1;
+        stroke: #8fc4b0;
+      }
+
+      .empty {
+        fill: #fff3f3;
+        stroke: #d99494;
+        stroke-dasharray: 8 7;
+      }
+
+      .wire {
+        fill: none;
+        stroke: #8c98aa;
+        stroke-width: 2.4;
+        marker-start: url("#arrow");
+        marker-end: url("#arrow");
+      }
+
+      .missing-wire {
+        fill: none;
+        stroke: var(--gap);
+        stroke-width: 2.4;
+        marker-start: url("#missing-arrow");
+        marker-end: url("#missing-arrow");
+      }
+
+    </style>
+  </head>
+  <body>
+    <main class="visual" data-visual-root>
+      <svg viewBox="0 0 1208 488" role="img" aria-labelledby="title description">
+        <title id="title">Native VM networking compared with browser VM networking</title>
+        <desc id="description">
+          Native VMs can use the host operating system network stack. Browser VMs expose Ethernet frames to
+          JavaScript, so tcpip.js provides the missing host-side TCP/IP stack.
+        </desc>
+
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#8c98aa" />
+          </marker>
+          <marker id="missing-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#b14242" />
+          </marker>
+        </defs>
+
+        <rect class="panel" x="26" y="24" width="558" height="440" rx="8" />
+        <rect class="panel" x="624" y="24" width="558" height="440" rx="8" />
+
+        <text class="section-title" x="58" y="70">Native VM</text>
+
+        <text class="section-title" x="656" y="70">Browser VM</text>
+
+        <text class="stack-title" x="102" y="126">Host OS</text>
+        <text class="stack-title" x="398" y="126">Guest OS</text>
+
+        <rect class="host" x="70" y="148" width="182" height="64" rx="7" />
+        <rect class="host" x="70" y="218" width="182" height="64" rx="7" />
+        <rect class="host" x="70" y="288" width="182" height="64" rx="7" />
+        <rect class="host" x="70" y="358" width="182" height="64" rx="7" />
+
+        <rect class="guest" x="366" y="148" width="182" height="64" rx="7" />
+        <rect class="guest" x="366" y="218" width="182" height="64" rx="7" />
+        <rect class="guest" x="366" y="288" width="182" height="64" rx="7" />
+        <rect class="guest" x="366" y="358" width="182" height="64" rx="7" />
+
+        <text class="layer-label" x="161" y="188" text-anchor="middle">App</text>
+        <text class="layer-label" x="161" y="258" text-anchor="middle">TCP / UDP</text>
+        <text class="layer-label" x="161" y="328" text-anchor="middle">IP</text>
+        <text class="layer-label" x="161" y="398" text-anchor="middle">Ethernet</text>
+
+        <text class="layer-label" x="457" y="188" text-anchor="middle">App</text>
+        <text class="layer-label" x="457" y="258" text-anchor="middle">TCP / UDP</text>
+        <text class="layer-label" x="457" y="328" text-anchor="middle">IP</text>
+        <text class="layer-label" x="457" y="398" text-anchor="middle">Ethernet</text>
+
+        <path class="wire" d="M 262 390 H 356" />
+        <text class="small-label" x="309" y="378" text-anchor="middle">L2 frames</text>
+
+        <text class="stack-title" x="700" y="126">Browser JS</text>
+        <text class="stack-title" x="996" y="126">v86 Guest OS</text>
+
+        <rect class="host" x="668" y="148" width="182" height="64" rx="7" />
+        <rect class="empty" x="668" y="218" width="182" height="204" rx="7" />
+
+        <rect class="guest" x="964" y="148" width="182" height="64" rx="7" />
+        <rect class="guest" x="964" y="218" width="182" height="64" rx="7" />
+        <rect class="guest" x="964" y="288" width="182" height="64" rx="7" />
+        <rect class="guest" x="964" y="358" width="182" height="64" rx="7" />
+
+        <text class="layer-label" x="759" y="188" text-anchor="middle">App</text>
+        <text class="layer-label" x="759" y="324" text-anchor="middle">No host stack</text>
+
+        <text class="layer-label" x="1055" y="188" text-anchor="middle">App</text>
+        <text class="layer-label" x="1055" y="258" text-anchor="middle">TCP / UDP</text>
+        <text class="layer-label" x="1055" y="328" text-anchor="middle">IP</text>
+        <text class="layer-label" x="1055" y="398" text-anchor="middle">Ethernet</text>
+
+        <path class="missing-wire" d="M 860 390 H 954" />
+        <text class="small-label" x="907" y="378" text-anchor="middle" fill="#b14242">L2 frames</text>
+      </svg>
+    </main>
+  </body>
+</html>
