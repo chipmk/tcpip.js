@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/wire",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Wire protocol utilities for tcpip.js",
   "repository": {
     "type": "git",
@@ -16,7 +16,9 @@
     "test": "vitest",
     "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
