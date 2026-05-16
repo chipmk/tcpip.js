@@ -11,6 +11,7 @@ import {
   MAX_WINDOW_SIZE,
   READABLE_HIGH_WATER_MARK,
   SEND_BUFFER_SIZE,
+  TcpBindings,
 } from './bindings/tcp.js';
 import { createStack } from './index.js';
 
@@ -587,6 +588,69 @@ describe('bridge interface', () => {
 });
 
 describe('tcp', () => {
+  test('routes TCP data that arrives before accepted connection is yielded', async () => {
+    const tcpBindings = new TcpBindings({
+      lookup: vi.fn(),
+    } as unknown as ConstructorParameters<typeof TcpBindings>[0]);
+    const memory = new WebAssembly.Memory({ initial: 1 });
+    const data = new TextEncoder().encode('early data');
+    const dataPtr = 16;
+    const listenerHandle = 1 as Parameters<
+      typeof tcpBindings.imports.accept_tcp_connection
+    >[0];
+    const connectionHandle = 2 as Parameters<
+      typeof tcpBindings.imports.accept_tcp_connection
+    >[1];
+    new Uint8Array(memory.buffer).set(data, dataPtr);
+
+    tcpBindings.register({
+      memory,
+      create_tcp_listener: vi.fn(() => 1),
+      create_tcp_connection: vi.fn(),
+      close_tcp_connection: vi.fn(() => 0),
+      shutdown_tcp_connection_write: vi.fn(() => 0),
+      send_tcp_chunk: vi.fn(() => 0),
+      update_tcp_receive_buffer: vi.fn(),
+      get_interface_mac_address: vi.fn(),
+      get_interface_ip4_address: vi.fn(),
+      get_interface_ip4_netmask: vi.fn(),
+      _initialize: vi.fn(),
+      malloc: vi.fn(),
+      free: vi.fn(),
+    } as Parameters<typeof tcpBindings.register>[0]);
+
+    const listener = await tcpBindings.listen({ port: 8080 });
+    const connectionPromise = nextValue(listener);
+    const acceptPromise = tcpBindings.imports.accept_tcp_connection(
+      listenerHandle,
+      connectionHandle
+    );
+    const receivePromise = tcpBindings.imports.receive_tcp_chunk(
+      connectionHandle,
+      dataPtr,
+      data.length
+    );
+
+    const connection = await connectionPromise;
+    await Promise.all([acceptPromise, receivePromise]);
+
+    const reader = connection.readable.getReader();
+    const received = await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error('timed out waiting for TCP data')),
+          50
+        )
+      ),
+    ]);
+
+    expect(received).toMatchObject({
+      done: false,
+      value: data,
+    });
+  });
+
   test('can create a TCP server and client', async () => {
     const stack = await createStack();
 

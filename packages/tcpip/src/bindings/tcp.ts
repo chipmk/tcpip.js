@@ -80,7 +80,8 @@ export type TcpExports = {
 
 export class TcpBindings extends Bindings<TcpImports, TcpExports> {
   #tcpListeners = new Map<TcpListenerHandle, TcpListener>();
-  #tcpConnections = new EventMap<TcpConnectionHandle, TcpConnection>();
+  #tcpConnections = new Map<TcpConnectionHandle, TcpConnection>();
+  #tcpConnectEvents = new EventMap<TcpConnectionHandle, TcpConnection>();
   #tcpAcks = new Map<TcpConnectionHandle, (length: number) => void>();
   #tcpCloseAcks = new Map<TcpConnectionHandle, () => void>();
   #dnsClient: DnsClient;
@@ -147,9 +148,6 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
         return;
       }
 
-      // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
-      await nextMicrotask();
-
       const connection = new VirtualTcpConnection();
 
       tcpConnectionHooks.setOuter(connection, {
@@ -190,12 +188,13 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 
       this.#tcpConnections.set(connectionHandle, connection);
 
+      // Wait for synchronous lwIP operations to complete to prevent reentrancy issues.
+      // The handle is registered first so early peer data is not dropped.
+      await nextMicrotask();
+
       tcpListenerHooks.getInner(listener).accept(connection);
     },
     connected_tcp_connection: async (handle: TcpConnectionHandle) => {
-      // Wait for synchronous lwIP operations to complete to prevent reentrancy issues
-      await nextMicrotask();
-
       const connection = new VirtualTcpConnection();
 
       tcpConnectionHooks.setOuter(connection, {
@@ -235,6 +234,12 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
       });
 
       this.#tcpConnections.set(handle, connection);
+
+      // Wait for synchronous lwIP operations to complete to prevent reentrancy issues.
+      // The handle is registered first so early peer data is not dropped.
+      await nextMicrotask();
+
+      this.#tcpConnectEvents.set(handle, connection);
     },
     closed_tcp_connection: async (handle: TcpConnectionHandle) => {
       const connection = this.#tcpConnections.get(handle);
@@ -296,7 +301,7 @@ export class TcpBindings extends Bindings<TcpImports, TcpExports> {
 
     const handle = this.exports.create_tcp_connection(hostPtr, options.port);
 
-    const tcpConnection = await this.#tcpConnections.wait(handle);
+    const tcpConnection = await this.#tcpConnectEvents.wait(handle);
 
     if (!tcpConnection) {
       throw new Error('tcp failed to connect');
