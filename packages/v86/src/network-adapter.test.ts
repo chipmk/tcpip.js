@@ -139,7 +139,7 @@ describe('network adapter', () => {
 
     // Listen for incoming TCP connections in the VM
     await executeCommand(
-      'echo "5000 stream tcp nowait nobody /bin/echo Hello" | inetd -f - &'
+      'echo "5000 stream tcp nowait nobody /bin/busybox echo Hello" | inetd -f - &'
     );
 
     // Wait for inetd to start
@@ -155,7 +155,7 @@ describe('network adapter', () => {
     const message = await nextValue(connection.readable);
 
     const textDecoder = new TextDecoder();
-    expect(textDecoder.decode(message)).toBe('Hello');
+    expect(textDecoder.decode(message)).toBe('Hello\n');
 
     await connection.close();
     await emulator.destroy();
