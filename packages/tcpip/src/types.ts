@@ -50,6 +50,31 @@ export type TcpConnection = {
   [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 };
 
+export type PingSessionOptions = {
+  host: string;
+  timeout?: number;
+};
+
+export type PingProbeOptions = {
+  timeout?: number;
+  payload?: Uint8Array;
+};
+
+export type PingReply = {
+  host: string;
+  identifier: number;
+  sequenceNumber: number;
+  payload: Uint8Array;
+  roundTripTime: number;
+};
+
+export type PingSession = {
+  readonly host: string;
+  readonly identifier: number;
+  ping(options?: PingProbeOptions): Promise<PingReply>;
+  close(): Promise<void>;
+};
+
 export type TcpListener = {
   [Symbol.asyncIterator](): AsyncIterableIterator<TcpConnection>;
 };
@@ -143,4 +168,8 @@ export type NetworkStack = {
    * If no local port is provided, the socket will bind to a random port.
    */
   openUdp(options?: UdpSocketOptions): Promise<UdpSocket>;
+  /**
+   * Creates an ICMP ping session for sending echo requests to a host.
+   */
+  createPingSession(options: PingSessionOptions): Promise<PingSession>;
 };

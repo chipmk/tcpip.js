@@ -7,4 +7,5 @@ SRC_FILES= \
 	$(SRC_DIR)/bridge_interface.c \
 	$(SRC_DIR)/tcp.c \
 	$(SRC_DIR)/udp.c \
+	$(SRC_DIR)/icmp.c \
 	$(SRC_DIR)/arch.c

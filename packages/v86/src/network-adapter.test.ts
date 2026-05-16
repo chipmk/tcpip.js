@@ -6,6 +6,61 @@ import { describe, expect, it } from 'vitest';
 import { createVm, nextValue } from '../test/util.js';
 
 describe('network adapter', () => {
+  it('should ping a VM from the host stack', async () => {
+    const networkStack = await createStack();
+    const tapInterface = await networkStack.createTapInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const { emulator, net } = await createVm({
+      ip: '192.168.1.2/24',
+    });
+
+    connectStreams(tapInterface, net);
+
+    const payload = new TextEncoder().encode('tcpip.js ping');
+    const pingSession = await networkStack.createPingSession({
+      host: '192.168.1.2',
+    });
+
+    const firstReply = await pingSession.ping({ payload });
+    const secondReply = await pingSession.ping({ payload });
+
+    expect(firstReply.host).toBe('192.168.1.2');
+    expect(firstReply.identifier).toBe(pingSession.identifier);
+    expect(firstReply.sequenceNumber).toBe(0);
+    expect(firstReply.payload).toStrictEqual(payload);
+    expect(firstReply.roundTripTime).toBeGreaterThanOrEqual(0);
+    expect(secondReply.host).toBe('192.168.1.2');
+    expect(secondReply.identifier).toBe(pingSession.identifier);
+    expect(secondReply.sequenceNumber).toBe(1);
+    expect(secondReply.payload).toStrictEqual(payload);
+    expect(secondReply.roundTripTime).toBeGreaterThanOrEqual(0);
+
+    await pingSession.close();
+    await emulator.destroy();
+  });
+
+  it('should ping the host stack from a VM', async () => {
+    const networkStack = await createStack();
+    const tapInterface = await networkStack.createTapInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const { emulator, net, executeCommand } = await createVm({
+      ip: '192.168.1.2/24',
+    });
+
+    connectStreams(tapInterface, net);
+
+    const pingOutput = await executeCommand('ping -c 1 192.168.1.1');
+
+    expect(pingOutput).toContain('1 packets transmitted, 1 packets received');
+    expect(pingOutput).toContain('0% packet loss');
+
+    await emulator.destroy();
+  });
+
   it('should assign an IP address and DNS server to a VM with DHCP', async () => {
     const networkStack = await createStack();
     const tapInterface = await networkStack.createTapInterface({
@@ -84,7 +139,7 @@ describe('network adapter', () => {
 
     // Listen for incoming TCP connections in the VM
     await executeCommand(
-      'echo "5000 stream tcp nowait nobody /bin/echo Hello" | inetd -f - &'
+      'echo "5000 stream tcp nowait nobody /bin/busybox echo Hello" | inetd -f - &'
     );
 
     // Wait for inetd to start
@@ -100,7 +155,7 @@ describe('network adapter', () => {
     const message = await nextValue(connection.readable);
 
     const textDecoder = new TextDecoder();
-    expect(textDecoder.decode(message)).toBe('Hello');
+    expect(textDecoder.decode(message)).toBe('Hello\n');
 
     await connection.close();
     await emulator.destroy();

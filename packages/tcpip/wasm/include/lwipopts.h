@@ -24,7 +24,7 @@
 #define MEMP_NUM_PBUF (2 * MEMP_NUM_TCP_SEG)     // Number of pbufs in the pool
 
 // Application layer options
-#define LWIP_RAW 0  // Disable application layer sending raw packets
+#define LWIP_RAW 1  // Enable raw protocol control blocks for ICMP ping
 
 // Loopback options
 #define LWIP_NETIF_LOOPBACK 1  // Enable loopback logic (applies to every interface)

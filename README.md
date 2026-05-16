@@ -683,6 +683,62 @@ Outbound datagrams follow the same format as inbound datagrams: an object with `
 
 Unlike Tun and Tap interfaces which are also connectionless, UDP sockets do not require you to lock the stream before receiving data - simply calling `stack.openUdp()` will begin listening for datagrams.
 
+## ICMP API
+
+The ICMP API allows you to ping hosts over the virtual network stack.
+
+### `createPingSession()`
+
+To ping a host, first create a ping session using `createPingSession()`:
+
+```ts
+const pingSession = await stack.createPingSession({
+  host: '192.168.1.2',
+});
+
+const reply = await pingSession.ping({
+  payload: new TextEncoder().encode('Hello, world!'),
+});
+
+console.log(reply.roundTripTime);
+console.log(new TextDecoder().decode(reply.payload));
+
+await pingSession.close();
+```
+
+`createPingSession()` accepts a `host` and returns a `Promise<PingSession>`. The `host` can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve the IP using the [embedded DNS resolver](#embedded-resolver).
+
+Each ping session has a stable ICMP identifier and an automatically incrementing sequence number. Each call to `pingSession.ping()` sends an ICMP echo request and returns a `Promise<PingReply>` that resolves when the matching echo reply is received. The sequence number is incremented with each call to `ping()` while the identifier remains constant over a session.
+
+```ts
+type PingSessionOptions = {
+  host: string;
+  timeout?: number;
+};
+
+type PingProbeOptions = {
+  timeout?: number;
+  payload?: Uint8Array;
+};
+
+interface PingSession {
+  readonly host: string;
+  readonly identifier: number;
+  ping(options?: PingProbeOptions): Promise<PingReply>;
+  close(): Promise<void>;
+}
+
+type PingReply = {
+  host: string;
+  identifier: number;
+  sequenceNumber: number;
+  payload: Uint8Array;
+  roundTripTime: number;
+};
+```
+
+If no `timeout` is provided, `pingSession.ping()` waits up to 1000ms for a reply. If no `payload` is provided, the stack sends a 56-byte incrementing pattern. To close the session, call `close()`.
+
 ## DNS
 
 DNS is supported in two ways:
@@ -696,7 +752,7 @@ If you wish to resolve external hostnames, you will need a way to route packets 
 
 ### Embedded resolver
 
-Each `NetworkStack` has an embedded DNS resolver that can lookup an IP address by hostname when using the TCP and UDP APIs. For example:
+Each `NetworkStack` has an embedded DNS resolver that can lookup an IP address by hostname when using the TCP, UDP, and ICMP APIs. For example:
 
 ```ts
 const connection = await stack.connectTcp({
@@ -836,7 +892,6 @@ _Background:_ Vite optimizes dependencies during development to improve build ti
 
 ## Future plans
 
-- [ ] ICMP (ping) API
 - [ ] mDNS API
 - [ ] Hosts file
 - [ ] Experimental Wireguard interface

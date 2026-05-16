@@ -1,5 +1,6 @@
 import type { UniquePointer } from '../util.js';
 import type { BridgeExports } from './bridge-interface.js';
+import type { IcmpExports } from './icmp.js';
 import type { LoopbackExports } from './loopback-interface.js';
 import type { TapExports } from './tap-interface.js';
 import type { TcpExports } from './tcp.js';
@@ -38,7 +39,8 @@ export type WasmExports = WasiExports &
   TapExports &
   BridgeExports &
   TcpExports &
-  UdpExports;
+  UdpExports &
+  IcmpExports;
 
 export type WasmInstance = {
   exports: WasmExports;
