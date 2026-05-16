@@ -1,5 +1,7 @@
 import { calculateChecksum } from './util.js';
 
+export const ICMP_ECHO_HEADER_LENGTH = 8;
+
 export type IcmpMessage = {
   type: string;
   code?: string;
@@ -39,7 +41,7 @@ export function parseIcmpMessage(data: Uint8Array): IcmpMessage {
  * Serializes an ICMP message from an `ICMPMessage` object.
  */
 export function serializeIcmpMessage(message: IcmpMessage): Uint8Array {
-  const data = new Uint8Array(8 + message.payload.length);
+  const data = new Uint8Array(ICMP_ECHO_HEADER_LENGTH + message.payload.length);
   const dataView = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
   dataView.setUint8(0, serializeIcmpType(message.type));
