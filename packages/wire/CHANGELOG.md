@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/chipmk/tcpip.js/compare/@tcpip/wire-v0.1.3...@tcpip/wire-v0.1.4) (2026-05-16)
+
+
+### Features
+
+* export icmp echo header length ([4071924](https://github.com/chipmk/tcpip.js/commit/4071924638b9c1b94b15ef446a4934bc14a18e8d))
+
 ## [0.1.3](https://github.com/chipmk/tcpip.js/compare/@tcpip/wire-v0.1.2...@tcpip/wire-v0.1.3) (2026-05-06)
 
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.6](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.5...tcpip-v0.3.6) (2026-05-16)
+
+
+### Features
+
+* ping ([e8acda3](https://github.com/chipmk/tcpip.js/commit/e8acda3173565e23ec82ff68100b1a8721471f42))
+
+
+### Bug Fixes
+
+* **tcp:** register accepted connections before yielding ([35dbc7a](https://github.com/chipmk/tcpip.js/commit/35dbc7a4d773f9daaf0056ac25c1f1d0c7ae692a))
+* **tcp:** register accepted connections before yielding ([f46614d](https://github.com/chipmk/tcpip.js/commit/f46614d292648ffb06d3168cd5047313698b1045))
+
 ## [0.3.5](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.4...tcpip-v0.3.5) (2026-05-08)
 
 
