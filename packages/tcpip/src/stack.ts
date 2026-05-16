@@ -1,6 +1,7 @@
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
 import { DnsClient, type NameServer } from '@tcpip/dns';
 import { BridgeBindings } from './bindings/bridge-interface.js';
+import { IcmpBindings } from './bindings/icmp.js';
 import { LoopbackBindings } from './bindings/loopback-interface.js';
 import { TapBindings } from './bindings/tap-interface.js';
 import { TcpBindings } from './bindings/tcp.js';
@@ -14,6 +15,7 @@ import type {
   LoopbackInterfaceOptions,
   NetworkInterface,
   NetworkStack,
+  PingSessionOptions,
   TapInterface,
   TapInterfaceOptions,
   TcpConnectionOptions,
@@ -58,6 +60,7 @@ export class VirtualNetworkStack implements NetworkStack {
   #bridgeBindings: BridgeBindings;
   #tcpBindings: TcpBindings;
   #udpBindings: UdpBindings;
+  #icmpBindings: IcmpBindings;
 
   ready: Promise<void>;
   get interfaces() {
@@ -81,6 +84,7 @@ export class VirtualNetworkStack implements NetworkStack {
     this.#bridgeBindings = new BridgeBindings();
     this.#tcpBindings = new TcpBindings(this.#dnsClient);
     this.#udpBindings = new UdpBindings(this.#dnsClient);
+    this.#icmpBindings = new IcmpBindings(this.#dnsClient);
 
     // Initialize the stack
     this.ready = this.#init();
@@ -125,6 +129,7 @@ export class VirtualNetworkStack implements NetworkStack {
         ...this.#bridgeBindings.imports,
         ...this.#tcpBindings.imports,
         ...this.#udpBindings.imports,
+        ...this.#icmpBindings.imports,
       },
     });
 
@@ -136,6 +141,7 @@ export class VirtualNetworkStack implements NetworkStack {
     this.#bridgeBindings.register(wasmInstance.exports);
     this.#tcpBindings.register(wasmInstance.exports);
     this.#udpBindings.register(wasmInstance.exports);
+    this.#icmpBindings.register(wasmInstance.exports);
 
     // Our WASM binary is a WASI reactor module (ie. a lib),
     // so we call `initialize()` instead of `start()`.
@@ -226,5 +232,13 @@ export class VirtualNetworkStack implements NetworkStack {
   async openUdp(options: UdpSocketOptions = {}) {
     await this.ready;
     return this.#udpBindings.open(options);
+  }
+
+  /**
+   * Creates an ICMP ping session for sending echo requests to a host.
+   */
+  async createPingSession(options: PingSessionOptions) {
+    await this.ready;
+    return this.#icmpBindings.createPingSession(options);
   }
 }

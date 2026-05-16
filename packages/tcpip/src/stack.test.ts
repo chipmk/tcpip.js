@@ -1622,6 +1622,140 @@ describe('dns', () => {
 
     expect(received.value).toStrictEqual(data);
   });
+
+  test('can resolve a hostname during ping session creation', async () => {
+    const stack = await createStack();
+    const { serve } = await createDns(stack);
+
+    await serve({
+      request: async ({ name, type }) => {
+        if (name === 'example.com' && type === 'A') {
+          return {
+            type,
+            ip: '127.0.0.1',
+            ttl: 300,
+          };
+        }
+      },
+    });
+
+    const payload = new TextEncoder().encode('dns ping');
+    const pingSession = await stack.createPingSession({
+      host: 'example.com',
+    });
+
+    const reply = await pingSession.ping({ payload });
+
+    expect(reply.host).toBe('127.0.0.1');
+    expect(reply.sequenceNumber).toBe(0);
+    expect(reply.payload).toStrictEqual(payload);
+
+    await pingSession.close();
+  });
+});
+
+describe('icmp', () => {
+  test('ping session can ping loopback interface', async () => {
+    const stack = await createStack();
+    const payload = new TextEncoder().encode('loopback ping');
+    const pingSession = await stack.createPingSession({
+      host: '127.0.0.1',
+    });
+
+    const reply = await pingSession.ping({ payload });
+
+    expect(reply.host).toBe('127.0.0.1');
+    expect(reply.identifier).toBe(pingSession.identifier);
+    expect(reply.sequenceNumber).toBe(0);
+    expect(reply.payload).toStrictEqual(payload);
+    expect(reply.roundTripTime).toBeGreaterThanOrEqual(0);
+
+    await pingSession.close();
+  });
+
+  test('ping session uses default payload', async () => {
+    const stack = await createStack();
+    const pingSession = await stack.createPingSession({
+      host: '127.0.0.1',
+    });
+
+    const reply = await pingSession.ping();
+
+    expect(reply.payload).toStrictEqual(
+      Uint8Array.from({ length: 56 }, (_, index) => index)
+    );
+
+    await pingSession.close();
+  });
+
+  test('ping session rejects after close', async () => {
+    const stack = await createStack();
+    const pingSession = await stack.createPingSession({
+      host: '127.0.0.1',
+    });
+
+    await pingSession.close();
+
+    await expect(pingSession.ping()).rejects.toThrowError(
+      'icmp ping session closed'
+    );
+  });
+
+  test('ping session can ping another stack', async () => {
+    const stack1 = await createStack();
+    const stack2 = await createStack();
+
+    const tun1 = await stack1.createTunInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const tun2 = await stack2.createTunInterface({
+      ip: '192.168.1.2/24',
+    });
+
+    tun1.readable.pipeTo(tun2.writable);
+    tun2.readable.pipeTo(tun1.writable);
+
+    const payload = new TextEncoder().encode('tcpip.js ping');
+    const pingSession = await stack1.createPingSession({
+      host: '192.168.1.2',
+    });
+
+    const firstReply = await pingSession.ping({ payload });
+    const secondReply = await pingSession.ping({ payload });
+
+    expect(firstReply.host).toBe('192.168.1.2');
+    expect(firstReply.identifier).toBe(pingSession.identifier);
+    expect(firstReply.sequenceNumber).toBe(0);
+    expect(firstReply.payload).toStrictEqual(payload);
+    expect(firstReply.roundTripTime).toBeGreaterThanOrEqual(0);
+    expect(secondReply.host).toBe('192.168.1.2');
+    expect(secondReply.identifier).toBe(pingSession.identifier);
+    expect(secondReply.sequenceNumber).toBe(1);
+    expect(secondReply.payload).toStrictEqual(payload);
+    expect(secondReply.roundTripTime).toBeGreaterThanOrEqual(0);
+
+    await pingSession.close();
+  });
+
+  test('ping session rejects when the host does not reply', async () => {
+    const stack = await createStack();
+
+    await stack.createTunInterface({
+      ip: '192.168.1.1/24',
+    });
+
+    const pingSession = await stack.createPingSession({
+      host: '192.168.1.2',
+      timeout: 10,
+    });
+
+    await expect(pingSession.ping()).rejects.toThrowError(
+      'icmp ping timed out: 192.168.1.2'
+    );
+
+    await pingSession.close();
+  });
 });
 
 async function nextValue<T>(iterable: Iterable<T> | AsyncIterable<T>) {
