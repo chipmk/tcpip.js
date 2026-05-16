@@ -25,10 +25,7 @@
     "wasm-objdump": "docker compose run --rm wabt wasm-objdump",
     "wasm-opt": "docker compose run --rm binaryen wasm-opt -Oz --enable-bulk-memory wasm/tcpip.wasm -o wasm/tcpip.min.wasm"
   },
-  "files": [
-    "dist/**/*",
-    "tcpip.wasm"
-  ],
+  "files": ["dist/**/*", "tcpip.wasm"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
