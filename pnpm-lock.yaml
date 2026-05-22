@@ -198,6 +198,9 @@ importers:
       '@tcpip/http':
         specifier: workspace:*
         version: link:../http
+      '@tcpip/transport':
+        specifier: workspace:*
+        version: link:../transport
       '@tcpip/wire':
         specifier: workspace:*
         version: link:../wire

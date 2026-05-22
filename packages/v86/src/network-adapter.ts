@@ -60,7 +60,7 @@ export class V86NetworkStream {
  * @example
  * const stack = await createStack();
  *
- * const tapInterface = await stack.createTapInterface({
+ * const tapInterface = await stack.interfaces.createTap({
  *   mac: '01:23:45:67:89:ab',
  *   ip: '192.168.1.1/24',
  * });

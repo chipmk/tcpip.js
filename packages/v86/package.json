@@ -30,6 +30,7 @@
   "devDependencies": {
     "@tcpip/dhcp": "workspace:*",
     "@tcpip/http": "workspace:*",
+    "@tcpip/transport": "workspace:*",
     "@tcpip/wire": "workspace:*",
     "@total-typescript/tsconfig": "catalog:",
     "@types/node": "catalog:",
