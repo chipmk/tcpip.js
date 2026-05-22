@@ -26,10 +26,39 @@ describe('general', () => {
     expect(Array.from(stack.interfaces)).toStrictEqual([]);
   });
 
-  test('interface instances are available in interfaces property', async () => {
+  test('keeps flat transport and interface aliases for compatibility', async () => {
     const stack = await createStack({ initializeLoopback: false });
 
     const loopbackInterface = await stack.createLoopbackInterface({
+      ip: '127.0.0.1/8',
+    });
+    const tunInterface = await stack.createTunInterface({
+      ip: '192.168.1.1/24',
+    });
+    const tapInterface = await stack.createTapInterface();
+    const bridgeInterface = await stack.createBridgeInterface({
+      ports: [tapInterface],
+    });
+
+    expect(Array.from(stack.interfaces)).toStrictEqual([
+      loopbackInterface,
+      tunInterface,
+      tapInterface,
+      bridgeInterface,
+    ]);
+
+    await stack.removeInterface(bridgeInterface);
+    await stack.removeInterface(tapInterface);
+    await stack.removeInterface(tunInterface);
+    await stack.removeInterface(loopbackInterface);
+
+    expect(Array.from(stack.interfaces)).toStrictEqual([]);
+  });
+
+  test('interface instances are available in interfaces property', async () => {
+    const stack = await createStack({ initializeLoopback: false });
+
+    const loopbackInterface = await stack.interfaces.createLoopback({
       ip: '127.0.0.1/8',
     });
 
@@ -40,15 +69,15 @@ describe('general', () => {
   test('add and remove interfaces', async () => {
     const stack = await createStack({ initializeLoopback: false });
 
-    const loopbackInterface = await stack.createLoopbackInterface({
+    const loopbackInterface = await stack.interfaces.createLoopback({
       ip: '127.0.0.1/8',
     });
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.2.1/24',
     });
@@ -59,18 +88,18 @@ describe('general', () => {
       tapInterface,
     ]);
 
-    await stack.removeInterface(loopbackInterface);
+    await stack.interfaces.remove(loopbackInterface);
 
     expect(Array.from(stack.interfaces)).toStrictEqual([
       tunInterface,
       tapInterface,
     ]);
 
-    await stack.removeInterface(tunInterface);
+    await stack.interfaces.remove(tunInterface);
 
     expect(Array.from(stack.interfaces)).toStrictEqual([tapInterface]);
 
-    await stack.removeInterface(tapInterface);
+    await stack.interfaces.remove(tapInterface);
 
     expect(Array.from(stack.interfaces)).toStrictEqual([]);
   });
@@ -80,7 +109,7 @@ describe('loopback interface', () => {
   test('should create a LoopbackInterface with the given options', async () => {
     const stack = await createStack({ initializeLoopback: false });
 
-    const loopbackInterface = await stack.createLoopbackInterface({
+    const loopbackInterface = await stack.interfaces.createLoopback({
       ip: '127.0.0.1/8',
     });
 
@@ -90,7 +119,7 @@ describe('loopback interface', () => {
   test('can get ip and netmask', async () => {
     const stack = await createStack({ initializeLoopback: false });
 
-    const loopbackInterface = await stack.createLoopbackInterface({
+    const loopbackInterface = await stack.interfaces.createLoopback({
       ip: '127.0.0.1/8',
     });
 
@@ -103,7 +132,7 @@ describe('tun interface', () => {
   test('should create a TunInterface with the given options', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
@@ -113,7 +142,7 @@ describe('tun interface', () => {
   test('can send and receive packets', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
@@ -171,7 +200,7 @@ describe('tun interface', () => {
   test('can get ip and netmask', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
@@ -184,7 +213,7 @@ describe('tap interface', () => {
   test('should create a TapInterface with the given options', async () => {
     const stack = await createStack();
 
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.1.1/24',
     });
@@ -195,7 +224,7 @@ describe('tap interface', () => {
   test('can send and receive frames', async () => {
     const stack = await createStack();
 
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.1.1/24',
     });
@@ -249,7 +278,7 @@ describe('tap interface', () => {
   test('can get mac, ip, and netmask', async () => {
     const stack = await createStack();
 
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.1.1/24',
     });
@@ -264,17 +293,17 @@ describe('bridge interface', () => {
   test('should create a BridgeInterface with the given options', async () => {
     const stack = await createStack();
 
-    const port1 = await stack.createTapInterface({
+    const port1 = await stack.interfaces.createTap({
       mac: '02:00:00:00:00:01',
       ip: '192.168.1.2/24',
     });
 
-    const port2 = await stack.createTapInterface({
+    const port2 = await stack.interfaces.createTap({
       mac: '02:00:00:00:00:02',
       ip: '192.168.1.3/24',
     });
 
-    const bridgeInterface = await stack.createBridgeInterface({
+    const bridgeInterface = await stack.interfaces.createBridge({
       ports: [port1, port2],
       mac: '02:00:00:00:00:00',
       ip: '192.168.1.1/24',
@@ -289,19 +318,19 @@ describe('bridge interface', () => {
     const device2 = await createStack();
     const router = await createStack();
 
-    const device1Tap = await device1.createTapInterface({
+    const device1Tap = await device1.interfaces.createTap({
       ip: '192.168.1.2/24',
     });
 
-    const device2Tap = await device2.createTapInterface({
+    const device2Tap = await device2.interfaces.createTap({
       ip: '192.168.1.3/24',
     });
 
-    const port1 = await router.createTapInterface();
-    const port2 = await router.createTapInterface();
+    const port1 = await router.interfaces.createTap();
+    const port2 = await router.interfaces.createTap();
 
     // Bridge the two router ports
-    await router.createBridgeInterface({
+    await router.interfaces.createBridge({
       ports: [port1, port2],
       ip: '192.168.1.1/24',
     });
@@ -315,12 +344,12 @@ describe('bridge interface', () => {
     port2.readable.pipeTo(device2Tap.writable);
 
     // Listen on device 2
-    const listener = await device2.listenTcp({
+    const listener = await device2.tcp.listen({
       port: 8080,
     });
 
     // Attempt to connect from device 1 to device 2 via bridge
-    const connection = await device1.connectTcp({
+    const connection = await device1.tcp.connect({
       host: '192.168.1.3',
       port: 8080,
     });
@@ -348,14 +377,14 @@ describe('bridge interface', () => {
     const device = await createStack();
     const router = await createStack();
 
-    const deviceTap = await device.createTapInterface({
+    const deviceTap = await device.interfaces.createTap({
       ip: '192.168.1.2/24',
     });
 
-    const port = await router.createTapInterface();
+    const port = await router.interfaces.createTap();
 
     // Create bridge
-    await router.createBridgeInterface({
+    await router.interfaces.createBridge({
       ports: [port],
       ip: '192.168.1.1/24',
     });
@@ -365,12 +394,12 @@ describe('bridge interface', () => {
     port.readable.pipeTo(deviceTap.writable);
 
     // Listen on router
-    const listener = await router.listenTcp({
+    const listener = await router.tcp.listen({
       port: 8080,
     });
 
     // Attempt to connect from device to bridge via port
-    const connection = await device.connectTcp({
+    const connection = await device.tcp.connect({
       host: '192.168.1.1',
       port: 8080,
     });
@@ -397,14 +426,14 @@ describe('bridge interface', () => {
     const device = await createStack();
     const router = await createStack();
 
-    const deviceTap = await device.createTapInterface({
+    const deviceTap = await device.interfaces.createTap({
       ip: '192.168.1.2/24',
     });
 
-    const port = await router.createTapInterface();
+    const port = await router.interfaces.createTap();
 
     // Create bridge and connect device
-    await router.createBridgeInterface({
+    await router.interfaces.createBridge({
       ports: [port],
       ip: '192.168.1.1/24',
     });
@@ -414,12 +443,12 @@ describe('bridge interface', () => {
     port.readable.pipeTo(deviceTap.writable);
 
     // Listen on device
-    const listener = await device.listenTcp({
+    const listener = await device.tcp.listen({
       port: 8080,
     });
 
     // Connect from router bridge to device
-    const connection = await router.connectTcp({
+    const connection = await router.tcp.connect({
       host: '192.168.1.2',
       port: 8080,
     });
@@ -446,14 +475,14 @@ describe('bridge interface', () => {
     const device = await createStack();
     const router = await createStack();
 
-    const deviceTap = await device.createTapInterface({
+    const deviceTap = await device.interfaces.createTap({
       ip: '192.168.1.2/24',
     });
 
-    const port = await router.createTapInterface();
+    const port = await router.interfaces.createTap();
 
     // Create bridge
-    await router.createBridgeInterface({
+    await router.interfaces.createBridge({
       ports: [port],
       ip: '192.168.1.1/24',
     });
@@ -463,8 +492,8 @@ describe('bridge interface', () => {
     port.readable.pipeTo(deviceTap.writable);
 
     // Open UDP sockets
-    const deviceSocket = await device.openUdp({ port: 8080 });
-    const routerSocket = await router.openUdp({ port: 8080 });
+    const deviceSocket = await device.udp.open({ port: 8080 });
+    const routerSocket = await router.udp.open({ port: 8080 });
 
     // Test device to router
     {
@@ -507,14 +536,14 @@ describe('bridge interface', () => {
     const device = await createStack();
     const router = await createStack();
 
-    const deviceTap = await device.createTapInterface({
+    const deviceTap = await device.interfaces.createTap({
       ip: '192.168.1.2/24',
     });
 
-    const port = await router.createTapInterface();
+    const port = await router.interfaces.createTap();
 
     // Create bridge
-    await router.createBridgeInterface({
+    await router.interfaces.createBridge({
       ports: [port],
       ip: '192.168.1.1/24',
     });
@@ -524,8 +553,8 @@ describe('bridge interface', () => {
     port.readable.pipeTo(deviceTap.writable);
 
     // Open UDP sockets
-    const deviceSocket = await device.openUdp({ port: 8080 });
-    const routerSocket = await router.openUdp({ port: 8081 });
+    const deviceSocket = await device.udp.open({ port: 8080 });
+    const routerSocket = await router.udp.open({ port: 8081 });
 
     // Test router to device broadcast
     {
@@ -575,7 +604,7 @@ describe('bridge interface', () => {
   test('can get mac, ip, and netmask', async () => {
     const stack = await createStack();
 
-    const bridgeInterface = await stack.createBridgeInterface({
+    const bridgeInterface = await stack.interfaces.createBridge({
       ports: [],
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.1.1/24',
@@ -654,13 +683,13 @@ describe('tcp', () => {
   test('can create a TCP server and client', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -681,13 +710,13 @@ describe('tcp', () => {
   test('can close a TCP connection when reader/writer are unlocked', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -701,13 +730,13 @@ describe('tcp', () => {
   test('delivers queued TCP data before peer close is observed', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -732,13 +761,13 @@ describe('tcp', () => {
   test('closing a TCP writable delivers queued data before peer EOF', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -762,13 +791,13 @@ describe('tcp', () => {
   test('can pipe a readable stream to a TCP writable', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -795,13 +824,13 @@ describe('tcp', () => {
   test('closing a TCP writable after multiple writes delivers queued data before peer EOF', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -831,13 +860,13 @@ describe('tcp', () => {
   test('TCP peer EOF is observable after releasing a reader that consumed queued data', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -864,13 +893,13 @@ describe('tcp', () => {
   test('server can read a request then gracefully close its response stream', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [client, server] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -904,13 +933,13 @@ describe('tcp', () => {
   test('server can gracefully close its response stream while a request read is pending', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [client, server] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -944,13 +973,13 @@ describe('tcp', () => {
   test('server can gracefully close after a multi-chunk response while a request read is pending', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [client, server] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -990,13 +1019,13 @@ describe('tcp', () => {
   test('can close a TCP connection when reader/writer are locked', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -1021,13 +1050,13 @@ describe('tcp', () => {
   test('can close a TCP reader and writer', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -1044,13 +1073,13 @@ describe('tcp', () => {
   test('throws when iterating over a locked readable stream', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [_, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -1068,13 +1097,13 @@ describe('tcp', () => {
   test('tcp backpressure client to server', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -1111,13 +1140,13 @@ describe('tcp', () => {
   test('tcp backpressure server to client', async () => {
     const stack = await createStack();
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: '127.0.0.1',
         port: 8080,
       }),
@@ -1155,11 +1184,11 @@ describe('tcp', () => {
     const stack1 = await createStack();
     const stack2 = await createStack();
 
-    const tun1 = await stack1.createTunInterface({
+    const tun1 = await stack1.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
-    const tun2 = await stack2.createTunInterface({
+    const tun2 = await stack2.interfaces.createTun({
       ip: '192.168.1.2/24',
     });
 
@@ -1167,12 +1196,12 @@ describe('tcp', () => {
     tun1.readable.pipeTo(tun2.writable);
     tun2.readable.pipeTo(tun1.writable);
 
-    const listener = await stack2.listenTcp({
+    const listener = await stack2.tcp.listen({
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack1.connectTcp({
+      stack1.tcp.connect({
         host: '192.168.1.2',
         port: 8080,
       }),
@@ -1194,12 +1223,12 @@ describe('tcp', () => {
     const stack1 = await createStack();
     const stack2 = await createStack();
 
-    const tap1 = await stack1.createTapInterface({
+    const tap1 = await stack1.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5e',
       ip: '192.168.1.1/24',
     });
 
-    const tap2 = await stack2.createTapInterface({
+    const tap2 = await stack2.interfaces.createTap({
       mac: '00:1a:2b:3c:4d:5f',
       ip: '192.168.1.2/24',
     });
@@ -1208,12 +1237,12 @@ describe('tcp', () => {
     tap1.readable.pipeTo(tap2.writable);
     tap2.readable.pipeTo(tap1.writable);
 
-    const listener = await stack2.listenTcp({
+    const listener = await stack2.tcp.listen({
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack1.connectTcp({
+      stack1.tcp.connect({
         host: '192.168.1.2',
         port: 8080,
       }),
@@ -1235,11 +1264,11 @@ describe('tcp', () => {
     const stack1 = await createStack();
     const stack2 = await createStack();
 
-    const tun1 = await stack1.createTunInterface({
+    const tun1 = await stack1.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
-    const tun2 = await stack2.createTunInterface({
+    const tun2 = await stack2.interfaces.createTun({
       ip: '192.168.1.2/24',
     });
 
@@ -1247,12 +1276,12 @@ describe('tcp', () => {
     tun1.readable.pipeTo(tun2.writable);
     tun2.readable.pipeTo(tun1.writable);
 
-    const listener = await stack2.listenTcp({
+    const listener = await stack2.tcp.listen({
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack1.connectTcp({
+      stack1.tcp.connect({
         host: '192.168.1.2',
         port: 8080,
       }),
@@ -1287,8 +1316,8 @@ describe('udp', () => {
   test('can send and receive a UDP datagram', async () => {
     const stack = await createStack();
 
-    const socket1 = await stack.openUdp({ port: 8080 });
-    const socket2 = await stack.openUdp({ port: 8081 });
+    const socket1 = await stack.udp.open({ port: 8080 });
+    const socket2 = await stack.udp.open({ port: 8081 });
 
     const reader = socket1.readable.getReader();
     const writer = socket2.writable.getWriter();
@@ -1310,11 +1339,11 @@ describe('udp', () => {
   test('can receive udp datagram via tun interface', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '10.0.0.1/24',
     });
 
-    const socket = await stack.openUdp({ port: 8080 });
+    const socket = await stack.udp.open({ port: 8080 });
 
     const writer = tunInterface.writable.getWriter();
     const reader = socket.readable.getReader();
@@ -1352,11 +1381,11 @@ describe('udp', () => {
   test('can send udp datagram via tun interface', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '10.0.0.1/24',
     });
 
-    const socket = await stack.openUdp({ port: 8080 });
+    const socket = await stack.udp.open({ port: 8080 });
 
     const reader = tunInterface.readable.getReader();
     const writer = socket.writable.getWriter();
@@ -1390,11 +1419,11 @@ describe('udp', () => {
   test('can receive broadcast udp datagram', async () => {
     const stack = await createStack();
 
-    const tunInterface = await stack.createTunInterface({
+    const tunInterface = await stack.interfaces.createTun({
       ip: '10.0.0.1/24',
     });
 
-    const socket = await stack.openUdp({ port: 8080 });
+    const socket = await stack.udp.open({ port: 8080 });
 
     const reader = socket.readable.getReader();
     const writer = tunInterface.writable.getWriter();
@@ -1432,12 +1461,12 @@ describe('udp', () => {
   test('can send broadcast udp datagram', async () => {
     const stack = await createStack();
 
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       ip: '10.0.0.1/24',
       mac: '00:1a:2b:3c:4d:5e',
     });
 
-    const socket = await stack.openUdp({ port: 8080 });
+    const socket = await stack.udp.open({ port: 8080 });
 
     const listener = tapInterface.listen();
     const writer = socket.writable.getWriter();
@@ -1477,12 +1506,12 @@ describe('udp', () => {
     const stack = await createStack();
 
     // Create two interfaces
-    const tap1 = await stack.createTapInterface({
+    const tap1 = await stack.interfaces.createTap({
       ip: '192.168.1.1/24',
       mac: '00:1a:2b:3c:4d:01',
     });
 
-    const tap2 = await stack.createTapInterface({
+    const tap2 = await stack.interfaces.createTap({
       ip: '192.168.2.1/24',
       mac: '00:1a:2b:3c:4d:02',
     });
@@ -1492,7 +1521,7 @@ describe('udp', () => {
     const tap2Listener = tap2.listen();
 
     // Create a socket for broadcasting
-    const socket = await stack.openUdp({ port: 8080 });
+    const socket = await stack.udp.open({ port: 8080 });
     const writer = socket.writable.getWriter();
 
     // Send broadcast
@@ -1549,7 +1578,7 @@ describe('udp', () => {
 describe('dns', () => {
   test('can resolve a hostname during udp bind and send', async () => {
     const stack = await createStack();
-    const { serve } = await createDns(stack);
+    const { serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {
@@ -1563,8 +1592,8 @@ describe('dns', () => {
       },
     });
 
-    const socket1 = await stack.openUdp({ host: 'example.com', port: 8080 });
-    const socket2 = await stack.openUdp({ port: 8081 });
+    const socket1 = await stack.udp.open({ host: 'example.com', port: 8080 });
+    const socket2 = await stack.udp.open({ port: 8081 });
 
     const reader = socket1.readable.getReader();
     const writer = socket2.writable.getWriter();
@@ -1585,7 +1614,7 @@ describe('dns', () => {
 
   test('can resolve a hostname during tcp bind and connection', async () => {
     const stack = await createStack();
-    const { serve } = await createDns(stack);
+    const { serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {
@@ -1599,13 +1628,13 @@ describe('dns', () => {
       },
     });
 
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: 'example.com',
       port: 8080,
     });
 
     const [outbound, inbound] = await Promise.all([
-      stack.connectTcp({
+      stack.tcp.connect({
         host: 'example.com',
         port: 8080,
       }),
@@ -1625,7 +1654,7 @@ describe('dns', () => {
 
   test('can resolve a hostname during ping session creation', async () => {
     const stack = await createStack();
-    const { serve } = await createDns(stack);
+    const { serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {
@@ -1640,7 +1669,7 @@ describe('dns', () => {
     });
 
     const payload = new TextEncoder().encode('dns ping');
-    const pingSession = await stack.createPingSession({
+    const pingSession = await stack.ping.createSession({
       host: 'example.com',
     });
 
@@ -1654,11 +1683,11 @@ describe('dns', () => {
   });
 });
 
-describe('icmp', () => {
+describe('ping', () => {
   test('ping session can ping loopback interface', async () => {
     const stack = await createStack();
     const payload = new TextEncoder().encode('loopback ping');
-    const pingSession = await stack.createPingSession({
+    const pingSession = await stack.ping.createSession({
       host: '127.0.0.1',
     });
 
@@ -1675,7 +1704,7 @@ describe('icmp', () => {
 
   test('ping session uses default payload', async () => {
     const stack = await createStack();
-    const pingSession = await stack.createPingSession({
+    const pingSession = await stack.ping.createSession({
       host: '127.0.0.1',
     });
 
@@ -1690,7 +1719,7 @@ describe('icmp', () => {
 
   test('ping session rejects after close', async () => {
     const stack = await createStack();
-    const pingSession = await stack.createPingSession({
+    const pingSession = await stack.ping.createSession({
       host: '127.0.0.1',
     });
 
@@ -1705,11 +1734,11 @@ describe('icmp', () => {
     const stack1 = await createStack();
     const stack2 = await createStack();
 
-    const tun1 = await stack1.createTunInterface({
+    const tun1 = await stack1.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
-    const tun2 = await stack2.createTunInterface({
+    const tun2 = await stack2.interfaces.createTun({
       ip: '192.168.1.2/24',
     });
 
@@ -1717,7 +1746,7 @@ describe('icmp', () => {
     tun2.readable.pipeTo(tun1.writable);
 
     const payload = new TextEncoder().encode('tcpip.js ping');
-    const pingSession = await stack1.createPingSession({
+    const pingSession = await stack1.ping.createSession({
       host: '192.168.1.2',
     });
 
@@ -1741,11 +1770,11 @@ describe('icmp', () => {
   test('ping session rejects when the host does not reply', async () => {
     const stack = await createStack();
 
-    await stack.createTunInterface({
+    await stack.interfaces.createTun({
       ip: '192.168.1.1/24',
     });
 
-    const pingSession = await stack.createPingSession({
+    const pingSession = await stack.ping.createSession({
       host: '192.168.1.2',
       timeout: 10,
     });

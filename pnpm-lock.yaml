@@ -136,6 +136,9 @@ importers:
       '@tcpip/dns':
         specifier: workspace:*
         version: link:../dns
+      '@tcpip/transport':
+        specifier: workspace:*
+        version: link:../transport
       '@tcpip/wire':
         specifier: workspace:*
         version: link:../wire

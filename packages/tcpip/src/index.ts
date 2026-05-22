@@ -2,17 +2,19 @@ export { createStack } from './stack.js';
 export type {
   BridgeInterface,
   BridgeInterfaceOptions,
-  DuplexStream,
   LoopbackInterface,
   LoopbackInterfaceOptions,
   NetworkInterface,
+  NetworkInterfaces,
   NetworkStack,
   PingProbeOptions,
+  PingApi,
   PingReply,
   PingSession,
   PingSessionOptions,
   TapInterface,
   TapInterfaceOptions,
+  TcpTransport,
   TcpConnection,
   TcpConnectionOptions,
   TcpListener,
@@ -22,5 +24,5 @@ export type {
   UdpDatagram,
   UdpSocket,
   UdpSocketOptions,
+  UdpTransport,
 } from './types.js';
-export { connectStreams } from './util.js';

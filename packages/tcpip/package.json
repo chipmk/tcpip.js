@@ -20,6 +20,7 @@
     "test": "vitest",
     "test:node": "vitest --project node",
     "test:browser": "vitest --project browser",
+    "test:types": "vitest --project types",
     "clean": "rm -rf dist",
     "make": "CC='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/clang' AR='docker compose run --rm wasi-sdk /opt/wasi-sdk/bin/ar' make",
     "wasm-objdump": "docker compose run --rm wabt wasm-objdump",
@@ -41,6 +42,7 @@
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.3.0",
     "@tcpip/dns": "workspace:*",
+    "@tcpip/transport": "workspace:*",
     "@tcpip/wire": "workspace:*"
   },
   "devDependencies": {

@@ -2,6 +2,13 @@ import { defineWorkspace } from 'vitest/config';
 
 export default defineWorkspace([
   {
+    test: {
+      name: 'types',
+      environment: 'node',
+      include: ['src/**/*.test-d.ts'],
+    },
+  },
+  {
     esbuild: {
       target: 'es2022',
     },

@@ -1,15 +1,11 @@
+import { fromReadable } from '@tcpip/transport';
 import {
   type IPv4Address,
   parseIPv4Address,
   serializeIPv4Cidr,
 } from '@tcpip/wire';
 import type { TunInterface, TunInterfaceOptions } from '../types.js';
-import {
-  ExtendedReadableStream,
-  Hooks,
-  fromReadable,
-  nextMicrotask,
-} from '../util.js';
+import { ExtendedReadableStream, Hooks, nextMicrotask } from '../util.js';
 import { Bindings } from './base.js';
 import type { Pointer } from './types.js';
 

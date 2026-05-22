@@ -5,8 +5,8 @@
     "lib": ["es2022", "dom", "dom.iterable", "esnext.disposable"],
     "paths": {
       "@tcpip/dns": ["../dns/src/index.js"],
-      "@tcpip/wire": ["../wire/src/index.js"],
-      "tcpip/types": ["./src/types.js"]
+      "@tcpip/transport": ["../transport/src/index.js"],
+      "@tcpip/wire": ["../wire/src/index.js"]
     }
   }
 }
