@@ -22,11 +22,11 @@ import { createStack } from 'tcpip';
 
 const stack = await createStack();
 
-const tapInterface = await stack.createTapInterface({
+const tapInterface = await stack.interfaces.createTap({
   ip: '192.168.1.1/24',
 });
 
-const dhcp = await createDhcp(stack);
+const dhcp = await createDhcp(stack.udp);
 const server = await dhcp.serve({
   leaseRange: {
     start: '192.168.1.100',
@@ -43,7 +43,7 @@ Then connect `tapInterface` to another virtual device. For example, with `@tcpip
 
 ```ts
 import { createV86NetworkStream } from '@tcpip/v86';
-import { connectStreams } from 'tcpip';
+import { connectStreams } from '@tcpip/transport';
 
 const vmNic = createV86NetworkStream(emulator);
 
