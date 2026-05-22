@@ -105,6 +105,10 @@ importers:
         version: 3.2.4(@types/node@22.19.17)(@vitest/browser@3.2.4)(tsx@4.21.0)
 
   packages/http:
+    dependencies:
+      '@tcpip/transport':
+        specifier: workspace:*
+        version: link:../transport
     devDependencies:
       '@bjorn3/browser_wasi_shim':
         specifier: ^0.3.0

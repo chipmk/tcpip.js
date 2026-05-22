@@ -159,14 +159,14 @@ function contentLengthFromHead(head: string) {
 describe('serve', () => {
   test('handler-only overload listens on the default HTTP port', async () => {
     const stack = await createStack();
-    const { serve } = await createHttp(stack);
+    const { serve } = await createHttp(stack.tcp);
 
     await serve(async (request) => {
       expect(new URL(request.url).pathname).toBe('/default');
       return new Response('ok');
     });
 
-    const connection = await stack.connectTcp({
+    const connection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 80,
     });
@@ -188,7 +188,7 @@ describe('serve', () => {
 
   test('responds to a raw TCP HTTP request', async () => {
     const stack = await createStack();
-    const { serve } = await createHttp(stack);
+    const { serve } = await createHttp(stack.tcp);
 
     await serve({ host: '127.0.0.1', port: 8082 }, async (request) => {
       expect(request.method).toBe('GET');
@@ -200,7 +200,7 @@ describe('serve', () => {
       });
     });
 
-    const connection = await stack.connectTcp({
+    const connection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 8082,
     });
@@ -222,13 +222,13 @@ describe('serve', () => {
 
   test('closes the TCP readable after sending a response', async () => {
     const stack = await createStack();
-    const { serve } = await createHttp(stack);
+    const { serve } = await createHttp(stack.tcp);
 
     await serve({ host: '127.0.0.1', port: 8086 }, async () => {
       return new Response('closed');
     });
 
-    const connection = await stack.connectTcp({
+    const connection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 8086,
     });
@@ -248,7 +248,7 @@ describe('serve', () => {
 
   test('options-object overload accepts an inline handler', async () => {
     const stack = await createStack();
-    const { serve } = await createHttp(stack);
+    const { serve } = await createHttp(stack.tcp);
 
     await serve({
       host: '127.0.0.1',
@@ -256,7 +256,7 @@ describe('serve', () => {
       handler: async () => new Response('inline'),
     });
 
-    const connection = await stack.connectTcp({
+    const connection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 8085,
     });
@@ -278,13 +278,13 @@ describe('serve', () => {
 
   test('streams request body to handler', async () => {
     const stack = await createStack();
-    const { serve } = await createHttp(stack);
+    const { serve } = await createHttp(stack.tcp);
 
     await serve({ host: '127.0.0.1', port: 8083 }, async (request) => {
       return new Response(await request.text());
     });
 
-    const connection = await stack.connectTcp({
+    const connection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 8083,
     });

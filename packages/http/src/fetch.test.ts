@@ -1,5 +1,5 @@
+import type { StreamConnection, StreamTransport } from '@tcpip/transport';
 import { createStack } from 'tcpip';
-import type { NetworkStack, TcpConnection } from 'tcpip/types';
 import { describe, expect, test } from 'vitest';
 import { createHttp } from './index.js';
 
@@ -8,7 +8,7 @@ async function nextValue<T>(iterator: AsyncIterable<T>) {
   return value!;
 }
 
-async function readUntil(connection: TcpConnection, expected: string) {
+async function readUntil(connection: StreamConnection, expected: string) {
   const decoder = new TextDecoder();
   const reader = connection.readable.getReader();
   let text = '';
@@ -29,9 +29,9 @@ async function readUntil(connection: TcpConnection, expected: string) {
 }
 
 function trackConnectionClose(
-  stack: NetworkStack,
-  connection: TcpConnection
-): NetworkStack {
+  transport: StreamTransport,
+  connection: StreamConnection
+): StreamTransport & { readonly closeCount: number } {
   let closeCount = 0;
   const trackedConnection = {
     ...connection,
@@ -39,22 +39,21 @@ function trackConnectionClose(
       closeCount++;
       await connection.close();
     },
-    [Symbol.asyncIterator]: () => connection[Symbol.asyncIterator](),
-  } satisfies TcpConnection;
+  } satisfies StreamConnection;
 
   return {
-    ...stack,
-    connectTcp: async () => trackedConnection,
+    ...transport,
+    connect: async () => trackedConnection,
     get closeCount() {
       return closeCount;
     },
-  } as NetworkStack & { readonly closeCount: number };
+  };
 }
 
 describe('fetch', () => {
   test('fetches from an HTTP server on loopback', async () => {
     const stack = await createStack();
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8081,
     });
@@ -74,7 +73,7 @@ describe('fetch', () => {
       return connection;
     })();
 
-    const { fetch } = await createHttp(stack);
+    const { fetch } = await createHttp(stack.tcp);
     const response = await fetch('http://127.0.0.1:8081/test');
 
     expect(response.status).toBe(200);
@@ -87,7 +86,7 @@ describe('fetch', () => {
 
   test('sends content length for known init bodies', async () => {
     const stack = await createStack();
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8087,
     });
@@ -105,7 +104,7 @@ describe('fetch', () => {
       return { connection, request };
     })();
 
-    const { fetch } = await createHttp(stack);
+    const { fetch } = await createHttp(stack.tcp);
     const response = await fetch('http://127.0.0.1:8087/form', {
       method: 'POST',
       body: 'name=tcpip',
@@ -125,22 +124,17 @@ describe('fetch', () => {
 
   test('closes the TCP connection after the response body is consumed', async () => {
     const stack = await createStack();
-    const listener = await stack.listenTcp({
+    const listener = await stack.tcp.listen({
       host: '127.0.0.1',
       port: 8086,
     });
     const serverConnectionPromise = nextValue(listener);
 
-    const rawConnection = await stack.connectTcp({
+    const rawConnection = await stack.tcp.connect({
       host: '127.0.0.1',
       port: 8086,
     });
-    const trackedStack = trackConnectionClose(
-      stack,
-      rawConnection
-    ) as NetworkStack & {
-      readonly closeCount: number;
-    };
+    const trackedStack = trackConnectionClose(stack.tcp, rawConnection);
 
     const serverDone = (async () => {
       const connection = await serverConnectionPromise;
@@ -170,7 +164,7 @@ describe('fetch', () => {
 
   test('rejects https URLs until TLS exists', async () => {
     const stack = await createStack();
-    const { fetch } = await createHttp(stack);
+    const { fetch } = await createHttp(stack.tcp);
 
     await expect(fetch('https://example.com/')).rejects.toThrow(
       'unsupported protocol: https:'
@@ -179,7 +173,7 @@ describe('fetch', () => {
 
   test('fetch can call serve on the same stack', async () => {
     const stack = await createStack();
-    const { fetch, serve } = await createHttp(stack);
+    const { fetch, serve } = await createHttp(stack.tcp);
 
     await serve({ host: '127.0.0.1', port: 8084 }, async (request) => {
       return Response.json({

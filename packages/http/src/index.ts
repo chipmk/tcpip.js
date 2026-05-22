@@ -1,4 +1,4 @@
-import type { NetworkStack } from 'tcpip/types';
+import type { StreamTransport } from '@tcpip/transport';
 import { createFetch } from './fetch.js';
 import { serveHttp } from './serve.js';
 import type {
@@ -58,7 +58,7 @@ function normalizeServeArgs(
 }
 
 export async function createHttp(
-  stack: NetworkStack,
+  transport: StreamTransport,
   options: CreateHttpOptions = {}
 ): Promise<HttpApi> {
   const parser = options.parser ?? new LlhttpBindings();
@@ -72,11 +72,11 @@ export async function createHttp(
       first,
       second
     );
-    return serveHttp(stack, parser, serveOptions, handler);
+    return serveHttp(transport, parser, serveOptions, handler);
   }) satisfies HttpApi['serve'];
 
   return {
-    fetch: createFetch(stack, parser),
+    fetch: createFetch(transport, parser),
     serve,
   };
 }
