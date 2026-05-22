@@ -25,6 +25,7 @@
     }
   },
   "dependencies": {
+    "@tcpip/transport": "workspace:*",
     "@tcpip/wire": "workspace:*"
   },
   "devDependencies": {

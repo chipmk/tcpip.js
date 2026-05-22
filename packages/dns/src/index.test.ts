@@ -5,7 +5,7 @@ import { createDns, ptrNameToIP } from './index.js';
 describe('createDns', () => {
   test('client and server can communicate', async () => {
     const stack = await createStack();
-    const { lookup, serve } = await createDns(stack);
+    const { lookup, serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {
@@ -26,7 +26,7 @@ describe('createDns', () => {
 
   test('throws if no records found', async () => {
     const stack = await createStack();
-    const { lookup, serve } = await createDns(stack);
+    const { lookup, serve } = await createDns(stack.udp);
 
     await serve({
       request: async () => undefined,
@@ -39,7 +39,7 @@ describe('createDns', () => {
 
   test('reverse A lookup', async () => {
     const stack = await createStack();
-    const { reverse, serve } = await createDns(stack);
+    const { reverse, serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {
@@ -62,7 +62,7 @@ describe('createDns', () => {
 
   test('reverse AAAA lookup', async () => {
     const stack = await createStack();
-    const { reverse, serve } = await createDns(stack);
+    const { reverse, serve } = await createDns(stack.udp);
 
     await serve({
       request: async ({ name, type }) => {

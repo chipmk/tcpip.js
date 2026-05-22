@@ -1,4 +1,5 @@
-import type { NetworkStack } from 'tcpip/types';
+import { fromReadable } from '@tcpip/transport';
+import type { DatagramTransport } from '@tcpip/transport';
 import type { DnsMessage, DnsQuery, DnsRecord, NameServer } from './types.js';
 import { ipToPtrName } from './util.js';
 import { parseDnsMessage, serializeDnsMessage } from './wire.js';
@@ -12,12 +13,12 @@ export type DnsClientOptions = {
 };
 
 export class DnsClient {
-  #stack: NetworkStack;
+  #transport: DatagramTransport;
   #nameServer: NameServer;
   #messageId = 0;
 
-  constructor(stack: NetworkStack, options: DnsClientOptions = {}) {
-    this.#stack = stack;
+  constructor(transport: DatagramTransport, options: DnsClientOptions = {}) {
+    this.#transport = transport;
     this.#nameServer = options.nameServer ?? { ip: '127.0.0.1', port: 53 };
   }
 
@@ -50,7 +51,7 @@ export class DnsClient {
       ],
     };
 
-    const socket = await this.#stack.openUdp();
+    const socket = await this.#transport.open();
 
     // Serialize and send the message
     const data = serializeDnsMessage(message);
@@ -63,7 +64,7 @@ export class DnsClient {
     });
 
     // Wait for and parse the response
-    for await (const datagram of socket) {
+    for await (const datagram of fromReadable(socket.readable)) {
       const response = parseDnsMessage(datagram.data);
 
       // Verify this is the response to our query
