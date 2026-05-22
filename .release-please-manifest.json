@@ -1,5 +1,6 @@
 {
   "packages/tcpip": "0.3.6",
+  "packages/transport": "0.0.0",
   "packages/wire": "0.1.4",
   "packages/http": "0.1.0",
   "packages/dns": "0.2.2",

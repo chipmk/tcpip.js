@@ -1,0 +1,34 @@
+{
+  "name": "@tcpip/transport",
+  "version": "0.0.0",
+  "description": "Transport contracts for tcpip.js protocol packages",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chipmk/tcpip.js.git",
+    "directory": "packages/transport"
+  },
+  "main": "dist/index.cjs",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup --clean",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm run build"
+  },
+  "files": ["dist/**/*"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.cjs"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@total-typescript/tsconfig": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:"
+  }
+}

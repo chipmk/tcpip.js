@@ -1,0 +1,7 @@
+{
+  "extends": "@total-typescript/tsconfig/tsc/dom/library",
+  "include": ["src/**/*.ts"],
+  "compilerOptions": {
+    "lib": ["es2022", "dom", "dom.iterable"]
+  }
+}
