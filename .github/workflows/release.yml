@@ -84,6 +84,26 @@ jobs:
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         run: pnpm build
 
+      - name: Publish @tcpip/transport
+        if: ${{ steps.release.outputs['packages/transport--release_created'] == 'true' }}
+        working-directory: packages/transport
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          NPM_VIEW_STDERR=$(mktemp)
+          EXISTING=$(npm view "@tcpip/transport@$VERSION" version 2>"$NPM_VIEW_STDERR") || STATUS=$?
+          if [ -n "$EXISTING" ]; then
+            echo "@tcpip/transport@$VERSION is already published, skipping."
+            rm -f "$NPM_VIEW_STDERR"
+            exit 0
+          elif [ "${STATUS:-0}" -ne 0 ] && ! grep -qiE 'E404|not found' "$NPM_VIEW_STDERR"; then
+            cat "$NPM_VIEW_STDERR"
+            rm -f "$NPM_VIEW_STDERR"
+            exit 1
+          fi
+          rm -f "$NPM_VIEW_STDERR"
+          pnpm publish --access public --no-git-checks --ignore-scripts --provenance
+
       - name: Publish @tcpip/wire
         if: ${{ steps.release.outputs['packages/wire--release_created'] == 'true' }}
         working-directory: packages/wire
