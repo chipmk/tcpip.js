@@ -1,4 +1,4 @@
-import type { NetworkStack } from 'tcpip/types';
+import type { StreamTransport } from '@tcpip/transport';
 
 export type HttpFetch = typeof globalThis.fetch;
 
@@ -42,7 +42,7 @@ export type HttpApi = {
 };
 
 export type CreateHttp = (
-  stack: NetworkStack,
+  transport: StreamTransport,
   options?: CreateHttpOptions
 ) => Promise<HttpApi>;
 

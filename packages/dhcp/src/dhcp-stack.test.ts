@@ -140,11 +140,11 @@ async function waitForDhcpReply(iterator: AsyncIterator<Uint8Array>) {
 describe('DhcpServer with tcpip stack', () => {
   it('should complete discover/request over UDP broadcast', async () => {
     const stack = await createStack();
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       ip: '192.168.1.1/24',
       mac: '02:00:00:00:00:01',
     });
-    const dhcp = await createDhcp(stack);
+    const dhcp = await createDhcp(stack.udp);
     const dhcpServer = await dhcp.serve({
       leaseRange: { start: '192.168.1.100', end: '192.168.1.110' },
       leaseDuration: 3600,
@@ -186,11 +186,11 @@ describe('DhcpServer with tcpip stack', () => {
 
   it('should advertise configured DNS servers', async () => {
     const stack = await createStack();
-    const tapInterface = await stack.createTapInterface({
+    const tapInterface = await stack.interfaces.createTap({
       ip: '192.168.1.1/24',
       mac: '02:00:00:00:00:01',
     });
-    const dhcp = await createDhcp(stack);
+    const dhcp = await createDhcp(stack.udp);
     await dhcp.serve({
       leaseRange: { start: '192.168.1.100', end: '192.168.1.110' },
       leaseDuration: 3600,

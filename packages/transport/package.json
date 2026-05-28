@@ -1,22 +1,20 @@
 {
-  "name": "@tcpip/v86",
-  "version": "0.2.3",
-  "description": "Network adapter that connects tcpip.js with v86",
+  "name": "@tcpip/transport",
+  "version": "0.0.0",
+  "description": "Transport contracts for tcpip.js protocol packages",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/chipmk/tcpip.js.git",
-    "directory": "packages/v86"
+    "directory": "packages/transport"
   },
-  "type": "module",
   "main": "dist/index.cjs",
   "types": "dist/index.d.ts",
+  "type": "module",
   "sideEffects": false,
   "scripts": {
     "build": "tsup --clean",
     "clean": "rm -rf dist",
-    "test": "vitest",
-    "vm:shell": "tsx test/vm-shell.ts",
     "prepublishOnly": "pnpm run build"
   },
   "files": ["dist/**/*"],
@@ -27,18 +25,10 @@
       "default": "./dist/index.cjs"
     }
   },
+  "dependencies": {},
   "devDependencies": {
-    "@tcpip/dhcp": "workspace:*",
-    "@tcpip/http": "workspace:*",
-    "@tcpip/transport": "workspace:*",
-    "@tcpip/wire": "workspace:*",
     "@total-typescript/tsconfig": "catalog:",
-    "@types/node": "catalog:",
     "tsup": "catalog:",
-    "tcpip": "workspace:*",
-    "tsx": "catalog:",
-    "typescript": "catalog:",
-    "v86": "^0.5.44",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   }
 }

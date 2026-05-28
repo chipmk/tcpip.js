@@ -1,4 +1,9 @@
-import type { NetworkStack, UdpDatagram, UdpSocket } from 'tcpip/types';
+import { fromReadable } from '@tcpip/transport';
+import type {
+  Datagram,
+  DatagramSocket,
+  DatagramTransport,
+} from '@tcpip/transport';
 import type { DnsMessage, DnsRecord, DnsResponse, DnsType } from './types.js';
 import { parseDnsMessage, serializeDnsMessage } from './wire.js';
 
@@ -29,34 +34,34 @@ export type DnsServerOptions = {
 };
 
 export class DnsServer {
-  #stack: NetworkStack;
+  #transport: DatagramTransport;
   #options: DnsServerOptions;
 
-  constructor(stack: NetworkStack, options: DnsServerOptions) {
-    this.#stack = stack;
+  constructor(transport: DatagramTransport, options: DnsServerOptions) {
+    this.#transport = transport;
     this.#options = options;
   }
 
   async listen() {
-    const socket = await this.#stack.openUdp({
+    const socket = await this.#transport.open({
       host: this.#options.host,
       port: this.#options.port ?? 53,
     });
     this.#processDnsMessages(socket);
   }
 
-  async #processDnsMessages(socket: UdpSocket) {
+  async #processDnsMessages(socket: DatagramSocket) {
     const writer = socket.writable.getWriter();
 
-    for await (const datagram of socket) {
+    for await (const datagram of fromReadable(socket.readable)) {
       // Process each message without blocking
       this.#processDnsMessage(datagram, writer);
     }
   }
 
   async #processDnsMessage(
-    datagram: UdpDatagram,
-    writer: WritableStreamDefaultWriter<UdpDatagram>
+    datagram: Datagram,
+    writer: WritableStreamDefaultWriter<Datagram>
   ) {
     try {
       const { host, port } = datagram;

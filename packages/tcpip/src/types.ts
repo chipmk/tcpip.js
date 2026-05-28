@@ -1,51 +1,26 @@
+import type {
+  Datagram,
+  DatagramSocketOptions,
+  DuplexStream,
+  StreamConnectOptions,
+  StreamListenOptions,
+} from '@tcpip/transport';
 import type { IPv4Address, IPv4Cidr, MacAddress } from '@tcpip/wire';
 
-export type DuplexStream<R = unknown> = {
-  readable: ReadableStream<R>;
-  writable: WritableStream<R>;
-};
+export type UdpDatagram = Datagram;
 
-export type UdpDatagram = {
-  host: string;
-  port: number;
-  data: Uint8Array;
-};
+export type UdpSocketOptions = DatagramSocketOptions;
 
-export type UdpSocketOptions = {
-  /**
-   * The local host to bind to.
-   *
-   * If not provided, the socket will bind to all available interfaces.
-   */
-  host?: string;
-  /**
-   * The local port to bind to.
-   *
-   * If not provided, the socket will bind to a random port.
-   */
-  port?: number;
-};
-
-export type UdpSocket = {
-  readable: ReadableStream<UdpDatagram>;
-  writable: WritableStream<UdpDatagram>;
+export type UdpSocket = DuplexStream<UdpDatagram> & {
   close(): Promise<void>;
   [Symbol.asyncIterator](): AsyncIterator<UdpDatagram>;
 };
 
-export type TcpListenerOptions = {
-  host?: string;
-  port: number;
-};
+export type TcpListenerOptions = StreamListenOptions;
 
-export type TcpConnectionOptions = {
-  host: string;
-  port: number;
-};
+export type TcpConnectionOptions = StreamConnectOptions;
 
-export type TcpConnection = {
-  readable: ReadableStream<Uint8Array>;
-  writable: WritableStream<Uint8Array>;
+export type TcpConnection = DuplexStream<Uint8Array> & {
   close(): Promise<void>;
   [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 };
@@ -77,6 +52,34 @@ export type PingSession = {
 
 export type TcpListener = {
   [Symbol.asyncIterator](): AsyncIterableIterator<TcpConnection>;
+};
+
+export type TcpTransport = {
+  /**
+   * Establishes an outbound TCP connection to a remote host/port.
+   */
+  connect(options: TcpConnectionOptions): Promise<TcpConnection>;
+  /**
+   * Listens for incoming TCP connections on the specified host/port.
+   */
+  listen(options: TcpListenerOptions): Promise<TcpListener>;
+};
+
+export type UdpTransport = {
+  /**
+   * Opens a UDP socket for sending and receiving datagrams.
+   *
+   * If no local host is provided, the socket will bind to all available interfaces.
+   * If no local port is provided, the socket will bind to a random port.
+   */
+  open(options?: UdpSocketOptions): Promise<UdpSocket>;
+};
+
+export type PingApi = {
+  /**
+   * Creates an ICMP ping session for sending echo requests to a host.
+   */
+  createSession(options: PingSessionOptions): Promise<PingSession>;
 };
 
 export type LoopbackInterfaceOptions = {
@@ -138,27 +141,55 @@ export type NetworkInterface =
   | TapInterface
   | BridgeInterface;
 
+export type NetworkInterfaces = Iterable<NetworkInterface> & {
+  createLoopback(options: LoopbackInterfaceOptions): Promise<LoopbackInterface>;
+  createTun(options: TunInterfaceOptions): Promise<TunInterface>;
+  createTap(options?: TapInterfaceOptions): Promise<TapInterface>;
+  createBridge(options: BridgeInterfaceOptions): Promise<BridgeInterface>;
+  remove(netInterface: NetworkInterface): Promise<void>;
+};
+
 export type NetworkStack = {
   readonly ready: Promise<void>;
-  readonly interfaces: Iterable<NetworkInterface>;
+  readonly tcp: TcpTransport;
+  readonly udp: UdpTransport;
+  readonly ping: PingApi;
+  readonly interfaces: NetworkInterfaces;
 
+  /**
+   * @deprecated Use `stack.interfaces.createLoopback()` instead.
+   */
   createLoopbackInterface(
     options: LoopbackInterfaceOptions
   ): Promise<LoopbackInterface>;
+  /**
+   * @deprecated Use `stack.interfaces.createTun()` instead.
+   */
   createTunInterface(options: TunInterfaceOptions): Promise<TunInterface>;
+  /**
+   * @deprecated Use `stack.interfaces.createTap()` instead.
+   */
   createTapInterface(options?: TapInterfaceOptions): Promise<TapInterface>;
+  /**
+   * @deprecated Use `stack.interfaces.createBridge()` instead.
+   */
   createBridgeInterface(
     options: BridgeInterfaceOptions
   ): Promise<BridgeInterface>;
-  removeInterface(
-    netInterface: LoopbackInterface | TunInterface | TapInterface
-  ): Promise<void>;
+  /**
+   * @deprecated Use `stack.interfaces.remove()` instead.
+   */
+  removeInterface(netInterface: NetworkInterface): Promise<void>;
   /**
    * Listens for incoming TCP connections on the specified host/port.
+   *
+   * @deprecated Use `stack.tcp.listen()` instead.
    */
   listenTcp(options: TcpListenerOptions): Promise<TcpListener>;
   /**
    * Establishes an outbound TCP connection to a remote host/port.
+   *
+   * @deprecated Use `stack.tcp.connect()` instead.
    */
   connectTcp(options: TcpConnectionOptions): Promise<TcpConnection>;
   /**
@@ -166,10 +197,14 @@ export type NetworkStack = {
    *
    * If no local host is provided, the socket will bind to all available interfaces.
    * If no local port is provided, the socket will bind to a random port.
+   *
+   * @deprecated Use `stack.udp.open()` instead.
    */
   openUdp(options?: UdpSocketOptions): Promise<UdpSocket>;
   /**
    * Creates an ICMP ping session for sending echo requests to a host.
+   *
+   * @deprecated Use `stack.ping.createSession()` instead.
    */
   createPingSession(options: PingSessionOptions): Promise<PingSession>;
 };

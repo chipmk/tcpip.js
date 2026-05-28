@@ -10,19 +10,12 @@ import type { WasmInstance } from './bindings/types.js';
 import { UdpBindings } from './bindings/udp.js';
 import { fetchFile } from './fetch-file.js';
 import type {
-  BridgeInterfaceOptions,
-  LoopbackInterface,
-  LoopbackInterfaceOptions,
   NetworkInterface,
+  NetworkInterfaces,
   NetworkStack,
-  PingSessionOptions,
-  TapInterface,
-  TapInterfaceOptions,
-  TcpConnectionOptions,
-  TcpListenerOptions,
-  TunInterface,
-  TunInterfaceOptions,
-  UdpSocketOptions,
+  PingApi,
+  TcpTransport,
+  UdpTransport,
 } from './types.js';
 
 export async function createStack(
@@ -63,9 +56,10 @@ export class VirtualNetworkStack implements NetworkStack {
   #icmpBindings: IcmpBindings;
 
   ready: Promise<void>;
-  get interfaces() {
-    return this.#listInterfaces();
-  }
+  readonly tcp: TcpTransport;
+  readonly udp: UdpTransport;
+  readonly ping: PingApi;
+  readonly interfaces: NetworkInterfaces;
 
   constructor(options: NetworkStackOptions = {}) {
     this.#options = {
@@ -73,15 +67,72 @@ export class VirtualNetworkStack implements NetworkStack {
       initializeLoopback: options.initializeLoopback ?? true,
     };
 
-    this.#dnsClient = new DnsClient(this, {
-      nameServer: options.nameServer ?? { ip: '127.0.0.1', port: 53 },
-    });
-
     // Initialize bindings
     this.#loopbackBindings = new LoopbackBindings();
     this.#tunBindings = new TunBindings();
     this.#tapBindings = new TapBindings();
     this.#bridgeBindings = new BridgeBindings();
+
+    this.tcp = {
+      connect: async (options) => {
+        await this.ready;
+        return this.#tcpBindings.connect(options);
+      },
+      listen: async (options) => {
+        await this.ready;
+        return this.#tcpBindings.listen(options);
+      },
+    };
+    this.udp = {
+      open: async (options = {}) => {
+        await this.ready;
+        return this.#udpBindings.open(options);
+      },
+    };
+    this.ping = {
+      createSession: async (options) => {
+        await this.ready;
+        return this.#icmpBindings.createPingSession(options);
+      },
+    };
+    this.interfaces = {
+      createLoopback: async (options) => {
+        await this.ready;
+        return this.#loopbackBindings.create(options);
+      },
+      createTun: async (options) => {
+        await this.ready;
+        return this.#tunBindings.create(options);
+      },
+      createTap: async (options = {}) => {
+        await this.ready;
+        return this.#tapBindings.create(options);
+      },
+      createBridge: async (options) => {
+        await this.ready;
+        return this.#bridgeBindings.create(options);
+      },
+      remove: async (netInterface) => {
+        await this.ready;
+
+        switch (netInterface.type) {
+          case 'loopback':
+            return this.#loopbackBindings.remove(netInterface);
+          case 'tun':
+            return this.#tunBindings.remove(netInterface);
+          case 'tap':
+            return this.#tapBindings.remove(netInterface);
+          case 'bridge':
+            return this.#bridgeBindings.remove(netInterface);
+          default:
+            throw new Error('unknown interface type');
+        }
+      },
+      [Symbol.iterator]: () => this.#listInterfaces(),
+    };
+    this.#dnsClient = new DnsClient(this.udp, {
+      nameServer: options.nameServer ?? { ip: '127.0.0.1', port: 53 },
+    });
     this.#tcpBindings = new TcpBindings(this.#dnsClient);
     this.#udpBindings = new UdpBindings(this.#dnsClient);
     this.#icmpBindings = new IcmpBindings(this.#dnsClient);
@@ -92,7 +143,7 @@ export class VirtualNetworkStack implements NetworkStack {
     // Post-init setup
     this.ready.then(async () => {
       if (this.#options.initializeLoopback) {
-        await this.createLoopbackInterface({
+        await this.interfaces.createLoopback({
           ip: '127.0.0.1/8',
         });
       }
@@ -157,88 +208,91 @@ export class VirtualNetworkStack implements NetworkStack {
     );
   }
 
-  *#listInterfaces(): Iterable<NetworkInterface> {
+  *#listInterfaces(): IterableIterator<NetworkInterface> {
     yield* this.#loopbackBindings.interfaces.values();
     yield* this.#tunBindings.interfaces.values();
     yield* this.#tapBindings.interfaces.values();
     yield* this.#bridgeBindings.interfaces.values();
   }
 
-  async createLoopbackInterface(
-    options: LoopbackInterfaceOptions
-  ): Promise<LoopbackInterface> {
-    await this.ready;
-    return this.#loopbackBindings.create(options);
-  }
-
-  async createTunInterface(
-    options: TunInterfaceOptions
-  ): Promise<TunInterface> {
-    await this.ready;
-    return this.#tunBindings.create(options);
-  }
-
-  async createTapInterface(
-    options: TapInterfaceOptions = {}
-  ): Promise<TapInterface> {
-    await this.ready;
-    return this.#tapBindings.create(options);
-  }
-
-  async createBridgeInterface(options: BridgeInterfaceOptions) {
-    await this.ready;
-    return this.#bridgeBindings.create(options);
-  }
-
-  async removeInterface(netInterface: NetworkInterface) {
-    await this.ready;
-
-    switch (netInterface.type) {
-      case 'loopback':
-        return this.#loopbackBindings.remove(netInterface);
-      case 'tun':
-        return this.#tunBindings.remove(netInterface);
-      case 'tap':
-        return this.#tapBindings.remove(netInterface);
-      case 'bridge':
-        return this.#bridgeBindings.remove(netInterface);
-      default:
-        throw new Error('unknown interface type');
-    }
+  /**
+   * @deprecated Use `stack.interfaces.createLoopback()` instead.
+   */
+  createLoopbackInterface(
+    ...args: Parameters<NetworkStack['createLoopbackInterface']>
+  ): ReturnType<NetworkStack['createLoopbackInterface']> {
+    return this.interfaces.createLoopback(...args);
   }
 
   /**
-   * Listens for incoming TCP connections on the specified host/port.
+   * @deprecated Use `stack.interfaces.createTun()` instead.
    */
-  async listenTcp(options: TcpListenerOptions) {
-    await this.ready;
-    return this.#tcpBindings.listen(options);
+  createTunInterface(
+    ...args: Parameters<NetworkStack['createTunInterface']>
+  ): ReturnType<NetworkStack['createTunInterface']> {
+    return this.interfaces.createTun(...args);
   }
 
   /**
-   * Establishes an outbound TCP connection to a remote host/port.
+   * @deprecated Use `stack.interfaces.createTap()` instead.
    */
-  async connectTcp(options: TcpConnectionOptions) {
-    await this.ready;
-    return this.#tcpBindings.connect(options);
+  createTapInterface(
+    ...args: Parameters<NetworkStack['createTapInterface']>
+  ): ReturnType<NetworkStack['createTapInterface']> {
+    return this.interfaces.createTap(...args);
   }
 
   /**
-   * Opens a UDP socket for sending and receiving datagrams.
-   *
-   * If no local host is provided, the socket will bind to all available interfaces.
-   * If no local port is provided, the socket will bind to a random port.
+   * @deprecated Use `stack.interfaces.createBridge()` instead.
    */
-  async openUdp(options: UdpSocketOptions = {}) {
-    await this.ready;
-    return this.#udpBindings.open(options);
+  createBridgeInterface(
+    ...args: Parameters<NetworkStack['createBridgeInterface']>
+  ): ReturnType<NetworkStack['createBridgeInterface']> {
+    return this.interfaces.createBridge(...args);
   }
 
   /**
-   * Creates an ICMP ping session for sending echo requests to a host.
+   * @deprecated Use `stack.interfaces.remove()` instead.
    */
-  async createPingSession(options: PingSessionOptions) {
-    await this.ready;
-    return this.#icmpBindings.createPingSession(options);
+  removeInterface(
+    ...args: Parameters<NetworkStack['removeInterface']>
+  ): ReturnType<NetworkStack['removeInterface']> {
+    return this.interfaces.remove(...args);
+  }
+
+  /**
+   * @deprecated Use `stack.tcp.listen()` instead.
+   */
+  listenTcp(
+    ...args: Parameters<NetworkStack['listenTcp']>
+  ): ReturnType<NetworkStack['listenTcp']> {
+    return this.tcp.listen(...args);
+  }
+
+  /**
+   * @deprecated Use `stack.tcp.connect()` instead.
+   */
+  connectTcp(
+    ...args: Parameters<NetworkStack['connectTcp']>
+  ): ReturnType<NetworkStack['connectTcp']> {
+    return this.tcp.connect(...args);
+  }
+
+  /**
+   * @deprecated Use `stack.udp.open()` instead.
+   */
+  openUdp(
+    ...args: Parameters<NetworkStack['openUdp']>
+  ): ReturnType<NetworkStack['openUdp']> {
+    return this.udp.open(...args);
+  }
+
+  /**
+   * @deprecated Use `stack.ping.createSession()` instead.
+   */
+  createPingSession(
+    ...args: Parameters<NetworkStack['createPingSession']>
+  ): ReturnType<NetworkStack['createPingSession']> {
+    return this.ping.createSession(...args);
   }
 }

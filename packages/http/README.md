@@ -21,7 +21,7 @@ import { createStack } from 'tcpip';
 import { createHttp } from '@tcpip/http';
 
 const stack = await createStack();
-const { fetch, serve } = await createHttp(stack);
+const { fetch, serve } = await createHttp(stack.tcp);
 
 await serve(async (request) => {
   return new Response('hello from tcpip.js');
@@ -36,7 +36,7 @@ Practically, `@tcpip/http` is most useful as a tool to communicate with VMs like
 
 ## Custom fetch for SDKs
 
-Many SDKs accept a custom `fetch` option so callers can choose their own transport. `createHttp(stack)` returns a fetch-compatible function for exactly that use case: it accepts the standard `fetch(input, init)` arguments, sends the request over the tcpip.js virtual network, and returns a standard `Response`.
+Many SDKs accept a custom `fetch` option so callers can choose their own transport. `createHttp(stack.tcp)` returns a fetch-compatible function for exactly that use case: it accepts the standard `fetch(input, init)` arguments, sends the request over the tcpip.js virtual network, and returns a standard `Response`.
 
 ```ts
 const sdk = new SomeSdk({
@@ -49,7 +49,7 @@ This means you can use existing HTTP-based SDKs to interact with services runnin
 ## API
 
 ```ts
-const { fetch, serve } = await createHttp(stack);
+const { fetch, serve } = await createHttp(stack.tcp);
 ```
 
 `fetch(input, init)` is compatible with `typeof globalThis.fetch` for plain `http:` URLs.

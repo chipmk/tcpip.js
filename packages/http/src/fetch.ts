@@ -1,4 +1,4 @@
-import type { NetworkStack } from 'tcpip/types';
+import type { StreamTransport } from '@tcpip/transport';
 import { unsupportedProtocol } from './errors.js';
 import { HttpParser } from './parser.js';
 import {
@@ -125,7 +125,7 @@ async function feedParser(
 }
 
 export function createFetch(
-  stack: NetworkStack,
+  transport: StreamTransport,
   parserRuntime: HttpParserRuntime
 ): HttpFetch {
   return async (input, init) => {
@@ -140,7 +140,7 @@ export function createFetch(
       throw unsupportedProtocol(url.protocol);
     }
 
-    const connection = await stack.connectTcp({
+    const connection = await transport.connect({
       host: url.hostname,
       port: Number(url.port || 80),
     });

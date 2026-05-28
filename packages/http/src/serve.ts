@@ -1,4 +1,4 @@
-import type { NetworkStack, TcpConnection } from 'tcpip/types';
+import type { StreamConnection, StreamTransport } from '@tcpip/transport';
 import { HttpParser } from './parser.js';
 import { serializeHttpResponse } from './serialize.js';
 import type {
@@ -30,7 +30,7 @@ function detectStreamingRequestBodies() {
 }
 
 async function handleConnection(
-  connection: TcpConnection,
+  connection: StreamConnection,
   parserRuntime: HttpParserRuntime,
   handler: HttpRequestHandler
 ) {
@@ -107,12 +107,16 @@ async function handleConnection(
 }
 
 export async function serveHttp(
-  stack: NetworkStack,
+  transport: StreamTransport,
   parserRuntime: HttpParserRuntime,
   options: ServeOptions,
   handler: HttpRequestHandler
 ): Promise<HttpServer> {
-  const listener = await stack.listenTcp(options);
+  if (!transport.listen) {
+    throw new TypeError('http serve requires a listen-capable transport');
+  }
+
+  const listener = await transport.listen(options);
   let closed = false;
 
   const loop = (async () => {

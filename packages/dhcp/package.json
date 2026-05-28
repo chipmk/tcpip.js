@@ -25,10 +25,8 @@
     }
   },
   "dependencies": {
+    "@tcpip/transport": "workspace:*",
     "@tcpip/wire": "workspace:*"
-  },
-  "peerDependencies": {
-    "tcpip": "workspace:*"
   },
   "devDependencies": {
     "@total-typescript/tsconfig": "catalog:",

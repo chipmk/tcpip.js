@@ -1,4 +1,8 @@
-import type { NetworkStack, UdpDatagram, UdpSocket } from 'tcpip/types';
+import type {
+  Datagram,
+  DatagramSocket,
+  DatagramTransport,
+} from '@tcpip/transport';
 import { describe, expect, it } from 'vitest';
 import {
   DHCP_SERVER_PORT,
@@ -55,19 +59,23 @@ class AsyncQueue<T> implements AsyncIterable<T> {
   }
 }
 
-class TestUdpSocket implements UdpSocket, AsyncIterable<UdpDatagram> {
-  #incoming = new AsyncQueue<UdpDatagram>();
-  #outgoing = new AsyncQueue<UdpDatagram>();
+class TestUdpSocket implements DatagramSocket {
+  #outgoing = new AsyncQueue<Datagram>();
+  #readableController?: ReadableStreamDefaultController<Datagram>;
 
-  readable = new ReadableStream<UdpDatagram>();
-  writable = new WritableStream<UdpDatagram>({
+  readable = new ReadableStream<Datagram>({
+    start: (controller) => {
+      this.#readableController = controller;
+    },
+  });
+  writable = new WritableStream<Datagram>({
     write: async (datagram) => {
       this.#outgoing.push(datagram);
     },
   });
 
   receive(data: Uint8Array) {
-    this.#incoming.push({
+    this.#readableController?.enqueue({
       host: '0.0.0.0',
       port: 68,
       data,
@@ -96,19 +104,15 @@ class TestUdpSocket implements UdpSocket, AsyncIterable<UdpDatagram> {
   }
 
   async close() {
-    this.#incoming.close();
     this.#outgoing.close();
-  }
-
-  [Symbol.asyncIterator](): AsyncIterator<UdpDatagram> {
-    return this.#incoming[Symbol.asyncIterator]();
+    this.#readableController?.close();
   }
 }
 
-class TestNetworkStack implements Partial<NetworkStack> {
+class TestDatagramTransport implements DatagramTransport {
   socket = new TestUdpSocket();
 
-  async openUdp(options = {}) {
+  async open(options = {}) {
     expect(options).toEqual({ port: DHCP_SERVER_PORT });
     return this.socket;
   }
@@ -166,10 +170,10 @@ function createClientMessage({
 }
 
 async function createTestServer(options = defaultOptions) {
-  const stack = new TestNetworkStack();
-  const server = new DhcpServer(stack as unknown as NetworkStack, options);
+  const transport = new TestDatagramTransport();
+  const server = new DhcpServer(transport, options);
   await server.listen();
-  return { server, socket: stack.socket };
+  return { server, socket: transport.socket };
 }
 
 describe('DhcpServer', () => {

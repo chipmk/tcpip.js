@@ -1,14 +1,15 @@
 import { createDhcp } from '@tcpip/dhcp';
 import { createHttp } from '@tcpip/http';
+import { connectStreams } from '@tcpip/transport';
 import { type TcpSegment, parseEthernetFrame } from '@tcpip/wire';
-import { connectStreams, createStack } from 'tcpip';
+import { createStack } from 'tcpip';
 import { describe, expect, it } from 'vitest';
 import { createVm, nextValue } from '../test/util.js';
 
 describe('network adapter', () => {
   it('should ping a VM from the host stack', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -19,7 +20,7 @@ describe('network adapter', () => {
     connectStreams(tapInterface, net);
 
     const payload = new TextEncoder().encode('tcpip.js ping');
-    const pingSession = await networkStack.createPingSession({
+    const pingSession = await networkStack.ping.createSession({
       host: '192.168.1.2',
     });
 
@@ -43,7 +44,7 @@ describe('network adapter', () => {
 
   it('should ping the host stack from a VM', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -63,10 +64,10 @@ describe('network adapter', () => {
 
   it('should assign an IP address and DNS server to a VM with DHCP', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
-    const dhcp = await createDhcp(networkStack);
+    const dhcp = await createDhcp(networkStack.udp);
     const dhcpServer = await dhcp.serve({
       leaseRange: { start: '192.168.1.100', end: '192.168.1.110' },
       serverIdentifier: '192.168.1.1',
@@ -95,7 +96,7 @@ describe('network adapter', () => {
 
   it('should make tcp connection from VM to host', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -105,7 +106,7 @@ describe('network adapter', () => {
 
     connectStreams(tapInterface, net);
 
-    const listener = await networkStack.listenTcp({ port: 5000 });
+    const listener = await networkStack.tcp.listen({ port: 5000 });
 
     const telnetPromise = executeCommand('telnet 192.168.1.1 5000');
 
@@ -127,7 +128,7 @@ describe('network adapter', () => {
 
   it('should make tcp connection from host to VM', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -145,7 +146,7 @@ describe('network adapter', () => {
     // Wait for inetd to start
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const connection = await networkStack.connectTcp({
+    const connection = await networkStack.tcp.connect({
       host: '192.168.1.2',
       port: 5000,
     });
@@ -163,7 +164,7 @@ describe('network adapter', () => {
 
   it('should serve HTTP responses to a VM', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -173,7 +174,7 @@ describe('network adapter', () => {
 
     connectStreams(tapInterface, net);
 
-    const { serve } = await createHttp(networkStack);
+    const { serve } = await createHttp(networkStack.tcp);
     await serve(() => {
       return new Response('hello from tcpip.js');
     });
@@ -187,7 +188,7 @@ describe('network adapter', () => {
 
   it('should send data larger than the send buffer from host to VM', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -197,7 +198,7 @@ describe('network adapter', () => {
 
     connectStreams(tapInterface, net);
 
-    const listener = await networkStack.listenTcp({ port: 5000 });
+    const listener = await networkStack.tcp.listen({ port: 5000 });
 
     const telnetPromise = executeCommand('telnet 192.168.1.1 5000');
 
@@ -222,7 +223,7 @@ describe('network adapter', () => {
 
   it('should receive 3 way TCP handshake from VM to host', async () => {
     const networkStack = await createStack();
-    const tapInterface = await networkStack.createTapInterface({
+    const tapInterface = await networkStack.interfaces.createTap({
       ip: '192.168.1.1/24',
     });
 
@@ -250,7 +251,7 @@ describe('network adapter', () => {
       transformBtoA: captureTcpSegments,
     });
 
-    const listener = await networkStack.listenTcp({ port: 5000 });
+    const listener = await networkStack.tcp.listen({ port: 5000 });
 
     // Intentionally don't await
     executeCommand('telnet 192.168.1.1 5000');

@@ -1,4 +1,9 @@
-import type { NetworkStack, UdpDatagram, UdpSocket } from 'tcpip/types';
+import { fromReadable } from '@tcpip/transport';
+import type {
+  Datagram,
+  DatagramSocket,
+  DatagramTransport,
+} from '@tcpip/transport';
 import {
   DHCP_CLIENT_PORT,
   DHCP_SERVER_PORT,
@@ -61,14 +66,14 @@ export type DhcpServerOptions = {
 };
 
 export class DhcpServer {
-  #stack: NetworkStack;
+  #transport: DatagramTransport;
   #options: DhcpServerOptions;
 
   leases = new Map<string, DhcpLease>();
   #offers = new Map<string, DhcpLease>();
 
-  constructor(stack: NetworkStack, options: DhcpServerOptions) {
-    this.#stack = stack;
+  constructor(transport: DatagramTransport, options: DhcpServerOptions) {
+    this.#transport = transport;
     this.#options = {
       leaseDuration: 86400,
       ...options,
@@ -76,24 +81,24 @@ export class DhcpServer {
   }
 
   async listen() {
-    const socket = await this.#stack.openUdp({
+    const socket = await this.#transport.open({
       port: DHCP_SERVER_PORT,
     });
     this.#processDhcpMessages(socket);
   }
 
-  async #processDhcpMessages(socket: UdpSocket) {
+  async #processDhcpMessages(socket: DatagramSocket) {
     const writer = socket.writable.getWriter();
 
-    for await (const datagram of socket) {
+    for await (const datagram of fromReadable(socket.readable)) {
       // Process each message without blocking
       this.#processDhcpMessage(datagram, writer);
     }
   }
 
   async #processDhcpMessage(
-    datagram: UdpDatagram,
-    writer: WritableStreamDefaultWriter<UdpDatagram>
+    datagram: Datagram,
+    writer: WritableStreamDefaultWriter<Datagram>
   ) {
     try {
       const reply = this.#handleDhcpMessage(datagram.data);
@@ -152,7 +157,7 @@ export class DhcpServer {
     }
   }
 
-  #handleDiscover(message: DhcpMessage): UdpDatagram | undefined {
+  #handleDiscover(message: DhcpMessage): Datagram | undefined {
     const ip = this.#findAvailableIP(message.mac);
     if (!ip) {
       return;
@@ -182,7 +187,7 @@ export class DhcpServer {
     };
   }
 
-  #handleRequest(message: DhcpMessage): UdpDatagram | undefined {
+  #handleRequest(message: DhcpMessage): Datagram | undefined {
     this.#deleteExpiredAllocations();
 
     if (
@@ -236,7 +241,7 @@ export class DhcpServer {
     this.#offers.delete(message.mac);
   }
 
-  #createNak(message: DhcpMessage): UdpDatagram {
+  #createNak(message: DhcpMessage): Datagram {
     const nak = serializeDhcpMessage(
       {
         op: 2,

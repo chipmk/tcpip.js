@@ -1,4 +1,5 @@
 import type { DnsClient } from '@tcpip/dns';
+import { fromReadable } from '@tcpip/transport';
 import { serializeIPv4Address } from '@tcpip/wire';
 import { LwipError } from '../lwip/errors.js';
 import type {
@@ -7,7 +8,7 @@ import type {
   TcpListener,
   TcpListenerOptions,
 } from '../types.js';
-import { EventMap, Hooks, fromReadable, nextMicrotask } from '../util.js';
+import { EventMap, Hooks, nextMicrotask } from '../util.js';
 import { Bindings } from './base.js';
 import type { Pointer } from './types.js';
 

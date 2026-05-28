@@ -1,3 +1,4 @@
+import { fromReadable } from '@tcpip/transport';
 import {
   type IPv4Address,
   type MacAddress,
@@ -9,12 +10,7 @@ import {
 } from '@tcpip/wire';
 import { LwipError } from '../lwip/errors.js';
 import type { TapInterface, TapInterfaceOptions } from '../types.js';
-import {
-  ExtendedReadableStream,
-  Hooks,
-  fromReadable,
-  nextMicrotask,
-} from '../util.js';
+import { ExtendedReadableStream, Hooks, nextMicrotask } from '../util.js';
 import { Bindings } from './base.js';
 import type { Pointer } from './types.js';
 

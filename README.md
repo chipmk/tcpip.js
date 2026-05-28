@@ -7,8 +7,8 @@
 - **Portable:** User-space network stack built on [`lwIP` + WASM](#why-lwip)
 - **Tun/Tap:** L3 and L2 hooks using virtual [`TunInterface`](#tun-interface) and [`TapInterface`](#tap-interface)
 - **Bridge:** Create a virtual switch/LAN by [`bridging`](#bridge-interface) multiple interfaces together
-- **TCP API:** Establish TCP connections over the virtual network stack using [clients](#connecttcp) and [servers](#listentcp)
-- **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#openudp)
+- **TCP API:** Establish TCP connections over the virtual network stack using [clients](#stacktcpconnect) and [servers](#stacktcplisten)
+- **UDP API:** Send and receive UDP datagrams over the virtual network stack using [sockets](#stackudpopen)
 - **Application APIs:** Higher level protocols are available on top of TCP/UDP ([`@tcpip/http`](packages/http), [`@tcpip/dns`](packages/dns), [`@tcpip/dhcp`](packages/dhcp))
 - **Cross platform**: Built on web standard APIs (`ReadableStream`, `WritableStream`, etc)
 - **Lightweight:** Less than 100KB
@@ -77,7 +77,7 @@ const stack = await createStack();
 Then add a virtual network interface:
 
 ```ts
-const tapInterface = await stack.createTapInterface({
+const tapInterface = await stack.interfaces.createTap({
   mac: '01:23:45:67:89:ab',
   ip: '192.168.1.1/24',
 });
@@ -109,7 +109,7 @@ Now that the plumbing is in place, we can start sending TCP packets between our 
 From our `NetworkStack`, establish an outbound TCP connection destined to the TCP server running in the VM:
 
 ```ts
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: '192.168.1.2',
   port: 80,
 });
@@ -135,7 +135,7 @@ for await (const chunk of connection) {
 You can also create a TCP server that listens for incoming connections:
 
 ```ts
-const listener = await stack.listenTcp({
+const listener = await stack.tcp.listen({
   port: 80,
 });
 ```
@@ -178,7 +178,7 @@ These interfaces are designed to resemble their counterparts in a real network s
 A loopback interface simply forwards packets back on to itself. It's akin to 127.0.0.1 (`localhost`) on a typical network stack.
 
 ```ts
-const loopbackInterface = await stack.createLoopbackInterface({
+const loopbackInterface = await stack.interfaces.createLoopback({
   ip: '127.0.0.1/8',
 });
 ```
@@ -194,11 +194,11 @@ const stack = await createStack({
 Loopback interfaces are useful when you want to both listen for and establish TCP connections on the same virtual stack without needing to forward packets to a real network interface.
 
 ```ts
-const listener = await stack.listenTcp({
+const listener = await stack.tcp.listen({
   port: 80,
 });
 
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: '127.0.0.1',
   port: 80,
 });
@@ -207,7 +207,7 @@ const connection = await stack.connectTcp({
 The interface's IP address and subnet mask can be retrieved using the `ip` and `netmask` properties:
 
 ```ts
-const loopbackInterface = await stack.createLoopbackInterface({
+const loopbackInterface = await stack.interfaces.createLoopback({
   ip: '127.0.0.1/8',
 });
 
@@ -220,7 +220,7 @@ console.log(loopbackInterface.netmask); // 255.0.0.0
 A tun interface hooks into inbound and outbound IP packets (L3).
 
 ```ts
-const tunInterface = await stack.createTunInterface({
+const tunInterface = await stack.interfaces.createTun({
   ip: '192.168.1.1/24',
 });
 ```
@@ -258,7 +258,7 @@ someTransport.readable.pipeTo(tunInterface.writable);
 The reason for this is that, unlike TCP, raw IP packets have no form of flow control (back pressure) and buffering packets without a reader will result in memory exhaustion. If you plan to hook into IP packets, be sure to lock the stream before sending data on the stack, otherwise packets will be dropped. Then once listening begins, be sure to regularly read packets to avoid memory exhaustion.
 
 ```ts
-const tunInterface = await stack.createTunInterface({
+const tunInterface = await stack.interfaces.createTun({
   ip: '192.168.1.1/24',
 });
 
@@ -267,7 +267,7 @@ tunInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tunInterface.writable);
 
 // Then send data through the stack (like TCP)
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: '192.168.1.2',
   port: 80,
 });
@@ -278,7 +278,7 @@ const connection = await stack.connectTcp({
 The interface's IP address and subnet mask can be retrieved using the `ip` and `netmask` properties:
 
 ```ts
-const tunInterface = await stack.createTunInterface({
+const tunInterface = await stack.interfaces.createTun({
   ip: '192.168.1.1/24',
 });
 
@@ -291,7 +291,7 @@ console.log(tunInterface.netmask); // 255.255.255.0
 A tap interface hooks into inbound and outbound ethernet frames (L2).
 
 ```ts
-const tapInterface = await stack.createTapInterface({
+const tapInterface = await stack.interfaces.createTap({
   ip: '196.168.1.1/24',
 });
 ```
@@ -336,7 +336,7 @@ vmNic.readable.pipeTo(tapInterface.writable);
 The reason for this is that, unlike TCP, raw ethernet frames have no form of flow control (back pressure) and buffering frames without a reader will result in memory exhaustion. If you plan to hook into ethernet frames, be sure to lock the stream before sending data on the stack, otherwise frames will be dropped. Then once listening begins, be sure to regularly read frames to avoid memory exhaustion.
 
 ```ts
-const tapInterface = await stack.createTapInterface({
+const tapInterface = await stack.interfaces.createTap({
   mac: '01:23:45:67:89:ab',
   ip: '196.168.1.1/24',
 });
@@ -346,7 +346,7 @@ tapInterface.readable.pipeTo(vmNic.writable);
 vmNic.readable.pipeTo(tapInterface.writable);
 
 // Then send data through the stack (like TCP)
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: '192.168.1.2',
   port: 80,
 });
@@ -354,12 +354,12 @@ const connection = await stack.connectTcp({
 ...
 ```
 
-Note that `mac` and `ip` are optional parameters for `createTapInterface()`. If you don't provide a MAC address, a random one will be generated. If you don't provide an IP address, the interface will not respond to ARP requests or send ARP requests for unknown IP addresses. Typically you would only omit the IP address if you are using the tap interface as part of a [bridge](#bridge-interface).
+Note that `mac` and `ip` are optional parameters for `stack.interfaces.createTap()`. If you don't provide a MAC address, a random one will be generated. If you don't provide an IP address, the interface will not respond to ARP requests or send ARP requests for unknown IP addresses. Typically you would only omit the IP address if you are using the tap interface as part of a [bridge](#bridge-interface).
 
 The interface's MAC address, IP address, and subnet mask can be retrieved using the `mac`, `ip` and `netmask` properties:
 
 ```ts
-const tapInterface = await stack.createTapInterface({
+const tapInterface = await stack.interfaces.createTap({
   mac: '02:00:00:00:00:01',
   ip: '196.168.1.1/24',
 });
@@ -376,10 +376,10 @@ This is particularly useful when you let the tap interface generate its own rand
 A bridge interface bridges two or more tap interfaces together into a single logical interface with its own MAC and IP address. It operates at the ethernet level (L2) and will automatically forward frames between the interfaces based on the destination MAC address.
 
 ```ts
-const port1 = await stack.createTapInterface();
-const port2 = await stack.createTapInterface();
+const port1 = await stack.interfaces.createTap();
+const port2 = await stack.interfaces.createTap();
 
-const bridge = await stack.createBridgeInterface({
+const bridge = await stack.interfaces.createBridge({
   ports: [port1, port2],
   ip: '192.168.1.1/24',
 });
@@ -397,8 +397,8 @@ const vm2 = new V86();
 const vm1Nic = createV86NetworkStream(vm1);
 const vm2Nic = createV86NetworkStream(vm2);
 
-const port1 = await stack.createTapInterface();
-const port2 = await stack.createTapInterface();
+const port1 = await stack.interfaces.createTap();
+const port2 = await stack.interfaces.createTap();
 
 // Connect port1 to vm1
 port1.readable.pipeTo(vm1Nic.writable);
@@ -409,7 +409,7 @@ port2.readable.pipeTo(vm2Nic.writable);
 vm2Nic.readable.pipeTo(port2.writable);
 
 // Bridge the two ports together
-const bridge = await stack.createBridgeInterface({
+const bridge = await stack.interfaces.createBridge({
   ports: [port1, port2],
   ip: '192.168.1.1/24',
 });
@@ -422,7 +422,7 @@ Notice that we intentionally don't set IP addresses on the tap interfaces - they
 This allows you to, for example, host a TCP server on the router itself in order to communicate with the VMs from JavaScript. You would simply create a TCP server on the stack like so:
 
 ```ts
-const listener = await stack.listenTcp({
+const listener = await stack.tcp.listen({
   port: 80,
 });
 ```
@@ -434,7 +434,7 @@ Just like a `TapInterface`, specifying `mac` and `ip` addresses are optional for
 The interface's MAC address, IP address, and subnet mask can be retrieved using the `mac`, `ip` and `netmask` properties:
 
 ```ts
-const bridgeInterface = await stack.createBridgeInterface({
+const bridgeInterface = await stack.interfaces.createBridge({
   ports: [port1, port2],
   mac: '02:00:00:00:00:01',
   ip: '192.168.1.1/24',
@@ -455,10 +455,10 @@ Looking for another type of network interface? See [Future plans](#future-plans)
 
 ### Removing interfaces
 
-You can remove any network interface from the stack by calling `removeInterface()`:
+You can remove any network interface from the stack by calling `stack.interfaces.remove()`:
 
 ```ts
-await stack.removeInterface(tapInterface);
+await stack.interfaces.remove(tapInterface);
 ```
 
 ### Listing interfaces
@@ -473,32 +473,32 @@ const allInterfaces = stack.interfaces;
 
 The TCP API allows you to establish TCP connections over the virtual network stack using clients and servers.
 
-### `connectTcp()`
+### `stack.tcp.connect()`
 
-To establish an outbound TCP connection, call `connectTcp()`:
+To establish an outbound TCP connection, call `stack.tcp.connect()`:
 
 ```ts
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: '192.168.1.2',
   port: 80,
 });
 ```
 
-`connectTcp()` accepts a `host` and `port` and returns a `Promise<TcpConnection>` that resolves once the connection is established. See [`TcpConnection`](#tcpconnection).
+`stack.tcp.connect()` accepts a `host` and `port` and returns a `Promise<TcpConnection>` that resolves once the connection is established. See [`TcpConnection`](#tcpconnection).
 
 The `host` property can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve it to an IP address using the [embedded DNS resolver](#embedded-resolver).
 
-### `listenTcp()`
+### `stack.tcp.listen()`
 
-To create a TCP server that listens for incoming connections, call `listenTcp()`:
+To create a TCP server that listens for incoming connections, call `stack.tcp.listen()`:
 
 ```ts
-const listener = await stack.listenTcp({
+const listener = await stack.tcp.listen({
   port: 80,
 });
 ```
 
-`listenTcp()` returns a `Promise<TcpListener>` that resolves once the server is listening. See [`TcpListener`](#tcplistener).
+`stack.tcp.listen()` returns a `Promise<TcpListener>` that resolves once the server is listening. See [`TcpListener`](#tcplistener).
 
 ### `TcpListener`
 
@@ -591,20 +591,20 @@ await connection.close();
 
 The UDP API allows you to send and receive UDP datagrams over the virtual network stack.
 
-### `openUdp()`
+### `stack.udp.open()`
 
-To open a UDP socket, call `openUdp()`:
+To open a UDP socket, call `stack.udp.open()`:
 
 ```ts
-const udpSocket = await stack.openUdp();
+const udpSocket = await stack.udp.open();
 ```
 
-Since UDP is connectionless, `openUdp()` is used to create a socket that can both listen for UDP datagrams and send UDP datagrams. It returns a [`UdpSocket`](#udpsocket) that you can use to send and receive data.
+Since UDP is connectionless, `stack.udp.open()` is used to create a socket that can both listen for UDP datagrams and send UDP datagrams. It returns a [`UdpSocket`](#udpsocket) that you can use to send and receive data.
 
-Passing no arguments to `openUdp()` will create a socket that sends and receives datagrams on any interface (ie. `0.0.0.0`) and on a random port. If you want to bind to a specific IP address or port, you can pass an options object:
+Passing no arguments to `stack.udp.open()` will create a socket that sends and receives datagrams on any interface (ie. `0.0.0.0`) and on a random port. If you want to bind to a specific IP address or port, you can pass an options object:
 
 ```ts
-const udpSocket = await stack.openUdp({
+const udpSocket = await stack.udp.open({
   ip: '10.0.0.1',
   port: 1234,
 });
@@ -613,7 +613,7 @@ const udpSocket = await stack.openUdp({
 If you are creating a UDP server, you would typically just bind to a port:
 
 ```ts
-const udpSocket = await stack.openUdp({
+const udpSocket = await stack.udp.open({
   port: 1234,
 });
 ```
@@ -621,7 +621,7 @@ const udpSocket = await stack.openUdp({
 If you are creating a UDP client, you would typically let the stack choose a random port:
 
 ```ts
-const udpSocket = await stack.openUdp();
+const udpSocket = await stack.udp.open();
 ```
 
 ### `UdpSocket`
@@ -681,18 +681,18 @@ await writer.write({
 
 Outbound datagrams follow the same format as inbound datagrams: an object with `host`, `port`, and `data` properties indicating the destination host, port, and data. The `host` property can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve it to an IP address using the [embedded DNS resolver](#embedded-resolver).
 
-Unlike Tun and Tap interfaces which are also connectionless, UDP sockets do not require you to lock the stream before receiving data - simply calling `stack.openUdp()` will begin listening for datagrams.
+Unlike Tun and Tap interfaces which are also connectionless, UDP sockets do not require you to lock the stream before receiving data - simply calling `stack.udp.open()` will begin listening for datagrams.
 
-## ICMP API
+## Ping API
 
-The ICMP API allows you to ping hosts over the virtual network stack.
+The ping API allows you to send ICMP echo requests over the virtual network stack.
 
-### `createPingSession()`
+### `stack.ping.createSession()`
 
-To ping a host, first create a ping session using `createPingSession()`:
+To ping a host, first create a ping session using `stack.ping.createSession()`:
 
 ```ts
-const pingSession = await stack.createPingSession({
+const pingSession = await stack.ping.createSession({
   host: '192.168.1.2',
 });
 
@@ -706,7 +706,7 @@ console.log(new TextDecoder().decode(reply.payload));
 await pingSession.close();
 ```
 
-`createPingSession()` accepts a `host` and returns a `Promise<PingSession>`. The `host` can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve the IP using the [embedded DNS resolver](#embedded-resolver).
+`stack.ping.createSession()` accepts a `host` and returns a `Promise<PingSession>`. The `host` can be an IP address or hostname. If it's a hostname, the stack will attempt to resolve the IP using the [embedded DNS resolver](#embedded-resolver).
 
 Each ping session has a stable ICMP identifier and an automatically incrementing sequence number. Each call to `pingSession.ping()` sends an ICMP echo request and returns a `Promise<PingReply>` that resolves when the matching echo reply is received. The sequence number is incremented with each call to `ping()` while the identifier remains constant over a session.
 
@@ -752,10 +752,10 @@ If you wish to resolve external hostnames, you will need a way to route packets 
 
 ### Embedded resolver
 
-Each `NetworkStack` has an embedded DNS resolver that can lookup an IP address by hostname when using the TCP, UDP, and ICMP APIs. For example:
+Each `NetworkStack` has an embedded DNS resolver that can lookup an IP address by hostname when using the TCP, UDP, and ping APIs. For example:
 
 ```ts
-const connection = await stack.connectTcp({
+const connection = await stack.tcp.connect({
   host: 'mydomain.internal',
   port: 80,
 });
@@ -764,7 +764,7 @@ const connection = await stack.connectTcp({
 or (for UDP):
 
 ```ts
-const udpSocket = await stack.openUdp();
+const udpSocket = await stack.udp.open();
 const writer = udpSocket.writable.getWriter();
 await writer.write({
   host: 'mydomain.internal',
@@ -803,7 +803,7 @@ import { createStack } from 'tcpip';
 import { createDns } from '@tcpip/dns';
 
 const stack = await createStack();
-const { lookup, serve } = await createDns(stack);
+const { lookup, serve } = await createDns(stack.udp);
 ```
 
 #### `lookup()`
@@ -817,7 +817,7 @@ const ip = await lookup('mydomain.internal');
 By default its name server is set to the local loopback address `127.0.0.1` on port `53` (ie. the stack itself, assuming you will run your own DNS server on it). If you wish to point to a different name server, pass the `nameServer` option to `createDns()`:
 
 ```ts
-const { lookup } = await createDns(stack, {
+const { lookup } = await createDns(stack.udp, {
   client: {
     nameServer: {
       ip: '10.0.0.1',

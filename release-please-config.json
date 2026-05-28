@@ -11,6 +11,9 @@
     "packages/tcpip": {
       "component": "tcpip"
     },
+    "packages/transport": {
+      "component": "@tcpip/transport"
+    },
     "packages/wire": {
       "component": "@tcpip/wire"
     },
