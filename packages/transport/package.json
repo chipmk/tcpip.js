@@ -17,9 +17,7 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run build"
   },
-  "files": [
-    "dist/**/*"
-  ],
+  "files": ["dist/**/*"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
