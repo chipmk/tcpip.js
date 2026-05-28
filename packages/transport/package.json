@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/transport",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Transport contracts for tcpip.js protocol packages",
   "license": "MIT",
   "repository": {
