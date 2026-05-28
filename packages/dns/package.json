@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/dns",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "DNS server built on tcpip.js",
   "repository": {
     "type": "git",
@@ -16,7 +16,9 @@
     "test": "vitest",
     "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

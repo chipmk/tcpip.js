@@ -1,9 +1,9 @@
 {
-  "packages/tcpip": "0.3.6",
-  "packages/transport": "0.0.0",
+  "packages/tcpip": "0.4.0",
+  "packages/transport": "1.0.0",
   "packages/wire": "0.1.4",
-  "packages/http": "0.1.0",
-  "packages/dns": "0.2.2",
-  "packages/dhcp": "0.2.4",
-  "packages/v86": "0.2.3"
+  "packages/http": "0.2.0",
+  "packages/dns": "0.3.0",
+  "packages/dhcp": "0.3.0",
+  "packages/v86": "0.2.4"
 }

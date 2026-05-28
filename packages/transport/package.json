@@ -1,6 +1,6 @@
 {
   "name": "@tcpip/transport",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Transport contracts for tcpip.js protocol packages",
   "license": "MIT",
   "repository": {
@@ -17,7 +17,9 @@
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run build"
   },
-  "files": ["dist/**/*"],
+  "files": [
+    "dist/**/*"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

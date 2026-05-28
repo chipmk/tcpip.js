@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/chipmk/tcpip.js/compare/@tcpip/dhcp-v0.2.4...@tcpip/dhcp-v0.3.0) (2026-05-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dhcp:** accept DatagramTransport instead of NetworkStack
+
+### Features
+
+* **dhcp:** accept DatagramTransport instead of NetworkStack ([7ebf393](https://github.com/chipmk/tcpip.js/commit/7ebf39394d8b06dc4d8035888149c21468a6dbfe))
+
 ## [0.2.4](https://github.com/chipmk/tcpip.js/compare/@tcpip/dhcp-v0.2.3...@tcpip/dhcp-v0.2.4) (2026-05-08)
 
 

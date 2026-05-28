@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/chipmk/tcpip.js/compare/@tcpip/v86-v0.2.3...@tcpip/v86-v0.2.4) (2026-05-28)
+
+
+### Features
+
+* **v86:** use new namespaced stack api ([188a7f3](https://github.com/chipmk/tcpip.js/commit/188a7f329907062aa25e427e2d2e577a9bfe6995))
+
 ## [0.2.3](https://github.com/chipmk/tcpip.js/compare/@tcpip/v86-v0.2.2...@tcpip/v86-v0.2.3) (2026-05-08)
 
 

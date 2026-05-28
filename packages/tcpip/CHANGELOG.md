@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.6...tcpip-v0.4.0) (2026-05-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **tcpip:** namespaced apis (tcp, udp, ping, interfaces)
+
+### Features
+
+* **tcpip:** namespaced apis (tcp, udp, ping, interfaces) ([fbb53b4](https://github.com/chipmk/tcpip.js/commit/fbb53b4b6f2eeadaa1bfb9d4ea5245ac8616d351))
+
 ## [0.3.6](https://github.com/chipmk/tcpip.js/compare/tcpip-v0.3.5...tcpip-v0.3.6) (2026-05-16)
 
 
