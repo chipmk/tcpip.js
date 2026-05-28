@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/chipmk/tcpip.js/compare/@tcpip/dns-v0.2.2...@tcpip/dns-v0.3.0) (2026-05-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dns:** accept DatagramTransport instead of NetworkStack
+
+### Features
+
+* **dns:** accept DatagramTransport instead of NetworkStack ([2665680](https://github.com/chipmk/tcpip.js/commit/26656800a37b1819f9c8c8c456630299c2594410))
+
 ## [0.2.2](https://github.com/chipmk/tcpip.js/compare/@tcpip/dns-v0.2.1...@tcpip/dns-v0.2.2) (2026-05-06)
 
 
