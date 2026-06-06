@@ -19,10 +19,7 @@
     "test": "vitest",
     "prepublishOnly": "pnpm run build"
   },
-  "files": [
-    "dist/**/*",
-    "http_parser.wasm"
-  ],
+  "files": ["dist/**/*", "http_parser.wasm"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
