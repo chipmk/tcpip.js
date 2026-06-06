@@ -5,6 +5,7 @@ import type {
   HttpParserRuntime,
   HttpParserType,
 } from '../types.js';
+import { httpParserWasmUrl } from '../wasm-url.js';
 import { fetchFile } from './fetch-file.js';
 import type { LlhttpExports, LlhttpImports, Pointer } from './types.js';
 
@@ -98,27 +99,7 @@ export class LlhttpBindings implements HttpParserRuntime {
   }
 
   async #source() {
-    // Source tests run from src/wasm; published builds run from dist. Try both
-    // relative paths back to the package-root wasm asset.
-    const urls = [
-      new URL('../../http_parser.wasm', import.meta.url),
-      new URL('../http_parser.wasm', import.meta.url),
-    ];
-
-    let lastError: unknown;
-    for (const url of urls) {
-      try {
-        const response = await fetchFile(url, 'application/wasm');
-        if (response.ok) {
-          return response;
-        }
-        lastError = new Error(`failed to fetch ${url}: ${response.status}`);
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError;
+    return fetchFile(httpParserWasmUrl, 'application/wasm');
   }
 
   createParser(type: HttpParserType, callbacks: HttpParserCallbacks) {
