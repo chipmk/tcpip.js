@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { HttpParser } from '../parser.js';
+import { httpParserWasmUrl } from '../wasm-url.js';
 import { LlhttpBindings } from './bindings.js';
 
 const encoder = new TextEncoder();
@@ -29,6 +30,14 @@ async function readText(readable: ReadableStream<Uint8Array>) {
 }
 
 describe('LlhttpBindings', () => {
+  test('uses the package wasm asset URL', () => {
+    expect(httpParserWasmUrl.pathname).toMatch(/\/http_parser\.wasm$/);
+    expect(httpParserWasmUrl.pathname).not.toContain('/src/');
+    expect(httpParserWasmUrl.pathname).not.toMatch(
+      /\/@tcpip\/http_parser\.wasm$/
+    );
+  });
+
   test('parses a response with streamed body bytes', async () => {
     const runtime = new LlhttpBindings();
     await runtime.ready();
