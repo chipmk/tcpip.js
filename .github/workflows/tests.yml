@@ -26,6 +26,9 @@ jobs:
       - name: Get playwright version
         run: echo "PLAYWRIGHT_VERSION=$(pnpm list @playwright/test | grep @playwright | sed 's/.*@//')" >> $GITHUB_ENV
       - name: Setup playwright
+        timeout-minutes: 5
+        env:
+          DEBUG: pw:install
         uses: ./.github/actions/setup-playwright
         with:
           version: ${{ env.PLAYWRIGHT_VERSION }}
