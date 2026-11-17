@@ -13,7 +13,7 @@ jobs:
       - uses: pnpm/action-setup@9fd676a19091d4595eefd76e4bd31c97133911f1 # v4.2.0
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          node-version: lts/*
+          node-version: '22'
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -26,9 +26,6 @@ jobs:
       - name: Get playwright version
         run: echo "PLAYWRIGHT_VERSION=$(pnpm list @playwright/test | grep @playwright | sed 's/.*@//')" >> $GITHUB_ENV
       - name: Setup playwright
-        timeout-minutes: 5
-        env:
-          DEBUG: pw:install
         uses: ./.github/actions/setup-playwright
         with:
           version: ${{ env.PLAYWRIGHT_VERSION }}
