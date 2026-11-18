@@ -5,7 +5,8 @@
     "build": "pnpm -r build",
     "clean": "pnpm -r --if-present clean",
     "docs:visuals": "tsx scripts/render-doc-visuals.mts",
-    "test": "pnpm build && pnpm -r --if-present test",
+    "test": "pnpm build && pnpm test:exports && pnpm -r --if-present test",
+    "test:exports": "node --test scripts/test-package-exports.mjs",
     "format": "biome format --write .",
     "check": "biome check --write .",
     "typecheck": "pnpm -r exec tsc --noEmit"
