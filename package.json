@@ -15,6 +15,6 @@
     "@types/node": "catalog:",
     "playwright": "catalog:",
     "tsx": "catalog:",
-    "vite": "^7.3.8"
+    "vite": "catalog:"
   }
 }
