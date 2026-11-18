@@ -6,12 +6,12 @@ catalog:
   '@playwright/test': ^1.52.0
   '@total-typescript/tsconfig': ^1.0.4
   '@types/node': ^22.15.19
-  '@vitest/browser': ^3.1.2
+  '@vitest/browser-playwright': ^4.1.12
   playwright: ^1.52.0
-  tsup: ^8.3.5
-  tsx: ^4.21.0
+  tsup: ^9.0.0
+  tsx: ^4.23.15
   typescript: ^5.8.3
-  vitest: ^3.1.4
+  vitest: ^4.1.12
 
 ignoredBuiltDependencies:
   - '@biomejs/biome'

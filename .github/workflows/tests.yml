@@ -17,6 +17,8 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit dependencies
+        run: pnpm audit
       - name: Check
         run: pnpm exec biome ci .
       - name: Typecheck

@@ -35,7 +35,7 @@
     "@playwright/test": "catalog:",
     "@total-typescript/tsconfig": "catalog:",
     "@types/node": "catalog:",
-    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "tcpip": "workspace:*",
     "tsup": "catalog:",
     "typescript": "catalog:",
