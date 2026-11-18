@@ -890,6 +890,20 @@ export default defineConfig({
 
 _Background:_ Vite optimizes dependencies during development to improve build times. Unfortunately this breaks files loaded via the `new URL('./my-file.wasm', import.meta.url)` pattern (see [issue](https://github.com/vitejs/vite/issues/8427)). By excluding `tcpip` from optimization, Vite will not process the library and it will load the WASM file correctly.
 
+## Development
+
+Use Node 22 (22.18 or newer) and pnpm 10.33.0. Test CI reads `.nvmrc`,
+and both CI and Corepack read the pnpm version from `package.json`.
+
+```sh
+nvm install
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
+```
+
+The publishing job uses Node 24 separately.
+
 ## Future plans
 
 - [ ] mDNS API
