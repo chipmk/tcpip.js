@@ -15,6 +15,7 @@
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
     "playwright": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vite": "catalog:"
   }
 }

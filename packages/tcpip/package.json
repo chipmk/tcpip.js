@@ -49,7 +49,7 @@
     "@playwright/test": "catalog:",
     "@total-typescript/tsconfig": "catalog:",
     "@types/node": "catalog:",
-    "@vitest/browser": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
